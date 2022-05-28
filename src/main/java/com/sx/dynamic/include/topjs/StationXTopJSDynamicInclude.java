@@ -27,6 +27,10 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		PrintWriter printWriter = httpServletResponse.getWriter();
 		
 		String content = "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/station-x.js\" async ></script>";
+		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/mustache/mustache.min.js\" async ></script>";
+		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/jquery/confirm/jquery-confirm.min.js\" async ></script>";
+		
+		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/jquery/confirm/jquery-confirm.min.css\" >";
 
 		printWriter.println(content);
 		

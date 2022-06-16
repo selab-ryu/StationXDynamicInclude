@@ -1,4 +1,4 @@
-function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LANGUAGES ) {
+let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LANGUAGES ) {
 
 	let MULTI_LANGUAGE = true;
 	if( AVAILABLE_LANGUAGES.length < 2 ){
@@ -118,21 +118,26 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		 FILE_ID : 'fileId',
 		 FORMAT : 'format',
 		 ID : 'id',
+		 ITEM_DISPLAY_NAME : 'itemDisplayName',
 		 LIST_ITEM : 'listItem',
 		 LIST_ITEM_VALUE : 'listItemValue',
 		 LIST_ITEMS : 'listItems',
 		 MANDATORY : 'mandatory',
 		 NAME : 'name',
 		 MAX_BOUNDARY : 'maxBoundary',
-		 MAX_LENGTH :"maxLength",
-		 MAX_VALUE :"maxValue",
+		 MAX_LENGTH :'maxLength',
+		 MAX_VALUE :'maxValue',
 		 MIN_BOUNDARY : 'minBoundary',
-		 MIN_LENGTH :"minLength",
-		 MIN_VALUE :"minValue",
-		 MULTIPLE_LINE :"multipleLine",
+		 MIN_LENGTH :'minLength',
+		 MIN_VALUE :'minValue',
+		 MULTIPLE_LINE :'multipleLine',
+		 OPTION_LABEL: 'optionLabel',
+		 OPTION_VALUE: 'optionValue',
+		 OPTION_SELECTED: 'optionSelected',
 		 ORDER : 'order',
 		 PATH : 'path',
 		 PATH_TYPE : 'pathType',
+		 PLACE_HOLDER : 'placeHolder',
 		 RANGE : 'range',
 		 REF_DATATYPES : 'refDataTypes',
 		 REF_DATABASES : 'refDatabases',
@@ -177,7 +182,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			return AVAILABLE_LANGUAGES.reduce( ( obj, locale ) => {
 				let localizedInputId = NAMESPACE+inputId+'_'+locale;
 				
-				if( selectedLanguage === locale ){
+				if( selectedLanguage === locale && $('#'+baseId).val() ){
 					obj[locale] = $('#'+baseId).val();
 				}
 				else{
@@ -224,30 +229,28 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		}
 	}
 	
-	class FormUIUtil {
-		constructor(){}
+	let FormUIUtil = {
 		
-		static getFormRadioValue = function( attrName ){
-			return $('input[name="'+NAMESPACE+attrName+'"].checked').val();
-		}
-		
-		static setFormRadioValue = function( attrName, value ){
-			let $radios = $('input[name="'+NAMESPACE+attrName+'"]' );
-			
-			if( value ){
-				$radios.every(($radio)=>{
-					
-				});
-			}
-		}
-		
-		static getFormCheckboxValue = function( attrName ){
+		$getTypeSpecificSection: function( termType ){
+			return $('#' + NAMESPACE +  termType.toLowerCase() + 'Attributes');
+		},
+		replaceVisibleTypeSpecificSection: function( termType ){
+			$('#'+NAMESPACE+'typeSpecificSection .type-specific-attrs.show').removeClass('show').addClass('hide');
+
+			FormUIUtil.$getTypeSpecificSection( termType ).removeClass('hide').addClass('show');
+		},
+		getFormRadioValue: function( attrName ){
+			return $('input[name="'+NAMESPACE+attrName+'"]:checked').val();
+		},
+		setFormRadioValue: function( attrName, value ){
+			$('input[name="'+NAMESPACE+attrName+'"][value="'+value+'"]' ).prop('checked', true);
+		},
+		getFormCheckboxValue: function( attrName ){
 			let $control = $('#'+NAMESPACE+attrName);
 			
 			return $control.prop('checked');
-		}
-		
-		static setFormCheckboxValue = function( attrName, value, focus ){
+		},
+		setFormCheckboxValue: function( attrName, value, focus ){
 			let $control = $('#'+NAMESPACE+attrName);
 			
 			if( value ){
@@ -260,14 +263,29 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			if( focus ){
 				$(control).focus();
 			}
-		}
-		
-		
-		static getFormValue = function( attrName ){
+		},
+		getFormCheckedArray: function( attrName ){
+			let activeTermNames = $.makeArray( $('input[type="checkbox"][name="'+NAMESPACE+attrName+'"]:checked') )
+									.map((checkbox)=>{ return $(checkbox).val();});
+			
+			return activeTermNames;
+		},
+		setFormCheckedArray: function( attrName, values ){
+			$.makeArray( $( 'input[type="checkbox"][name="'+NAMESPACE+attrName+'"]' ) ).forEach((checkbox)=>{
+				if( values && values.includes( $(checkbox).val() ) ){
+					console.log('setFormCheckedArray: ', checkbox, values );
+					$(checkbox).prop( 'checked', true );
+				}
+				else{
+					console.log('setFormCheckedArray: ', checkbox, values );
+					$(checkbox).prop( 'checked', false );
+				}
+			});
+		},
+		getFormValue: function( attrName ){
 			return $('#'+NAMESPACE+attrName).val();
-		};
-		
-		static setFormValue = function( attrName, value, focus ){
+		},
+		setFormValue: function( attrName, value, focus ){
 			let $control = $('#'+NAMESPACE+attrName);
 			
 			if( value ){
@@ -280,17 +298,14 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			if( focus ){
 				$control.focus();
 			}
-		};
-		
-		static clearFormValue( attrName ){
+		},
+		clearFormValue: function( attrName ){
 			FormUIUtil.setFormValue( attrName );
-		}
-		
-		static getFormLocalizedValue = function( attrName ){
+		},
+		getFormLocalizedValue: function( attrName ){
 			return LocalizationUtil.getLocalizedInputValue( attrName );
-		}
-		
-		static setFormLocalizedValue = function( attrName, localizedMap, focus ){
+		},
+		setFormLocalizedValue: function( attrName, localizedMap, focus ){
 			let $control = $('#'+NAMESPACE+attrName);
 			
 			if( localizedMap ){
@@ -303,20 +318,53 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			if( focus ){
 				$control.focus();
 			}
+		},
+		$getRenderedFormControl: function( renderUrl, params ){
+			return new Promise( function(resolve, reject){
+				$.ajax({
+					url: renderUrl,
+					method: 'post',
+					dataType: 'html',
+					data: params,
+					success: function( response ){
+						resolve( $(response) );
+					},
+					error: function( xhr ){
+						reject( xhr);
+					}
+				});
+			});
+		},
+		disableControls: function(controlIds, disable ){
+			controlIds.forEach((controlId)=>{
+				$('#'+NAMESPACE+controlId).prop('disabled', disable);
+			})
 		}
-	}
+	};
 	
 	const SXIcecapEvents = {
 		DATATYPE_PREVIEW_TERM_DELETED: 'DATATYPE_PREVIEW_TERM_DELETED',
-		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED'
+		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
+		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
+		LIST_OPTION_ACTIVE_TERM_DELETED: 'LIST_OPTION_ACTIVE_TERM_REMOVED',
+		LIST_OPTION_ACTIVE_TERM_SELECTED: 'LIST_OPTION_ACTIVE_TERM_SELECTED',
+		LIST_OPTION_PREVIEW_REMOVED: 'LIST_OPTION_PREVIEW_REMOVED',
+		LIST_OPTION_PREVIEW_SELECTED: 'LIST_OPTION_PREVIEW_SELECTED',
+		LIST_OPTION_ACTIVE_TERMS_CHANGED:'LIST_OPTION_ACTIVE_TERMS_CHANGED'
+	};
+
+	const SXConstants = {
+		FOR_PREVIEW: true,
+		FOR_EDITOR: false,
 	}
 	
 	class LocalizedObject {
-		constructor( jsonContent  ){
-			this.localizedMap = {};
-			
-			if( jsonContent ){
-				parseJSON( jsonContent );
+		constructor( localizedMap  ){
+			if( localizedMap ){
+				this.localizedMap = localizedMap;
+			}
+			else{
+				this.localizedMap = {};
 			}
 		}
 		
@@ -369,7 +417,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			
 		}
 		
-		parseJSON( jsonContent ){
+		parse( jsonContent ){
 			let content = jsonContent;
 			if( typeof jsonContent === 'string' ){
 				content = JSON.parse( jsonContent );
@@ -380,7 +428,146 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			}
 		}
 	}
-	
+
+	class ListOption{
+		constructor( optionLabelMap, optionValue, selected, activeTerms ){
+			this.value = optionValue;
+			this.labelMap = optionLabelMap;
+			this.activeTerms = activeTerms;
+			this.selected = selected;
+			this.editing = false;
+		}
+
+		getLabelMap(){
+			return this.labelMap;
+		}
+
+		setLabelMap( map ){
+			this.labelMap = map;
+		}
+
+		addActiveTerm( term ){
+			this.activeTerms.push( term );
+		}
+
+		removeActiveTerm( termName ){
+			this.activeTerms = this.activeTerms.filter(( term ) => {
+				return !(term.termName === termName);
+			});
+		}
+
+		$renderPreview(){
+			let html = '<tr>' +
+							'<td class="option-label" style="width:50%;">' + this.labelMap[CURRENT_LANGUAGE] + '</td>' +
+							'<td class="option-value" style="width:30%;">' + this.value + '</td>' +
+							'<td class="option-selected" style="width:10%;">';
+			if( this.selected ){
+				html += '&#10004;';
+			}
+			html += '</td>';
+			html += '<td>' +
+						'<button type="button" class="btn btn-default">' +
+							'<i class="icon-remove" />' +
+						'</button>' +
+					'</td> </tr>';
+			
+			let $row = $( html );
+			
+			let self = this;
+			$row.find('button').click(function(event){
+				event.stopPropagation();
+
+				let eventData = {
+					sourcePortlet: NAMESPACE,
+					targetPortlet: NAMESPACE,
+					removedOption: self
+				};
+
+				Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_REMOVED, eventData );
+			});
+
+			$row.click(function(event){
+				event.stopPropagation();
+
+				let eventData = {
+					sourcePortlet: NAMESPACE,
+					targetPortlet: NAMESPACE,
+					highlightedOption: self
+				};
+
+				Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_SELECTED, eventData );
+			});
+
+			return $row;
+		}
+
+		renderActiveTermsPreview( $previewPanel ){
+			$previewPanel.empty();
+
+			this.activeTerms.every( (term, index, ary) =>{
+				let $row = $( '<tr>' +
+						'<td style="width:35%;">' +
+							term.termName +
+						'</td>' +
+						'<td style="width:20%;">' +
+							term.termType +
+						'</td>' +
+						'<td style="width:35%;">' +
+							term.displayName.getText(CURRENT_LANGUAGE) +
+						'</td>' +
+						'<td>' +
+							'<button type="button" class="btn btn-default">' +
+								'<i class="icon-remove" />' +
+							'</button>' +
+						'</td>' +
+					'</tr>' );
+
+				let self = this;
+				$row.find('button').click(function(event){
+					event.stopPropagation();
+
+					self.removeActiveTerm( term.termName );
+
+					$row.remove();
+
+					let eventData = {
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						deletedTerm: term
+					}
+
+					Liferay.fire( SXIcecapEvents.LIST_OPTION_ACTIVE_TERM_REMOVED, eventData );
+				});
+
+				$row.click(function(event){
+					event.stopPropagation(); 
+					
+					$previewPanel.find('.highlight-border').removeClass('highlight-border');
+					$row.addClass('highlight-border');
+					
+					let eventData = {
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						selectedTerm: term
+					}
+
+					Liferay.fire( SXIcecapEvents.LIST_OPTION_ACTIVE_TERM_SELECTED, eventData );
+				});
+				
+				$previewPanel.append( $row );
+			});
+		}
+
+		toJSON(){
+			return {
+				value: this.value,
+				label: this.labelMap,
+				selected: this.selected ? this.selected : false,
+				activeTerms: JSON.stringify(this.activeTerms)
+			};
+		}
+	}
+
 	class Term {
 		static DEFAULT_TERM_ID = 0;
 		static DEFAULT_TERM_VERSION = '1.0.0';
@@ -403,19 +590,6 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		static STATUS_SCHEDULED = 7;
 		static STATUS_IN_TRASH = 8;
 
-		static FOR_PREVIEW = true;
-		static FOR_EDITOR = false;
-
-		static render( term, forWhat ){
-			if( forWhat === Term.FOR_PREVIEW ){
-				return term.renderPreview();
-			}
-			else{
-				return term.renderEditControl();
-			}
-		}
-
-		
 		static validateTermVersion( updated, previous ){
 			let updatedParts = updated.split('.');
 			console.log( 'updatedParts: ', updatedParts);
@@ -466,27 +640,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		
 		constructor( termType ){
 			this.termId = 0;
-			if( termType ){
-				this.termType = termType;
-			}
-			else{
-				this.termType = 'Sting';
-			}
-				
-			this.termName = '';
-			this.termVersion = Term.DEFAULT_TERM_VERSION;
-			this.displayName = null;
-			this.definition = null;
-			this.tooltip = null;
-			this.synonyms = null;
-			this.mandatory = Term.DEFAULT_MANDATORY;
-			this.value = null;
-			this.dependentTerms = null;
-			this.activeTerms = null;
-			this.status = Term.STATUS_DRAFT;
-			
-			this.order = 0;
-			this.state = Term.STATE_INIT;
+			this.initAllAttributes( termType );
 		}
 
 		getLocalizedDisplayName(){
@@ -509,13 +663,14 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 
 		getLocalizedTooltip(){
 			if( !this.tooltip || this.tooltip.isEmpty() ){
-				return '';
+				return false;
 			}
 			else{
-				return this.tooltip.getText(CURRENT_LANGUAGE);
+				const tooltip = this.tooltip.getText(CURRENT_LANGUAGE);
+				return tooltip ? tooltip : this.tooltip.getText(DEFAULT_LANGUAGE);
 			}
 		}
-		
+
 		addSynonym( synonym ){
 			if( !this.synonyms )
 				this.sysnonyms = new Array();
@@ -734,7 +889,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		}
 		
 		getDisplayNameFormValue ( save ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.DISPLAY_NAME );
+			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDisplayName' );
 			if( save ){
 				this.displayName = new LocalizedObject();
 				this.displayName.setLocalizedMap( valueMap );
@@ -744,18 +899,18 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		}
 		setDisplayNameFormValue ( valueMap ){
 			if( valueMap ){ 
-				FormUIUtil.setFormLocalizedValue( TermAttributes.DISPLAY_NAME, valueMap );
+				FormUIUtil.setFormLocalizedValue( 'termDisplayName', valueMap );
 			}
 			else if( this.displayName ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.DISPLAY_NAME, this.displayName.getLocalizedMap() );
+				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.displayName.getLocalizedMap() );
 			}
 			else{
-				FormUIUtil.setFormLocalizedValue( TermAttributes.DISPLAY_NAME );
+				FormUIUtil.setFormLocalizedValue( 'termDisplayName' );
 			}
 		}
 		
 		getDefinitionFormValue ( save ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.DEFINITION );
+			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDefinition' );
 			if( save ){
 				this.definition = new LocalizedObject();
 				this.definition.setLocalizedMap( valueMap );
@@ -765,18 +920,18 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		}
 		setDefinitionFormValue ( valueMap ){
 			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.DEFINITION, valueMap );
+				FormUIUtil.setFormLocalizedValue( 'termDefinition', valueMap );
 			}
 			else if( this.definition ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.DEFINITION, this.definition.getLocalizedMap() );
+				FormUIUtil.setFormLocalizedValue( 'termDefinition', this.definition.getLocalizedMap() );
 			}
 			else{
-				FormUIUtil.setFormLocalizedValue( TermAttributes.DEFINITION );
+				FormUIUtil.setFormLocalizedValue( 'termDefinition' );
 			}
 		}
 
 		getTooltipFormValue ( save ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.TOOLTIP );
+			let valueMap = FormUIUtil.getFormLocalizedValue( 'termTooltip' );
 
 			if( save ){
 				if( Object.keys( valueMap ).length <= 0 && this.tooltip ){
@@ -792,13 +947,13 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		}
 		setTooltipFormValue ( valueMap ){
 			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.TOOLTIP, valueMap );
+				FormUIUtil.setFormLocalizedValue( 'termTooltip', valueMap );
 			}
 			else if( this.tooltip ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.TOOLTIP, this.tooltip.getLocalizedMap() );
+				FormUIUtil.setFormLocalizedValue( 'termTooltip', this.tooltip.getLocalizedMap() );
 			}
 			else{
-				FormUIUtil.setFormLocalizedValue( TermAttributes.TOOLTIP );
+				FormUIUtil.setFormLocalizedValue( 'termTooltip' );
 			}
 		}
 		
@@ -875,6 +1030,28 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			this.setMandatoryFormValue();
 			this.setValueFormValue();
 		}
+
+		initAllAttributes( termType ){
+			if( termType ){
+				this.termType = termType;
+			}
+			else{
+				this.termType = 'Sting';
+			}
+				
+			this.termName = '';
+			this.termVersion = Term.DEFAULT_TERM_VERSION;
+			this.displayName = null;
+			this.definition = null;
+			this.tooltip = null;
+			this.synonyms = null;
+			this.mandatory = Term.DEFAULT_MANDATORY;
+			this.value = null;
+			this.dependentTerms = null;
+			this.activeTerms = null;
+			this.status = Term.STATUS_DRAFT;
+			this.state = Term.STATE_INIT;
+		}
 		
 	} // End of Term
 	
@@ -888,10 +1065,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		constructor(){
 			super( 'String' );
 			
-			this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
-			this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
-			this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
-			this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
+			this.initAllAttributes();
 			
 			this.setAllFormValues();
 		}
@@ -911,6 +1085,8 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		toJSON(){
 			let json = super.toJSON();
 			
+			if( this.placeHolder )
+				json.placeHolder = this.placeHolder.getLocalizedMap();
 			if( this.minLength > StringTerm.DEFAULT_MIN_LENGTH )		
 				json.minLength = this.minLength;
 			if( this.maxLength !== StringTerm.DEFAULT_MAX_LENGTH )		
@@ -929,15 +1105,18 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			
 			Object.keys( unparsed ).forEach( (key, index) => {
 				switch( key ){
-				case 'minLength':
-				case 'maxLength':
-				case 'multipleLine':
-				case 'validationRule':
-					this[key] = unparsed[key];
-					break;
-				default:
-					console.log('Un-identified Attribute: '+key);
-					unvalid[key] = unparsed[key];
+					case 'minLength':
+					case 'maxLength':
+					case 'multipleLine':
+					case 'validationRule':
+						this[key] = unparsed[key];
+						break;
+					case 'placeHolder':
+						this.placeHolder = new LocalizedObject( unparsed[key] );
+						break;
+					default:
+						console.log('Un-identified Attribute: '+key);
+						unvalid[key] = unparsed[key];
 				}
 			});
 			
@@ -947,40 +1126,63 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		/**
 		 * Render term UI for preview
 		 */
-		render( forWhat ){
-			let template = $('#template'+this.termType).html();
-			let params = {
-				name: this.termName,
-				label: this.displayName.getText(CURRENT_LANGUAGE),
+		$render( renderInputUrl, forWhat ){
+			let params = Liferay.Util.ns(NAMESPACE, {
+				controlType: 'string',
+				renderType: forWhat ? forWhat : false,
+				controlName: NAMESPACE+this.termName,
+				label: this.getLocalizedDisplayName(),
 				required: this.mandatory ? this.mandatory : false,
-				multipleLine: this.multipleLine ? this.multipleLine : false,
-				defaultValue: this.value ? this.value : '',
-				helpMessage: this.getLocalizedTooltip()
-			};
+				inputType: this.multipleLine ? 'textarea' : 'text',
+				placeHolder: this.getLocalizedPlaceHolder() ? this.getLocalizedPlaceHolder() : '',
+				value: this.value ? this.value : '',
+				helpMessage: this.getLocalizedTooltip() ? this.getLocalizedTooltip() : ''
+			});
 
-			if( forWhat === Term.FOR_PREVIEW ){
-				params.preview = Term.FOR_PREVIEW;
-			}
-
-			return $( Mustache.render(template, params) );
+			return FormUIUtil.$getRenderedFormControl( renderInputUrl, params );
 		}
 
 		renderEditControl(){
 			return null;
 		}
-		
-		renderAttributeSection( panelId, setionTitle ){
-			let $panel = $('#'+NAMESPACE+panelId);
-			let template = $('#'+NAMESPACE+'templateStringAttrs').html();
-			let params = {
-					fieldSetLabel: setionTitle	
-				};
-			let html = Mustache.render(template, params);
-			
-			$panel.empty();
-			$panel.append( html );
+
+		getLocalizedPlaceHolder(){
+			if( !this.placeHolder || this.placeHolder.isEmpty() ){
+				return false;
+			}
+			else{
+				const placeHolder = this.placeHolder.getText(CURRENT_LANGUAGE);
+				return placeHolder ? placeHolder : this.placeHolder.getText(DEFAULT_LANGUAGE);
+			}
 		}
-		
+
+		getPlaceHolderFormValue ( save ){
+			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.PLACE_HOLDER );
+
+			if( save ){
+				if( Object.keys( valueMap ).length <= 0 ){
+					this.placeHolder = null;
+				}
+				else{
+					this.placeHolder = new LocalizedObject();
+					this.placeHolder.setLocalizedMap( valueMap );
+				}
+			}
+			
+			return valueMap;
+		}
+		setPlaceHolderFormValue ( valueMap ){
+			if( valueMap ){
+				FormUIUtil.setFormLocalizedValue( TermAttributes.PLACE_HOLDER, valueMap );
+			}
+			else if( this.placeHolder ){
+				FormUIUtil.setFormLocalizedValue( TermAttributes.PLACE_HOLDER, this.placeHolder.getLocalizedMap() );
+			}
+			else{
+				FormUIUtil.setFormLocalizedValue( TermAttributes.PLACE_HOLDER );
+			}
+		}
+
 		getMinLengthFormValue ( save ){
 			let value = FormUIUtil.getFormValue( TermAttributes.MIN_LENGTH );
 			if( save ){
@@ -1069,6 +1271,15 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			this.setMultipleLineFormValue();
 			this.setValidationRuleFormValue();
 		}
+
+		initAllAttributes(){
+			super.initAllAttributes( 'String' ); 
+			this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
+			this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
+			this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
+			this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
+			this.placeHolder = null;
+		}
 		
 		validation(){
 			
@@ -1080,52 +1291,32 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		constructor(){
 			super('Numeric');
 			
-			this.minValue = null;
-			this.minBoundary = false;
-			this.maxValue = null;
-			this.maxBoundary = false;
-			this.unit = null;
-			this.uncertainty = false;
-			this.sweepable = false;
+			this.initAllAttributes();
 			
 			this.setAllFormValues();
 		}
 		
-		renderPreview(){
-			let template = $('#template'+this.termType).html();
-			
-			let params = {
-					name: this.termName,
+		$render( renderInputUrl, forWhat ){
+			let params = Liferay.Util.ns(NAMESPACE, {
+					controlType: 'numeric',
+					renderType: forWhat ? forWhat : false,
+					controlName: NAMESPACE+this.termName,
 					label: this.displayName.getText(CURRENT_LANGUAGE),
 					required: this.mandatory ? this.mandatory : false,
+					value: this.value ? this.value : '',
+					helpMessage: this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
 					minValue: this.minValue ? this.minValue : '',
 					minBoundary: this.minBoundary ? this.minBoundary : false,
 					maxValue: this.maxValue ? this.maxValue : '',
 					maxBoundary: this.maxBoundary ? this.maxBoundary : false,
 					unit: this.unit?this.unit : '',
 					uncertainty: this.uncertainty ? this.uncertainty : false,
-					helpMessage: this.getLocalizedTooltip()
-			};
+					uncertaintyValue: this.uncertaintyValue ? this.uncertaintyValue : ''
+			});
 
-			return $( Mustache.render(template, params) );
+			return FormUIUtil.$getRenderedFormControl( renderInputUrl, params );
 		}
 
-		renderEditControl(){
-			return null;
-		}
-		
-		renderAttributeSection( panelId, setionTitle ){
-			let $panel = $('#'+NAMESPACE+panelId);
-			let template = $('#'+NAMESPACE+'templateNumericAttrs').html();
-			let params = {
-					fieldSetLabel: setionTitle	
-				};
-			let html = Mustache.render(template, params);
-			
-			$panel.empty();
-			$panel.append( html );
-		}
-		
 		getMinValueFormValue ( save ){
 			let value = FormUIUtil.getFormValue( TermAttributes.MIN_VALUE );
 			if( save ){
@@ -1268,7 +1459,6 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		
 		setAllFormValues(){
 			super.setAllFormValues();
-
 			this.setMinValueFormValue();
 			this.setMinBoundaryFormValue();
 			this.setMaxValueFormValue();
@@ -1276,6 +1466,18 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			this.setUnitFormValue();
 			this.setUncertaintyFormValue();
 			this.setSweepableFormValue();
+		}
+
+		initAllAttributes(){
+			super.initAllAttributes( 'Numeric' );
+
+			this.minValue = null;
+			this.minBoundary = false;
+			this.maxValue = null;
+			this.maxBoundary = false;
+			this.unit = null;
+			this.uncertainty = false;
+			this.sweepable = false;
 		}
 		
 		parse( json ){
@@ -1298,11 +1500,417 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 	
 	/* 3. ListTerm */
 	class ListTerm extends Term {
-		constructor(){
+		static $DISPLAY_STYLE_FORM_CONTROL = $('#'+NAMESPACE+'listDisplayStyle');
+		static $OPTION_TABLE = $('#'+NAMESPACE+'options');
+		static $OPTION_LABEL = $('#'+NAMESPACE+'optionLabel');
+		static $OPTION_VALUE = $('#'+NAMESPACE+'optionValue');
+		static $OPTION_SELECTED = $('#'+NAMESPACE+'optionSelected');
+		static $OPTION_ACTIVE_TERMS = $('#'+NAMESPACE+'activeTerms');
+		static $BTN_ADD_OPTION = $('#'+NAMESPACE+'btnAddOption');
+		static $BTN_NEW_OPTION = $('#'+NAMESPACE+'btnNewOption');
+		static AVAILABLE_TERMS = null;
 
+		constructor(){
+			super('List');
+
+			this.initAllAttributes();
+
+			this.initOptionFormValues( null );
+
+			if( ListTerm.AVAILABLE_TERMS ){
+				this.$renderTermsAsCheckboxFieldset();
+			}
 		}
 
+		highlightOptionPreview(){
+			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('tr') );
+			rows.forEach((row, index) => { 
+				$(row).removeClass( 'highlight-border' );
+				if( this.highlightedOption && this.highlightedOption === this.options[index] ){
+					$(row).addClass( 'highlight-border' );
+				}
+			});
+		}
 
+		/**********************************************************
+		 * 1. Read all values from Form
+		 * 2. Create ListOption instancec with the values
+		 * 3. Push the instance at the options array
+		 * 4. Render a preview row of the instance and add to the preview table
+		 * 5. 
+		 */
+		addOption(){
+			let optionLabelMap = this.getOptionLabelFormValue();
+			let optionValue = this.getOptionValueFormValue();
+			let selected = this.getOptionSelectedFormValue();
+			if( selected === true ){
+				this.clearSelectedOption();
+			}
+
+			let activeTerms = this.getActiveTermsFormValue();
+
+			let option = new ListOption( optionLabelMap, optionValue, selected, activeTerms );
+
+			this.options.push(option);
+
+			let $row = option.$renderPreview();
+
+			ListTerm.$OPTION_TABLE.append( $row ); 
+
+			this.highlightedOption = option;
+
+			this.highlightOptionPreview();
+		}
+
+		updateDependentTerms(){
+			this.dependentTerms = new Array();
+
+			this.options.forEach((option)=>{
+				option.activeTerms.forEach((termName)=>{
+					if( !this.dependentTerms.includes( termName ) ){
+						this.dependentTerms.push(termName);
+					}
+				});
+			});
+		}
+
+		clearSelectedOption(){
+			this.options.forEach((option, index)=>{
+				if( option !== this.highlightedOption ){
+					option.selected = false;
+					ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-selected').empty();
+				}
+			});
+		}
+
+		removeOption( optionValue ){
+			this.options = this.options.filter(
+				(option, index, ary) => { 
+					if( option.value === optionValue ){
+						ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+')').remove();
+
+						let newIndex = index;
+						this.highlightedOption = null;
+						if( index === (ary.length - 1) ){
+							newIndex = ary.length - 2;
+						}
+						else{
+							newIndex = index + 1;
+						}
+						
+						if( newIndex >= 0 ){
+							this.highlightedOption = this.options[newIndex];
+							console.log('selected: ', this.highlightedOption );
+						}
+
+						return false;
+					}
+
+					return true;
+				});
+			
+			this.initOptionFormValues(this.highlightedOption);
+
+			if( this.options.length === 0 ){
+				ListTerm.$BTN_ADD_OPTION.prop('disabled', false );
+			}
+
+			console.log( 'Options after '+optionValue+' removed: ', this.options );
+		}
+
+		setOptionLabelMap( labelMap ){
+			if( this.highlightedOption ){
+				this.highlightedOption.setLabelMap( labelMap );
+				this.refreshOptionPreview( 'label' );
+			}
+		}
+
+		setOptionValue( value ){
+			if( this.highlightedOption ){
+				this.highlightedOption.value = value;
+				this.refreshOptionPreview('value');
+			}
+		}
+
+		setOptionSelected( value ){
+			if( this.highlightedOption ){
+				this.highlightedOption.selected = value;
+				this.refreshOptionPreview('selected');
+			}
+		}
+
+		getOption( optionValue ){
+			return this.options.filter((option)=>option.value===optionValue)[0];
+		}
+
+		getOptionActiveTerms( optionValue ){
+			let option = this.getOption(optionValue);
+			return option.activeTerms;
+		}
+
+		setActiveTerms( termNames ){
+			
+			if( !this.highlightedOption ){
+				return;
+			}
+
+			this.highlightedOption.activeTerms = termNames;
+			this.updateDependentTerms();
+		}
+
+		refreshOptionPreview( column ){
+			if( !this.highlightedOption )	return;
+
+			this.options.every((option, index, ary)=>{
+				if( option === this.highlightedOption ){
+					switch( column ){
+						case 'label':
+							ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-label' )
+									.empty()
+									.text( this.highlightedOption.labelMap[CURRENT_LANGUAGE] );
+							break;
+						case 'value':
+							ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-value' )
+									.empty()
+									.text( this.highlightedOption.value );
+							break;
+						case 'selected':
+							let selectedOption = ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-selected' ).empty();
+							if( this.highlightedOption.selected ){
+								this.clearSelectedOption();
+								selectedOption.html('&#10004;');
+							}
+							
+							break;
+					}
+					
+					return STOP_EVERY;
+				}
+
+				return CONTINUE_EVERY;
+			})
+		}
+
+		renderOptions(){
+			let $panel = ListTerm.$OPTION_TABLE;
+
+			this.options.every((option)=>{
+				$panel.append( option.$renderPreview() );
+			});
+		}
+
+		$renderTermsAsCheckboxFieldset(){
+			if( !ListTerm.AVAILABLE_TERMS || ListTerm.AVAILABLE_TERMS.length === 0 ){
+				return null;
+			}
+
+			let $activeTermsSelector = $(
+					'<div class="card-horizontal main-content-card">' +
+						'<div aria-multiselectable="true" class="panel-group" role="tablist">' +
+							'<fieldset aria-labelledby="'+NAMESPACE+'activeTermsTitle" id="'+NAMESPACE+'activeTerms" role="group">' +
+								'<div class="panel-heading" id="'+NAMESPACE+'activeTermsHeader" role="presentation">' +
+									'<div class="panel-title" id="'+NAMESPACE+'activeTermsTitle">' +
+										'Define Option' +
+										'<span class="taglib-icon-help lfr-portal-tooltip" data-title="'+'helpMessage'+'" style="margin-left:5px;">' +
+											'<span>' +
+												'<svg class="lexicon-icon lexicon-icon-question-circle-full" focusable="false" role="presentation" viewBox="0 0 512 512">' +
+													'<path class="lexicon-icon-outline" d="M256 0c-141.37 0-256 114.6-256 256 0 141.37 114.629 256 256 256s256-114.63 256-256c0-141.4-114.63-256-256-256zM269.605 360.769c-4.974 4.827-10.913 7.226-17.876 7.226s-12.873-2.428-17.73-7.226c-4.857-4.827-7.285-10.708-7.285-17.613 0-6.933 2.428-12.844 7.285-17.788 4.857-4.915 10.767-7.402 17.73-7.402s12.932 2.457 17.876 7.402c4.945 4.945 7.431 10.854 7.431 17.788 0 6.905-2.457 12.786-7.431 17.613zM321.038 232.506c-5.705 8.923-13.283 16.735-22.791 23.464l-12.99 9.128c-5.5 3.979-9.714 8.455-12.668 13.37-2.955 4.945-4.447 10.649-4.447 17.145v1.901h-34.202c-0.439-2.106-0.731-4.184-0.936-6.291s-0.321-4.301-0.321-6.612c0-8.397 1.901-16.413 5.705-24.079s10.24-14.834 19.309-21.563l15.185-11.322c9.070-6.7 13.605-15.009 13.605-24.869 0-3.57-0.644-7.080-1.901-10.533s-3.219-6.495-5.851-9.128c-2.633-2.633-5.969-4.71-9.977-6.291s-8.66-2.369-13.927-2.369c-5.705 0-10.561 1.054-14.571 3.16s-7.343 4.769-9.977 8.017c-2.633 3.247-4.594 7.022-5.851 11.322s-1.901 8.66-1.901 13.049c0 4.213 0.41 7.548 1.258 10.065l-39.877-1.58c-0.644-2.311-1.054-4.652-1.258-7.080-0.205-2.399-0.321-4.769-0.321-7.080 0-8.397 1.58-16.619 4.74-24.693s7.812-15.214 13.927-21.416c6.114-6.173 13.663-11.176 22.645-14.951s19.368-5.676 31.188-5.676c12.229 0 22.996 1.785 32.3 5.355 9.274 3.57 17.087 8.25 23.435 14.014 6.319 5.764 11.089 12.434 14.248 19.982s4.74 15.331 4.74 23.289c0.058 12.581-2.809 23.347-8.514 32.27z"></path>' +
+												'</svg>' +
+											'</span>' +
+											'<span class="taglib-text hide-accessible">'+'helpMessage'+'</span>' +
+										'</span>'+
+									'</div>' +
+								'</div>' +
+								'<div aria-labelledby="'+NAMESPACE+'activeTermsHeader" class="in  " id="'+NAMESPACE+'activeTermsContent" role="presentation">' +
+									'<div class="panel-body">' +
+									'</div>' +
+								'</div>' +
+							'</fieldset>' +
+						'</div>' +
+					'</div>'
+			);
+			
+			let $panelBody = $activeTermsSelector.find('.panel-body');
+
+			if( ListTerm.AVAILABLE_TERMS ){
+				ListTerm.AVAILABLE_TERMS.forEach((term)=>{
+					let checked = '';
+					if( this.highlightedOption && 
+						this.highlightedOption.activeTerms && 
+						this.highlightedOption.activeTerms.includes(term.termName) ){
+						checked = 'checked'
+					}
+
+					let $checkbox = $(
+						'<div class="form-group form-inline input-checkbox-wrapper" style="display:inline-block;margin-right:20px;">' +
+							'<label for="">' +
+								'<input class="field" name="'+NAMESPACE+'activeTerms" type="checkbox" value="' + term.termName + '"' + checked +' style="margin-right:5px;">' +
+								term.displayName.getText(CURRENT_LANGUAGE) +
+							'</label>' +
+						'</div>' );
+
+					$panelBody.append( $checkbox );
+				});
+			}
+
+			ListTerm.$OPTION_ACTIVE_TERMS.empty();
+			ListTerm.$OPTION_ACTIVE_TERMS.append( $activeTermsSelector );
+		}
+
+		$render( renderInputUrl, forWhat ){
+			this.updateDependentTerms();
+			console.log('updateDependentTerms: ', this.dependentTerms);
+			let options = new Array();
+			this.options.forEach((option)=>{
+				let rOption = {};
+
+				rOption.label = option.labelMap[CURRENT_LANGUAGE];
+				rOption.value = option.value;
+				rOption.selected = option.selected;
+				rOption.activeTerms = option.activeTerms;
+				rOption.inactiveTerms = this.dependentTerms.filter((termName)=>!option.activeTerms.includes(termName));
+				console.log('rOption: ', rOption );
+
+				options.push( rOption );
+			});
+
+			let params = Liferay.Util.ns(NAMESPACE, {
+					controlType: 'list',
+					renderType: (forWhat === SXConstants.FOR_PREVIEW) ? SXConstants.FOR_PREVIEW : SXConstants.FOR_EDITOR,
+					termName:this.termName,
+					controlName: NAMESPACE+this.termName,
+					label: this.displayName.getText(CURRENT_LANGUAGE),
+					required: this.mandatory ? this.mandatory : false,
+					value: this.value ? this.value : '',
+					helpMessage: this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+					displayStyle: this.displayStyle,
+					options: JSON.stringify( options ),
+					dependentTerms: this.dependentTerms ? JSON.stringify(this.dependentTerms) : ''
+			});
+
+			return FormUIUtil.$getRenderedFormControl( renderInputUrl, params );
+		}
+
+		initAllAttributes(){
+			super.initAllAttributes( 'List' );
+
+			this.options = new Array();
+			ListTerm.$OPTION_TABLE.empty();
+			this.displayStyle = 'select';
+			this.dependentTerms = new Array();
+			ListTerm.$OPTION_ACTIVE_TERMS.empty();
+		}
+
+		getDisplayStyleFormValue ( save ){
+			let value = FormUIUtil.getFormRadioValue( 'listDisplayStyle' );
+			if( save ){
+				this.displayStyle = value;
+			}
+			
+			return value;
+		}
+		setDisplayStyleFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormRadioValue( 'listDisplayStyle', value );
+			}
+			else if( this.displayStyle ){
+				FormUIUtil.setFormRadioValue( 'listDisplayStyle', this.displayStyle );
+			}
+			else{
+				FormUIUtil.setFormRadioValue( 'listDisplayStyle' );
+			}
+		}
+
+		getOptionLabelFormValue (){
+			return FormUIUtil.getFormLocalizedValue( 'optionLabel' );
+		}
+		setOptionLabelFormValue ( valueMap ){
+			if( valueMap ){
+				FormUIUtil.setFormLocalizedValue( 'optionLabel', valueMap );
+			}
+			else if( this.highlightedOption && this.highlightedOption.labelMap ){
+				FormUIUtil.setFormLocalizedValue( 'optionLabel', this.highlightedOption.labelMap );
+			}
+			else{
+				FormUIUtil.setFormLocalizedValue( 'optionLabel' );
+			}
+		}
+
+		getOptionValueFormValue (){
+			return FormUIUtil.getFormValue( 'optionValue' );
+		}
+		setOptionValueFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormValue( 'optionValue', value );
+			}
+			else if( this.highlightedOption && this.highlightedOption.value ){
+				FormUIUtil.setFormValue( 'optionValue', this.highlightedOption.value );
+			}
+			else{
+				FormUIUtil.setFormValue( 'optionValue' );
+			}
+		}
+
+		getOptionSelectedFormValue (){
+			return FormUIUtil.getFormCheckboxValue( 'optionSelected' );
+		}
+		setOptionSelectedFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormCheckboxValue( 'optionSelected', value );
+			}
+			else if( this.highlightedOption && this.highlightedOption.selected ){
+				FormUIUtil.setFormCheckboxValue( 'optionSelected', this.highlightedOption.selected );
+			}
+			else{
+				FormUIUtil.setFormCheckboxValue( 'optionSelected' );
+			}
+		}
+
+		getActiveTermsFormValue (){
+			let value = FormUIUtil.getFormCheckedArray( 'activeTerms' );
+			
+			return value;
+		}
+		setActiveTermsFormValue ( termNames ){
+			if( termNames ){
+				FormUIUtil.setFormCheckedArray( 'activeTerms', termNames );
+			}
+			else if( this.highlightedOption && this.highlightedOption.activeTerms ){
+				FormUIUtil.setFormCheckedArray( 'activeTerms', this.highlightedOption.activeTerms );
+			}
+			else{
+				FormUIUtil.setFormCheckedArray( 'activeTerms' );
+			}
+		}
+
+		initOptionFormValues( option ){
+			if( !option ){
+				this.highlightedOption = null;	
+			}
+			else{
+				this.highlightedOption = option;
+			}
+			
+			this.setOptionLabelFormValue();
+			this.setOptionValueFormValue();
+			this.setOptionSelectedFormValue();
+			this.setActiveTermsFormValue();
+
+			this.highlightOptionPreview();
+		}
+
+		parse( json ){
+		}
+		
+		toJSON(){
+			let json = super.toJSON();
+			
+			json.options = this.options;
+			json.displayStyle = this.displayStyle;
+			
+			return json;
+
+		}
 	}
 	
 	/* 4. ListArrayTerm */
@@ -1426,10 +2034,10 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 	}
 
 	class DataStructure {
-		static FOR_PREVIEW = true;
-		static FOR_EDITOR = false;
+		static $PREVIEW_PANEL = $('#'+NAMESPACE+'previewPanel');
+		static FORM_RENDER_URL = ''
 
-		constructor( previewPanelId ){
+		constructor(){
 			this.dataTypeId = 0;
 			this.termDelimiter='\n';
 			this.termDelimiterPosition = true;
@@ -1441,28 +2049,12 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			this.dirty = false;
 			this.displayTooltip = true;
 			this.selectedTerm = null;
-			this.$previewPanel = $('#'+NAMESPACE+previewPanelId).find('tbody');
-			
-			// Registration of liferay event handlers
-			let self = this;
-			Liferay.on(SXIcecapEvents.DATATYPE_PREVIEW_TERM_DELETED, function(eventData){
-				self.terms = self.terms.filter( function( term, index, ary ){
-					if( term === eventData.deletedTerm )	return false;
-					else	return true;
-				});
-			});
-			
-			Liferay.on(SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, function(eventData){
-				if( self.selectedTerm === eventData.selectedTerm ){
-					return;
-				}
-				
-				self.selectedTerm = eventData.selectedTerm;
-				self.selectedTerm.renderAttributeSection();
-				self.selectedTerm.setAllFormValues();
-			});
 		}
 		
+		/***********************************************************************
+		 *  APIs for form controls
+		 ***********************************************************************/
+
 		getTermDelimiterFormValue ( save ){
 			let value = FormUIUtil.getFormValue( 'termDelimiter' );
 			if( save ){
@@ -1582,6 +2174,19 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 				FormUIUtil.clearFormFormValue( 'commentChar' );
 			}
 		}
+
+		replaceVisibleTypeSpecificSection( termType ){
+			FormUIUtil.replaceVisibleTypeSpecificSection( termType );
+		}
+
+		disable( controlIds, disable ){
+			FormUIUtil.disableControls( controlIds, disable );
+		}
+
+
+		/*****************************************************************
+		 * APIs for DataStructure instance
+		 *****************************************************************/
 		
 		loadDataStructure( url, paramData ){
 			let params = Liferay.Util.ns( NAMESPACE, paramData);
@@ -1611,6 +2216,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			case 'Integer':
 				return new IntegerTerm();
 			case 'List':
+				ListTerm.AVAILABLE_TERMS = this.terms;
 				return new ListTerm();
 			case 'ListArray':
 				return new ListArrayTerm();
@@ -1689,7 +2295,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			this.selectedTerm = term;
 			
 			if( term === null ){
-				this.$previewPanel.find('.highlight-border').removeClass('highlight-border');
+				DataStructure.$PREVIEW_PANEL.find('.highlight-border').removeClass('highlight-border');
 			}
 		}
 
@@ -1703,18 +2309,20 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 		 *  	term : Term instance to be added or inserted
 		 *  	preview: boolean - preview or not
 		 ********************************************************************/
-		addTerm( term, preview ){
+		addTerm( term, forWhat ){
 			if( term.validate() === false ){
 				return false;
 			}
 			
 			this.terms.push( term );
 			
-			if( preview ){
+			if( forWhat === SXConstants.FOR_PREVIEW ){
 				this.renderTermPreview( term );
 			}
 			
 			this.selectedTerm = term;
+
+			return true;
 		}
 		
 		exist( termName ){
@@ -1732,6 +2340,52 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			return exist;
 		}
 		
+		parse( json ){
+			
+		}
+
+		countTerms(){
+			return this.terms.length;
+		}
+		
+		toJSON(){
+			return{
+				dataTypeId : this.dataTypeId,
+				termDelimiter : this.termDelimiter,
+				termDelimiterPosition : this.termDelimiterPosition,
+				matrixBracketType : this.matrixBracketType,
+				matrixDelimiter : this.matrixDelimiter,
+				commentString : this.commentString,
+				tooltip : this.tooltip.localizedMap,
+				terms : this.terms 
+			};
+		}
+
+
+		/********************************************************************
+		 * APIs for Preview panel
+		 ********************************************************************/
+
+		activateDependentTerms( termName, optionValue, forWhat ){
+			let term = this.getTerm( termName );
+
+			let activeTerms = term.getOptionActiveTerms( optionValue );
+			console.log('Terms to be activated...', activeTerms);
+
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				term.dependentTerms.forEach((termName)=>{
+					if( activeTerms.includes(termName) ){
+						console.log( 'active term: '+termName, $('tr.'+NAMESPACE+termName) );
+						$('tr.'+NAMESPACE+termName).removeClass('hide');
+					}
+					else{
+						console.log( 'inactive term: '+termName, $('tr.'+NAMESPACE+termName));
+						$('tr.'+NAMESPACE+termName).addClass('hide');
+					}
+				});
+			}
+		}
+
 		previewed( term ){
 			if( this.selectedTerm === term ){
 				return true;
@@ -1740,88 +2394,87 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			return this.exist( term.termName );
 		}
 		
-		
-		parse( json ){
-			
-		}
-		
-		getPreviewPanel( panelId ){
-			return $('#'+NAMESPACE+panelId).find('tbody');
-		}
-		
 		renderTermPreview( term, order ){
 			
 			// Change the previous highlighted border to normal 
-			let $panel = this.$previewPanel;
+			let $panel = DataStructure.$PREVIEW_PANEL;
 			
 			$panel.find('.highlight-border').each( function(){
 				$(this).removeClass('highlight-border');
 			});
 			
-			let $row = Term.render(Term.FOR_PREVIEW).addClass('highlight-border');
-			
-			$row.click( function( event ){
-				if( $(event.target).is('button') || $(event.target).is('i') ){
-					let idToBeRemoved = NAMESPACE+'toBeRemoved';
-					
-					$(event.currentTarget).attr('id', idToBeRemoved);
-					$panel.find('#'+idToBeRemoved).remove();
-					
-					const eventData = {
-							deletedTerm: term
-					};
-					
-					Liferay.fire (SXIcecapEvents.DATATYPE_PREVIEW_TERM_DELETED, eventData );
+			let self = this;
+			$.when(term.$render( DataStructure.FORM_RENDER_URL, SXConstants.FOR_PREVIEW )).done(function( $row ){
+				$row.addClass('highlight-border');
+				$row.click( function( event ){
+					if( $(event.target).is('button') || $(event.target).is('i') ){
+						let idToBeRemoved = NAMESPACE+'toBeRemoved';
+						
+						$(event.currentTarget).attr('id', idToBeRemoved);
+						$panel.find('#'+idToBeRemoved).remove();
+						
+						const eventData = {
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								deletedTerm: term
+						};
+						
+						Liferay.fire (SXIcecapEvents.DATATYPE_PREVIEW_TERM_DELETED, eventData );
+					}
+					else{
+						// Change the previous highlighted border to normal 
+						$panel.find('.highlight-border').each( function(){
+							$(this).removeClass('highlight-border');
+						});
+						
+						const eventData = {
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							selectedTerm: term
+						};
+						
+						Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+					}
+	
+					$(this).addClass('highlight-border');
+				});
+				
+				if( order >= 0 ){
+					self.replacePreviewRow( order, $row );
 				}
 				else{
-					// Change the previous highlighted border to normal 
-					$panel.find('.highlight-border').each( function(){
-						$(this).removeClass('highlight-border');
-					});
-					
-					const eventData = {
-						selectedTerm: term
-					};
-					
-					Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+					$panel.append( $row );
 				}
-
-				$(this).addClass('highlight-border');
 			});
 			
-			if( order >= 0 ){
-				this.replacePreviewRow( order, $row );
-			}
-			else{
-				$panel.append( $row );
-			}
+			
 		}
 
-		renderTermEditor(){
+		$renderTermEditor(){
 			return null;
 		}
 		
 		replacePreviewRow( order, $row ){
 			let rowIndex = order + 1;
+			let $panel = DataStructure.$PREVIEW_PANEL;
+
+			this.removePreviewRow( rowIndex );
 			
-			this.$previewPanel.children( ':nth-child('+rowIndex+')' ).remove();
-			
-			if( this.$previewPanel.children( ':nth-child('+rowIndex+')' ).length === 0 ){
-				this.$previewPanel.append($row);
+			if( $panel.children( ':nth-child('+rowIndex+')' ).length === 0 ){
+				$panel.append($row);
 			}
 			else{
-				this.$previewPanel.children( ':nth-child('+rowIndex+')' ).before( $row );
+				$panel.children( ':nth-child('+rowIndex+')' ).before( $row );
 			}
 		}
 		
 		removePreviewRow( order ){
-			let rowIndex = order + 1;
-			this.$previewPanel.children( ':nth-child('+order+')' ).remove();
+			DataStructure.$PREVIEW_PANEL.children( ':nth-child('+order+')' ).remove();
 		}
 		
 		
 		render( forWhat ){
-			if( forWhat === FOR_PREVIEW ){
+			if( forWhat === SXConstants.FOR_PREVIEW ){
 				this.terms.forEach((term)=>{
 					this.renderTermPreview( term );
 				});
@@ -1846,22 +2499,6 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
 			});
 		}
 		
-		countTerms(){
-			return this.terms.length;
-		}
-		
-		toJSON(){
-			return{
-				dataTypeId : this.dataTypeId,
-				termDelimiter : this.termDelimiter,
-				termDelimiterPosition : this.termDelimiterPosition,
-				matrixBracketType : this.matrixBracketType,
-				matrixDelimiter : this.matrixDelimiter,
-				commentString : this.commentString,
-				tooltip : this.tooltip.localizedMap,
-				terms : this.terms 
-			};
-		}
 		
 	}
 	
@@ -1875,10 +2512,11 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
     		return new DataType();
     	},
     	DataStructure: DataStructure,
-    	newDataStructure: function ( previewPanelId ){
-    		return new DataStructure( previewPanelId );
+    	newDataStructure: function (){
+    		return new DataStructure();
     	},
-    	SXIcecapEvents: SXIcecapEvents, 
+    	SXIcecapEvents: SXIcecapEvents,
+		SXConstants: SXConstants, 
     	TermTypes: TermTypes,
     	Term: Term,
     	newTerm: function( termType ){
@@ -1929,6 +2567,7 @@ function StationX ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILABLE_LAN
     	},
     	StringTerm: StringTerm,
     	NumericTerm: NumericTerm,
+		ListTerm: ListTerm,
     	Util: Util
     };
 }

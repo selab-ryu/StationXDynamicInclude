@@ -174,6 +174,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return selectedLanguage;
 		}
+
+		static getLocalizedXML( fieldName, localizedMap ){
+			let xml = 
+					'<?xml version=\'1.0\' encoding=\'UTF-8\'?>' +
+						'<root ' + 
+								'available-locales="' + Object.keys( localizedMap ) + '" ' +
+								'default-locale="' + DEFAULT_LANGUAGE + '">';
+			Object.keys( localizedMap ).forEach((locale)=>{
+				xml += '<' + fieldName + ' language-id="' + locale +'">' + localizedMap[locale] + '</' + fieldName + '>';
+			});
+
+			xml += '</root>';
+
+			return xml;
+		}
 		
 		static getLocalizedInputValue( inputId ){
 			let baseId = NAMESPACE + inputId;
@@ -346,6 +361,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		DATATYPE_PREVIEW_TERM_DELETED: 'DATATYPE_PREVIEW_TERM_DELETED',
 		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
+		DATATYPE_ACTIVE_TERM_CHANGED: 'DATATYPE_ACTIVE_TERM_CHANGED',
 		LIST_OPTION_ACTIVE_TERM_DELETED: 'LIST_OPTION_ACTIVE_TERM_REMOVED',
 		LIST_OPTION_ACTIVE_TERM_SELECTED: 'LIST_OPTION_ACTIVE_TERM_SELECTED',
 		LIST_OPTION_PREVIEW_REMOVED: 'LIST_OPTION_PREVIEW_REMOVED',
@@ -356,6 +372,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	const SXConstants = {
 		FOR_PREVIEW: true,
 		FOR_EDITOR: false,
+
+		DISPLAY_STYLE_SELECT: 'select',
+		DISPLAY_STYLE_RADIO: 'radio',
+		DISPLAY_STYLE_CHECK: 'check'
 	}
 	
 	class LocalizedObject {
@@ -1070,6 +1090,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setAllFormValues();
 		}
 		
+		removeActiveTerm( termName ){
+			return null;
+		} 
+
 		setLocalizedMap ( attrName, controlId ){
 			
 			defaultLocales.forEach( function( locale ) {
@@ -1295,6 +1319,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			this.setAllFormValues();
 		}
+
+		removeActiveTerm( termName ){
+			return null;
+		} 
 		
 		$render( renderInputUrl, forWhat ){
 			let params = Liferay.Util.ns(NAMESPACE, {
@@ -1518,7 +1546,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.initOptionFormValues( null );
 
 			if( ListTerm.AVAILABLE_TERMS ){
-				this.$renderTermsAsCheckboxFieldset();
+				this.constructOptionActiveTermsSelector();
 			}
 		}
 
@@ -1563,14 +1591,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		updateDependentTerms(){
+			if( !this.options )	return;
 			this.dependentTerms = new Array();
 
 			this.options.forEach((option)=>{
-				option.activeTerms.forEach((termName)=>{
-					if( !this.dependentTerms.includes( termName ) ){
-						this.dependentTerms.push(termName);
-					}
-				});
+				if( option.activeTerms ){
+					option.activeTerms.forEach((termName)=>{
+						if( !this.dependentTerms.includes( termName ) ){
+							this.dependentTerms.push(termName);
+						}
+					});
+				}
 			});
 		}
 
@@ -1658,6 +1689,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.updateDependentTerms();
 		}
 
+		removeActiveTerm( termName ){
+			this.options.every((option)=>{
+				option.removeActiveTerm( termName );
+			});
+		} 
+
 		refreshOptionPreview( column ){
 			if( !this.highlightedOption )	return;
 
@@ -1699,7 +1736,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		$renderTermsAsCheckboxFieldset(){
+		configureMultipleSeletionMode( mode ){
+			if( mode === true ){
+				this.dependentTerms = new Array();
+				ListTerm.$OPTION_ACTIVE_TERMS.empty();
+
+				this.options.forEach((option)=>{
+					option.activeTerms = null;
+				});
+			}
+			else{
+				this.constructOptionActiveTermsSelector();
+			}
+		}
+
+		constructOptionActiveTermsSelector(){
 			if( !ListTerm.AVAILABLE_TERMS || ListTerm.AVAILABLE_TERMS.length === 0 ){
 				return null;
 			}
@@ -1710,7 +1761,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							'<fieldset aria-labelledby="'+NAMESPACE+'activeTermsTitle" id="'+NAMESPACE+'activeTerms" role="group">' +
 								'<div class="panel-heading" id="'+NAMESPACE+'activeTermsHeader" role="presentation">' +
 									'<div class="panel-title" id="'+NAMESPACE+'activeTermsTitle">' +
-										'Define Option' +
+										'Active Terms' +
 										'<span class="taglib-icon-help lfr-portal-tooltip" data-title="'+'helpMessage'+'" style="margin-left:5px;">' +
 											'<span>' +
 												'<svg class="lexicon-icon lexicon-icon-question-circle-full" focusable="false" role="presentation" viewBox="0 0 512 512">' +
@@ -1732,6 +1783,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $panelBody = $activeTermsSelector.find('.panel-body');
 
+			let self = this;
 			if( ListTerm.AVAILABLE_TERMS ){
 				ListTerm.AVAILABLE_TERMS.forEach((term)=>{
 					let checked = '';
@@ -1748,6 +1800,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								term.displayName.getText(CURRENT_LANGUAGE) +
 							'</label>' +
 						'</div>' );
+
+					$checkbox.click(function(event){
+						let $input = $(this).find('input');
+						let checked = $input.prop('checked');
+						let termName = $input.val();
+						
+						if( this.highlightedOption ){
+							checked ? 
+								this.highlightedOption.addActiveTerm( termName ) :
+								this.highlightedOption.removeActiveTerm( termName );
+							
+							console.log( 'active terms changed');
+
+							let eventData = {
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								termName: self.termName,
+								activeTerm: termName
+							};
+
+							Liferay.fire(
+								SXIcecapEvents.DATATYPE_ACTIVE_TERM_CHANGED,
+								eventData
+							);
+						}
+					});
 
 					$panelBody.append( $checkbox );
 				});
@@ -2324,6 +2402,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return true;
 		}
+
+		removeTerm( termName ){
+			this.terms = this.terms.filter( function( term, index, ary ){
+				if( term.termName === termName ){
+					term.removeActiveTerm( termName );
+					return false;
+				}	
+				else	return true;
+			});
+		}
+
+		removeActiveTerm( termName ){
+			this.terms.every((term)=>{
+				term.removeActiveTerm( termName );
+			});
+		}
 		
 		exist( termName ){
 			let exist = false;
@@ -2472,9 +2566,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			DataStructure.$PREVIEW_PANEL.children( ':nth-child('+order+')' ).remove();
 		}
 		
-		
 		render( forWhat ){
 			if( forWhat === SXConstants.FOR_PREVIEW ){
+				DataStructure.$PREVIEW_PANEL.empty();
+
 				this.terms.forEach((term)=>{
 					this.renderTermPreview( term );
 				});

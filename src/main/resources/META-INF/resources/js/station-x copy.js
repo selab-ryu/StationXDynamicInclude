@@ -10,26 +10,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return !ary || ary.length === 0;
 		},
 		isEmptyObject: function(obj){
-			if( obj===null )	return true;
-			let keys = Object.keys(obj);
-			if( keys.length === 0 )	return true;
-
-			let self = this;
-			let empty = true;
-			keys.every(key=>{
-				if( obj[key] === 'undefined' || obj[key] === null ){
-					empty = true;
-				}
-				else if( typeof obj[key] === 'object' ){
-					empty = self.isEmptyObject( obj[key] );
-				}
-				else if( typeof obj[key] === 'string' ){
-					empty = self.isEmptyString(obj[key]);
-				}
-				return empty;
-			});
-
-			return empty;
+			return !obj || Object.keys(obj).length === 0;
 		},
 		isEmptyString: function(str){
 			return !str || str === '';
@@ -353,7 +334,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $label;
 		},
-		$getTextInputTag: function( inputType, term, controlName, placeHolder, value ){
+		$getTextInputTag: function( inputType, termName, controlName, placeHolder, value ){
 			let $input;
 			
 			if( inputType === 'text'){
@@ -379,7 +360,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						term: term,
+						termName: termName,
 						valueMode: 'single',
 						changedValue: $(this).val()  
 					}
@@ -393,7 +374,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $input;
 		},
-		$getSelectTag: function( term, controlName, options, value ){
+		$getSelectTag: function( termName, controlName, options, value ){
 			let $select = $( '<select class="form-control" id="' + controlName + '" name="' + controlName + '">' );
 
 			options.forEach( (option)=>{
@@ -417,7 +398,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						term: term,
+						termName: termName,
 						valueMode: 'single',
 						changedValue: $(this).val()  
 					}
@@ -474,7 +455,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return $checkbox;
 		},
-		$getSelectFieldsetNode: function( term, controlName, displayStyle, label, mandatory, helpMessage, options, value){
+		$getSelectFieldsetNode: function( termName, controlName, displayStyle, label, mandatory, helpMessage, options, value){
 			let $node;
 
 			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
@@ -482,7 +463,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				
 				$node = $('<div class="form-group input-text-wrapper">')
 									.append( $label )
-									.append( this.$getSelectTag(term, controlName, options, value) );
+									.append( this.$getSelectTag(termName, controlName, options, value) );
 			}
 			else{
 				let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlName + 'Title">')
@@ -525,7 +506,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
+								termName: termName,
 								valueMode: 'single',
 								changedValue: changedVal
 							}
@@ -562,7 +543,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
+								termName: termName,
 								valueMode: 'multiple',
 								changedValue: checkedValues
 							}
@@ -581,48 +562,49 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $node;
 		},
-		$getTextInputNode: function(term, inputType, label, placeHolder, mandatory, helpMessage, value ){
-			let controlName = NAMESPACE + term.termName;
+		$getTextInputNode: function(termName, inputType, label, placeHolder, mandatory, helpMessage, value ){
+			let controlName = NAMESPACE + termName;
 
 			let $node = $('<div class="form-group input-text-wrapper">')
 							.append( this.$getLabelNode(controlName, label, mandatory, helpMessage) )
-							.append(this.$getTextInputTag(inputType, term, controlName, placeHolder, value));
+							.append(this.$getTextInputTag(inputType, termName, controlName, placeHolder, value));
 
 			
 			return $node;
 		},
-		$getPreviewRemoveButtonNode: function( term, iconClass ){
+		$getPreviewRemoveButtonNode: function( termName, iconClass ){
 			let $button = $( '<button type="button" class="btn btn-default">' +
 								'<i class="' + iconClass + '" />' +
 							 '</button>' );
-							 
-			$button.click(function(event){
-				event.stopPropagation();
-				
-				let msg = 'Remove from group or delete from the data structure?';
-				if( Util.isEmptyString(term.parent) ){
-					msg = 'Are you sure to delete the term from the data structure?';
-					if( term.isGroupTerm() ){
-						msg += 'Child terms are move up to upper group or top level.'
-					}
-				}
 
-				let eventData = {
+			let eventData = {
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						term: term
+						termName: termName
 					}
 				};
-				
-				let dialogProperty = {
+			
+			
+			$button.click(function(event){
+				event.stopPropagation();
+
+				$('<div>Remove from group or delete from data structure?</div>').dialog({
 					autoOpen: true,
 					title:'',
 					modal: true,
 					draggable: true,
-					width: 400,
-					highr: 200,
 					buttons:[
+						{
+							text: 'Remove',
+							click: function(){
+								$(this).dialog('destroy');
+								Liferay.fire(
+									SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM,
+									eventData
+								);
+							}
+						},
 						{
 							text: 'Delete',
 							click: function(){
@@ -640,34 +622,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						}
 					]
-				};
+				});
 
-				if( term.parent ){
-					dialogProperty.buttons.unshift({
-						text: 'Remove',
-						click: function(){
-							$(this).dialog('destroy');
-							Liferay.fire(
-								SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM,
-								eventData
-							);
-						}
-					});
-				}
-
-				$('<div>').text(msg).dialog( dialogProperty );
 				
 			});
 
 			return $button;
 		},
-		$getPreviewRowSection: function( term, $inputSection ){
-			let trRowClass = NAMESPACE + term.termName;
+		$getPreviewRowSection: function( termName, $inputSection ){
+			let trRowClass = NAMESPACE + termName;
 
 			let $inputTd = $('<td style="width:90%;">').append( $inputSection );
 
 			let $buttonTd = $('<td style="padding-right:0;">')
-								.append( this.$getPreviewRemoveButtonNode( term, 'icon-remove' ) );
+								.append( this.$getPreviewRemoveButtonNode( termName, 'icon-remove' ) );
 
 			let $previewRow = $('<tr>')
 									.addClass( trRowClass )
@@ -676,54 +644,63 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			$previewRow.click( function( event ){
 				event.stopPropagation();
+				// Change the previous highlighted border to normal 
+				$panel.find('.highlight-border').each( function(){
+					$(this).removeClass('highlight-border');
+				});
 				
 				const eventData = {
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						term: term
+						selectedTerm: term
 					}
 				};
 				
 				Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+				
+				$(this).addClass('highlight-border');
 			});
 
 			return $previewRow;
 		},
-		$getEditorRowSection: function( term, $inputSection ){
+		$getEditorRowSection: function( termName, $inputSection ){
 			let $inputTd = $('<td style="width:100%;">').append( $inputSection );
 
-			let $row = $('<tr>').append( $inputTd );
+			let $row = $('<tr>')
+									.append( $inputTd );
 
 			return $row;
 		},
 		$getFormStringSection: function( 
-					term, 
+					termName, 
 					inputType, 
 					label, 
 					placeHolder, 
 					helpMessage, 
 					mandatory, 
 					value, 
-					forWhat ){
+					forWhat, 
+					highlight ){
 
-			let $textInput = this.$getTextInputNode( term, inputType, label, placeHolder, mandatory, helpMessage, value );
+			let $textInput = this.$getTextInputNode( termName, inputType, label, placeHolder, mandatory, helpMessage, value );
 
 			let $String;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$String = this.$getPreviewRowSection( term, $textInput );
-			}
-			else if(forWhat === SXConstants.FOR_EDITOR){
-				$String = this.$getEditorRowSection( term, $textInput );
+				$String = this.$getPreviewRowSection( termName, $textInput );
 			}
 			else{
-				//PDF printing here
+				$String = this.$getEditorRowSection( termName, $textInput );
 			}
 
+			if( highlight ){
+				$String.addClass(highlight);
+			}
+			
 			return $String;
 		},
 		$getFormNumericSection: function(
-			term, 
+			termName, 
 			label, 
 			helpMessage, 
 			mandatory, 
@@ -735,11 +712,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			unit,
 			uncertainty,
 			uncertaintyValue,
-			forWhat ){
+			forWhat, 
+			highlight ){
 
-			let controlName = NAMESPACE + term.termName;
+			let controlName = NAMESPACE + termName;
 
-			let $viewCol = $('<div>');
+			let $viewCol = $('<td>');
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$viewCol.css('width', '90%');
+			}
+			else{
+				$viewCol.css('width', '100%');
+			}
 			
 			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
 			$viewCol.append( $label );
@@ -768,7 +753,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				valueRate = 90;
 			}
 			
-			let $textInput = this.$getTextInputTag( 'text', term, controlName, '', value );
+			let $textInput = this.$getTextInputTag( 'text', termName, controlName, '', value );
 			let $inputcol = $('<div style="display:inline-block; width:100%;">').append($textInput);
 			$controlSection.append( $inputcol );
 			
@@ -776,7 +761,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $uncertaintyOp = $('<div style="display:inline-block;min-width:3%;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>');
 				$controlSection.append( $uncertaintyOp );
 
-				let $uncertaintyInput = this.$getTextInputTag( 'text', term, controlName+'_uncertainty', '', uncertaintyValue );
+				let $uncertaintyInput = this.$getTextInputTag( 'text', termName, controlName+'_uncertainty', '', value );
 				let $inputcol = $('<div style="display:inline-block; max-width:40%;">').append($uncertaintyInput);
 				$controlSection.append( $inputcol );
 			}
@@ -807,24 +792,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$controlSection.append( $maxValueCol );
 			}
 			
-			let trRowClass = NAMESPACE + term.termName;
-			let $Numeric = null;
-			
+			let trRowClass = NAMESPACE + termName;
+			let $Numeric = $('<tr>')
+					.addClass( trRowClass )
+					.append( $viewCol );
+
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$Numeric = FormUIUtil.$getPreviewRowSection(term, $viewCol);
+				let $buttonCol = $('<td style="padding-right:0;">')
+										.append( this.$getPreviewRemoveButtonNode( termName, 'icon-remove' ) );
+				$Numeric.append( $buttonCol );
+				
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				$Numeric = FormUIUtil.$getEditorRowSection(term, $viewCol);
+
+			if( highlight ){
+				$Numeric.addClass( highlight );
 			}
-			else{
-				// render for PDF printing here
-			}
-			
+
 			return $Numeric;
 
 		},
 		$getFormListSection: function(
-				term,
+				termName,
 				label, 
 				helpMessage, 
 				mandatory, 
@@ -832,42 +820,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				displayStyle,
 				options,
 				dependentTerms,
-				forWhat ){
-			let controlName = NAMESPACE + term.termName;
+				forWhat, 
+				highlight ){
+			let controlName = NAMESPACE + termName;
 
-			let $fieldset = this.$getSelectFieldsetNode( term, controlName, displayStyle, label, mandatory, helpMessage, options, value );
+			let $fieldset = this.$getSelectFieldsetNode( termName, controlName, displayStyle, label, mandatory, helpMessage, options, value );
 			
 			let $List;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$List = this.$getPreviewRowSection(term, $fieldset);
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				$List = this.$getEditorRowSection(term, $fieldset);
+				$List = this.$getPreviewRowSection(termName, $fieldset);
 			}
 			else{
-				// rendering for PDF here
+				$List = this.$getEditorRowSection(termName, $fieldset);
+			}
+
+			if( highlight ){
+				$List.addClass(highlight);
 			}
 
 			return $List;
-		},
-		$getAccordionForGroup: function( title, $body ){
-			let $groupHead = $('<h3>').text(title);
-			let $groupBody = $('<div style="width:100%; height:auto;">')
-								.append($body);
-			let $accordion = $('<div style="width:100%;">')
-								.append($groupHead)
-								.append($groupBody);
-			
-			$accordion.accordion({
-				collapsible: true,
-				active: true,
-				highStyle: 'content',
-				activate: function(event, ui){
-					ui.newPanel.css('height', 'auto');
-				}
-			});
-
-			return $accordion;
 		},
 		$getTypeSpecificSection: function( termType ){
 			return $('#' + NAMESPACE +  termType.toLowerCase() + 'Attributes');
@@ -984,7 +955,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	const SXIcecapEvents = {
 		DATATYPE_PREVIEW_TERM_DELETED: 'DATATYPE_PREVIEW_TERM_DELETED',
 		DATATYPE_PREVIEW_REMOVE_TERM: 'DATATYPE_PREVIEW_REMOVE_TERM',
-		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELTE_TERM',
 		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
 		DATATYPE_ACTIVE_TERM_CHANGED: 'DATATYPE_ACTIVE_TERM_CHANGED',
@@ -1000,10 +970,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 
 	const SXConstants = {
-		FOR_NOTHING: 0,
-		FOR_PREVIEW: 1,
-		FOR_EDITOR: 2,
-		FOR_PRINT:3,
+		FOR_PREVIEW: true,
+		FOR_EDITOR: false,
 
 		DISPLAY_STYLE_SELECT: 'select',
 		DISPLAY_STYLE_RADIO: 'radio',
@@ -1114,9 +1082,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.activeTerms.push( term );
 		}
 
-		removeActiveTerm( term ){
-			this.activeTerms = this.activeTerms.filter(( activeTerm ) => {
-				return !(activeTerm.termName === term.termName);
+		removeActiveTerm( termName ){
+			this.activeTerms = this.activeTerms.filter(( term ) => {
+				return !(term.termName === termName);
 			});
 		}
 
@@ -1145,7 +1113,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						option: self
+						removedOption: self
 					}
 				};
 
@@ -1159,7 +1127,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						option: self
+						highlightedOption: self
 					}
 				};
 
@@ -1172,16 +1140,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		renderActiveTermsPreview( $previewPanel ){
 			$previewPanel.empty();
 
-			this.activeTerms.every( (activeTerm, index, ary) =>{
+			this.activeTerms.every( (term, index, ary) =>{
 				let $row = $( '<tr>' +
 						'<td style="width:35%;">' +
-							activeTerm.termName +
+							term.termName +
 						'</td>' +
 						'<td style="width:20%;">' +
-							activeTerm.termType +
+							term.termType +
 						'</td>' +
 						'<td style="width:35%;">' +
-							activeTerm.displayName.getText(CURRENT_LANGUAGE) +
+							term.displayName.getText(CURRENT_LANGUAGE) +
 						'</td>' +
 						'<td>' +
 							'<button type="button" class="btn btn-default">' +
@@ -1194,7 +1162,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$row.find('button').click(function(event){
 					event.stopPropagation();
 
-					self.removeActiveTerm( activeTerm );
+					self.removeActiveTerm( term.termName );
 
 					$row.remove();
 
@@ -1202,7 +1170,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						sxeventData:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
-							term: activeTerm
+							deletedTerm: term
 						}
 					}
 
@@ -1219,7 +1187,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						sxeventData:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
-							term: activeTerm
+							selectedTerm: term
 						}
 					}
 
@@ -1272,11 +1240,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static STATUS_SCHEDULED = 7;
 		static STATUS_IN_TRASH = 8;
 
-		static $TERM_TYPE_FORM_CTRL = $('#' + NAMESPACE + 'termType');
-		static $TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
-		static $TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
-		static $TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
-
 		static validateTermVersion( updated, previous ){
 			let updatedParts = updated.split('.');
 			
@@ -1323,34 +1286,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( termType ){
 			this.termId = 0;
 			this.termType = termType;
-
-			this.$rendered = null;
-		}
-
-		isRendered(){
-			if( this.$rendered )	return true;
-			else					return false;
-		}
-
-		isHighlighted(){
-			if( !this.$rendered )	return false;
-			return this.$rendered.hasClass('highlight-border');
-		}
-
-		hasParent(){
-			if( this.parent )	return true;
-			else				return false;
 		}
 
 		isGroupTerm(){
 			return this.termType === TermTypes.GROUP;
 		}
 
-		emptyRender(){
-			if( this.$rendered ){
-				this.$rendered.remove();
-				this.$rendered = null;
+		isInTermSet( termName ){
+			if( !this.termSet || this.termSet.length === 0 ){
+				return false;
 			}
+
+			return this.termSet.includes( termName );
 		}
 
 		getLocalizedDisplayName(){
@@ -1457,7 +1404,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.mandatory )		json.mandatory = this.mandatory;
 			if( this.value || this.value === 0 )	json.value = this.value;
 			if( this.order || this.order === 0 )	json.order = this.order;
-			if( this.parent )	json.parent = this.parent;
 			
 			json.status = this.status;
 			json.state = this.state;
@@ -1482,7 +1428,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'active':
 					case 'order':
 					case 'state':
-					case 'parent':
 						self[key] = json[key];
 						break;
 					case 'displayName':
@@ -1715,7 +1660,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.synonyms = null;
 			this.mandatory = Term.DEFAULT_MANDATORY;
 			this.value = null;
-			this.parent = null;
 			this.valueMode = Term.DEFAULT_VALUE_MODE;
 			this.status = Term.STATUS_DRAFT;
 			this.state = Term.STATE_INIT;
@@ -1738,7 +1682,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setAllFormValues();
 		}
 		
-		removeActiveTerm( term ){
+		removeActiveTerm( termName ){
 			return null;
 		} 
 
@@ -1773,6 +1717,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		
 		parse( json ){
 			let unparsed = super.parse( json );
+
+			console.log( 'unparsed: ', unparsed );
 			let unvalid = new Object();
 			
 			let self = this;
@@ -1793,29 +1739,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
+			console.log( 'self: ', self );
+			console.log( 'unvalid: ', unvalid );
+			
 			return unvalid;
 		}
 		
 		/**
 		 * Render term UI for preview
 		 */
-		$render( forWhat ){
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-
-			this.$rendered = FormUIUtil.$getFormStringSection(
-				this,
+		$render( forWhat, highlight ){
+			return FormUIUtil.$getFormStringSection(
+				this.termName,
 				this.multipleLine ? 'textarea' : 'text',
 				this.getLocalizedDisplayName(),
 				this.getLocalizedPlaceHolder() ? this.getLocalizedPlaceHolder() : '',
 				this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
 				this.mandatory ? this.mandatory : false,
 				this.value ? this.value : '',
-				forWhat
+				forWhat,
+				highlight
 			);
-
-			return this.$rendered;
 		}
 
 		$render_Freemarker( renderInputUrl, forWhat ){
@@ -1989,17 +1933,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setAllFormValues();
 		}
 
-		removeActiveTerm( term ){
+		removeActiveTerm( termName ){
 			return null;
 		} 
 		
-		$render( forWhat ){
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-
-			this.$rendered = FormUIUtil.$getFormNumericSection( 
-										this,
+		$render( forWhat, highlight ){
+			return FormUIUtil.$getFormNumericSection( 
+										this.termName,
 										this.getLocalizedDisplayName(),
 										this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
 										this.mandatory ? this.mandatory : false,
@@ -2011,9 +1951,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										this.unit ? this.unit : '',
 										this.uncertainty ? this.uncertainty : false,
 										this.uncertaintyValue ? this.uncertaintyValue : '',
-										forWhat);
-			
-			return this.$rendered;
+										forWhat,
+										highlight);
+		}
+
+		$render_Freemarker( renderInputUrl, forWhat ){
+			let params = Liferay.Util.ns(NAMESPACE, {
+					controlType: 'numeric',
+					renderType: forWhat ? forWhat : false,
+					controlName: NAMESPACE+this.termName,
+					label: this.displayName.getText(CURRENT_LANGUAGE),
+					required: this.mandatory ? this.mandatory : false,
+					value: this.value ? this.value : '',
+					helpMessage: this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+					minValue: this.minValue ? this.minValue : '',
+					minBoundary: this.minBoundary ? this.minBoundary : false,
+					maxValue: this.maxValue ? this.maxValue : '',
+					maxBoundary: this.maxBoundary ? this.maxBoundary : false,
+					unit: this.unit?this.unit : '',
+					uncertainty: this.uncertainty ? this.uncertainty : false,
+					uncertaintyValue: this.uncertaintyValue ? this.uncertaintyValue : ''
+			});
+
+			return FormUIUtil.$getRenderedFormControl( renderInputUrl, params );
 		}
 
 		getMinValueFormValue ( save ){
@@ -2183,6 +2143,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unparsed = super.parse( json );
 			let invalid = new Object();
 
+			console.log( 'unparsed: ', json, unparsed );
 			let self = this;
 			Object.keys( unparsed ).forEach((key, index)=>{
 				switch( key ){
@@ -2199,6 +2160,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						invalid[key] = json[key];
 				}
 			});
+
+			console.log('Numeric Term: ', this);
 		}
 		
 		toJSON(){
@@ -2310,9 +2273,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.options.forEach((option)=>{
 				if( option.activeTerms ){
-					option.activeTerms.forEach((activeTerm)=>{
-						if( !this.dependentTerms.includes( activeTerm ) ){
-							this.dependentTerms.push(activeTerm);
+					option.activeTerms.forEach((termName)=>{
+						if( !this.dependentTerms.includes( termName ) ){
+							this.dependentTerms.push(termName);
 						}
 					});
 				}
@@ -2391,19 +2354,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return option.activeTerms;
 		}
 
-		setActiveTerms( terms ){
+		setActiveTerms( termNames ){
 			
 			if( !this.highlightedOption ){
 				return;
 			}
 
-			this.highlightedOption.activeTerms = terms;
+			this.highlightedOption.activeTerms = termNames;
 			this.updateDependentTerms();
 		}
 
-		removeActiveTerm( term ){
+		removeActiveTerm( termName ){
 			this.options.every((option)=>{
-				option.removeActiveTerm( term );
+				option.removeActiveTerm( termName );
 			});
 		} 
 
@@ -2463,28 +2426,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		$render( forWhat ){
+		$render( forWhat, highlight ){
 			this.updateDependentTerms();
 			
 			let options = new Array();
 			this.options.forEach((option)=>{
 				let rOption = {};
-				
+
 				rOption.label = option.labelMap[CURRENT_LANGUAGE];
 				rOption.value = option.value;
 				rOption.selected = option.selected;
 				rOption.activeTerms = option.activeTerms;
-				rOption.inactiveTerms = this.dependentTerms.filter((term)=>!option.activeTerms.includes(term));
-				
+				rOption.inactiveTerms = this.dependentTerms.filter((termName)=>!option.activeTerms.includes(termName));
+
 				options.push( rOption );
 			});
-			
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-			
-			this.$rendered = FormUIUtil.$getFormListSection(
-									this,
+
+			return FormUIUtil.$getFormListSection(
+									this.termName,
 									this.getLocalizedDisplayName(),
 									this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
 									this.mandatory ? this.mandatory : false,
@@ -2492,9 +2451,41 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									this.displayStyle,
 									this.options,
 									this.dependentTerms,
-									forWhat );
+									forWhat,
+									highlight );
+		}
+
+		$render_Freemarker( renderInputUrl, forWhat ){
+			this.updateDependentTerms();
 			
-			return this.$rendered;
+			let options = new Array();
+			this.options.forEach((option)=>{
+				let rOption = {};
+
+				rOption.label = option.labelMap[CURRENT_LANGUAGE];
+				rOption.value = option.value;
+				rOption.selected = option.selected;
+				rOption.activeTerms = option.activeTerms;
+				rOption.inactiveTerms = this.dependentTerms.filter((termName)=>!option.activeTerms.includes(termName));
+
+				options.push( rOption );
+			});
+
+			let params = Liferay.Util.ns(NAMESPACE, {
+					controlType: 'list',
+					renderType: (forWhat === SXConstants.FOR_PREVIEW) ? SXConstants.FOR_PREVIEW : SXConstants.FOR_EDITOR,
+					termName:this.termName,
+					controlName: NAMESPACE+this.termName,
+					label: this.displayName.getText(CURRENT_LANGUAGE),
+					required: this.mandatory ? this.mandatory : false,
+					value: this.value ? this.value : '',
+					helpMessage: this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+					displayStyle: this.displayStyle,
+					options: JSON.stringify( options ),
+					dependentTerms: this.dependentTerms ? JSON.stringify(this.dependentTerms) : ''
+			});
+
+			return FormUIUtil.$getRenderedFormControl( renderInputUrl, params );
 		}
 
 		initAllAttributes(){
@@ -2578,18 +2569,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return value;
 		}
-		setActiveTermsFormValue ( terms ){
-			let termNames = null;
-			
-			if( terms ){
-				termNames = terms.map(term=>term.termName);
-			}
-
+		setActiveTermsFormValue ( termNames ){
 			if( termNames ){
 				FormUIUtil.setFormCheckedArray( 'activeTerms', termNames );
 			}
 			else if( this.highlightedOption && this.highlightedOption.activeTerms ){
-				let activeTermNames = this.highlightedOption.activeTerms.map(activeTerm=>activeTerm.termName);
 				FormUIUtil.setFormCheckedArray( 'activeTerms', this.highlightedOption.activeTerms );
 			}
 			else{
@@ -2638,6 +2622,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						console.log('Unvalid term attribute: '+key, json[key]);
 				}
 			});
+
+			console.log('List Term: ', self);
 		}
 		
 		toJSON(){
@@ -2752,127 +2738,99 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( jsonObj ){
 				this.parse(jsonObj);
 			}
-
-			this.tempChildren = new Array();
-		}
-
-		$newGroupPanel(){
-			this.$groupPanel = $('<tbody id="' + this.getGroupPanelId() + '">');
-
-			return this.$groupPanel;
-		}
-
-		$getGroupPanel(){
-			if( this.$rendered ){
-				return this.$groupPanel;
-			}
 			else{
-				return this.$newGroupPanel();
+				this.termSet = new Array();
 			}
 		}
 
-		getGroupPanelId(){
-			return NAMESPACE + this.termName + '_GroupPanel';
+		getTermSet(){
+			return this.termSet();
 		}
 
-		devideTermsByParent( terms, parentName ){
-			let devided = new Object();
+		setTermSet( termSet ){
+			this.termSet = termSet;
+		}
 
-			devided.hits = new Array();
-			devided.others = new Array();
+		getTerm( termName ){
+			let searchedTerm = null;
 
-			if( Util.isEmptyArray(terms) ){
-				return devided;
-			}
-
-			terms.forEach(term=>{
-				if( term.parent === parentName ){
-					devided.hits.push( term );
+			this.termSet.every(term=>{
+				if( term.isGroupTerm() ){
+					searchedTerm = term.getTerm( term.termName );
+					if( searchedTerm ){
+						return SXConstants.STOP_EVERY;
+					}
 				}
-				else{
-					devided.others.push( term );
+				else if( termName === term.terName ){
+					searchedTerm = term;
+					return SXConstants.STOP_EVERY;
 				}
+
+				return SXConstants.CONTINUE_EVERY;
 			});
 
-			return devided;
+			return searchedTerm;
 		}
 
-		/**
-		 * 
-		 * 
-		 * @param {*} forWhat 
-		 * @param {*} highlight 
-		 * @param {*} children 
-		 * @param {*} others 
-		 * @returns 
-		 */
-		$render( children, others, forWhat, deep=true ){
-			let $panel = this.$newGroupPanel();
+		getGroupBodyId(){
+			return NAMESPACE + this.termName + '_GroupBody';
+		}
 
-			children.forEach(term=>{
-				let $row;
-				if( deep === true ){
-					if( term.isGroupTerm() && !Util.isEmptyArray(others) ){
-						let termSets = term.devideTermsByParent( others, term.termName );
-						$row = term.$render( termSets.hits, termSets.others, forWhat ); 
-					}
-					else{
-						$row = term.$render( forWhat );
+		removeTerm( termName ){
+			let removedTerm = null;
+
+			this.termSet = this.termSet.filter(term=>{
+				if( term.isGroupTerm() ){
+					removedTerm = term.removeTerm(termName);
+					if( removedTerm ){
+						return SXConstants.FILTER_SKIP;
 					}
 				}
 				else{
-					$row = term.$rendered;
+					if( term.termName === termName ){
+						removedTerm = term;
+						return SXConstants.FILTER_SKIP;
+					}
 				}
-				
-				let renderedCount = $panel.children('tr').length;
-				if( term.order === 1 ){
-					$panel.prepend( $row );
-				}
-				else if( term.order > renderedCount ){
-					$panel.append( $row );
-				}
-				else{
-					$panel.children('tr:nth-child('+term.order+')').before($row);
-				}
+
+				return SXConstants.FILTER_ADD;	
 			});
 
-			if( this.tempChildren ){
+			return removedTerm;
+		}
 
+		$render( forWhat, highlight ){
+			if( Util.isEmptyArray(this.termSet) ){
+				return null;
 			}
 
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-
-			let $table = $('<table class="table table-striped">').append($panel);
-
-			let $accordion = FormUIUtil.$getAccordionForGroup( 
-											this.displayName.getText(CURRENT_LANGUAGE),
-											$table);
+			let $tbody = $('<tbody id="' + this.getGroupBodyId() + '">');
+			let $groupTable = $('<table>').append( $tbody );
+			let $groupHead = $('<h3>').text(this.displayName.getText(CURRENT_LANGUAGE));
+			let $accordion = $('<div>').accordion({
+				collapsible: true
+			}).append($groupHead).append($groupTable);
 			
+			$tbody.append(this.termSet.map(term=>term.$render(forWhat, '')));
+
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				this.$rendered = FormUIUtil.$getPreviewRowSection(this, $accordion);
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				this.$rendered =  FormUIUtil.$getEditorRowSection(this, $accordion);
+				return FormUIUtil.$getPreviewRowSection(this.termName, $accordion).addClass(highlight);
 			}
 			else{
-				//Rendering for PDF here
+				return FormUIUtil.$getEditorRowSection(this.termName, $accordion);
 			}
-
-			return this.$rendered;
 		}
-
-		clearHighlightedChildren(){
-			this.$groupPanel.find('tr.highlight').removeClass('highlight');
-		}
-
 
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
-			if( !Util.isEmptyObject(unparsed) ){
-				console.log('Group Term has unparsed attributes: '+ this.termName, unparsed);
-			}
+			let unvalid = new Array();
+
+			let self = this;
+			Object.keys(unparsed).forEach( key => {
+				if( key === 'termSet'){
+					self.termSet = jsonObj.termSet.map( jsonTerm => TermTypes.CREATE_TERM( jsonTerm ) );
+				}
+			});
 		}
 
 		toJSON(){
@@ -2908,6 +2866,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		initAllAttributes(){
+			console.log('Init all attrs: ', this);
 			super.initAllAttributes('Boolean');
 			this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
 			this.options = new Array();
@@ -2925,9 +2884,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.options.forEach((option)=>{
 				if( option.activeTerms ){
-					option.activeTerms.forEach((activeTerm)=>{
-						if( !this.dependentTerms.includes( activeTerm ) ){
-							this.dependentTerms.push(activeTerm);
+					option.activeTerms.forEach((termName)=>{
+						if( !this.dependentTerms.includes( termName ) ){
+							this.dependentTerms.push(termName);
 						}
 					});
 				}
@@ -2942,7 +2901,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.options[BooleanTerm.OPTION_FOR_FALSE]
 		}
 
-		$render( forWhat ){
+		$render( forWhat, highlight ){
 			this.updateDependentTerms();
 			
 			let options = new Array();
@@ -2953,17 +2912,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				rOption.value = option.value;
 				rOption.selected = option.selected;
 				rOption.activeTerms = option.activeTerms;
-				rOption.inactiveTerms = this.dependentTerms.filter((term)=>!option.activeTerms.includes(term));
+				rOption.inactiveTerms = this.dependentTerms.filter((termName)=>!option.activeTerms.includes(termName));
 
 				options.push( rOption );
 			});
 
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-
-			this.$rendered = FormUIUtil.$getFormListSection(
-									this,
+			return FormUIUtil.$getFormListSection(
+									this.termName,
 									this.getLocalizedDisplayName(),
 									this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
 									this.mandatory ? this.mandatory : false,
@@ -2971,9 +2926,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									this.displayStyle,
 									this.options,
 									this.dependentTerms,
-									forWhat );
-
-			return this.$rendered;
+									forWhat,
+									highlight );
 		}
 
 
@@ -3345,241 +3299,63 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return copied;
 		}
 		
-		/**
-		 * Get Term instance indicated by term name of the data structure.
-		 * The returned Term instance could be a child of any Group or not.
-		 * 
-		 * @param {Term or Sting} termName 
-		 * @returns 
-		 * 		Term: Just argument object if termName is an object instance,
-		 *            null when termName is empty string or there is no matched term,
-		 *            otherwise searched term.
-		 */
 		getTerm( termName ){
-			if( typeof termName === 'object' ){
-				return termName;
-			}
-
-			if( Util.isEmptyString(termName) ){
+			if( !termName ){
 				return null;
 			}
 			
 			let searchedTerm = null;
-			this.terms.every( term => {
-				if( term.termName === termName ){
+			
+			this.terms.every( (term) => {
+				if( term.isGroupTerm() ){
+					searchedTerm = term.getTerm( term.termName );
+					if( searchedTerm ){
+						return SXConstants.STOP_EVERY;
+					}
+				}
+				else if( term.termName === termName ){
 					searchedTerm = term;
 					return SXConstants.STOP_EVERY;
 				}
-
+				
 				return SXConstants.CONTINUE_EVERY;
 			});
-
+			
 			return searchedTerm;
 		}
-
-		/**************************************************************
-		 * APIs related with GroupTerm
-		 **************************************************************/
+		
+		getSelectedTerm(){
+			return this.selectedTerm;
+		}
+		
+		setSelectedTerm( term ){
+			this.selectedTerm = term;
+			
+			if( term === null ){
+				DataStructure.$PREVIEW_PANEL.find('.highlight-border').removeClass('highlight-border');
+			}
+		}
 
 		/**
-		 *  Check the term is included in a Group.
-		 * 
-		 *  @param {Term, String} term
-		 * 		a instance of Term or term name
+		 *  Check a term is included in a Group.
 		 * */ 
-		isGroupChild( term ){
+		isInTermGroup( termName ){
 			if( !this.terms ){
 				return false;
 			}
 
-			let termObj = term;
-			if( typeof term === 'string' ){
-				termObj = this.getTerm( term );
-			}
+			let inSet = false;
+			this.terms.every((term)=>{
+				if( term.isInTermSet( termName ) ){
+					inSet = true;
 
-			if( Util.isEmptyString(termObj.parent) )
-				return false;
-			else
-				return true;
-		}
-
-		/**
-		 * 
-		 * @param {Term or string} term 
-		 * @returns 
-		 */
-		getParentGroup( term='' ){
-			if( !this.terms ){
-				return null;
-			}
-
-			term =  this.getTerm( term );
-
-			return Util.isEmptyString(term.parent) ? null : this.getTerm(term.parent);
-		}
-
-		/**
-		 * 
-		 * @param {Term or string} parentTerm 
-		 * @returns 
-		 */
-		getGroupChildren( parentTerm='' ){
-			let parentObj = this.getTerm( parentTerm );
-			let parentName = Util.isEmptyObject(parentObj) ? '' : parentObj.termName;
-
-			let terms = [];
-
-			if( !Util.isEmptyArray(this.terms) ){
-				terms = this.terms.filter( term => 
-					(Util.isEmptyString(parentName) && Util.isEmptyString(term.parent)) || 
-					(parentName === term.parent) );
-				
-				if( terms.length > 1 ){
-					terms.sort( (termA, termB)=>{
-						return termA.order - termB.order;
-					});
-				}
-			}
-
-			return terms;
-		}
-
-		/**
-		 * 
-		 * @param {Term or string} parent 
-		 * @param {integer} order 
-		 * @returns 
-		 */
-		getTermByOrder( parent, order ){
-			let searchedTerm = null;
-
-			console.log( 'in getTermByOrder: ', parent, order );
-			let children = this.getGroupChildren(parent);
-			console.log( 'children in getTermByOrder: ', children );
-
-			if( children.length === 0 ||
-				order <= 0 || 
-				order > this.terms.length ){
-				console.log( '[ERROR:getTermsByOrder] Range Violation: '+order);
-				return null;
-			}
-
-			children.every(child=>{
-				if( child.order === order ){
-					searchedTerm = child;
 					return SXConstants.STOP_EVERY;
 				}
 
 				return SXConstants.CONTINUE_EVERY;
 			});
 
-			return searchedTerm;
-		}
-
-		moveUpTerm( term ){
-			let termObj = this.getTerm( term );
-			if( termObj.order <= 1 ){
-				return;
-			}
-
-			let switchedTerm = this.getTermByOrder( termObj.parent, termObj.order-1 );
-			switchedTerm.order++;
-			termObj.order--;
-
-			let $panel = this.$getPreviewPanel( termObj.parent );
-
-			if( termObj.order === 1 ){
-				$panel.prepend(termObj.$rendered); 
-			}
-			else{
-				$panel.children( 'tr:nth-child('+termObj.order+')' ).before( termObj.$rendered );
-			}
-
-			console.log('After move up: ', this.getGroupChildren(term.parent) );
-		}
-
-		moveDownTerm( term ){
-			let termObj = this.getTerm( term );
-			let maxOrder = this.countGroupChildren( term.parent );
-			if( termObj.order >= maxOrder ){
-				return;
-			}
-
-			console.log('before getTermByOrder: ', termObj);
-			let switchedTerm = this.getTermByOrder( termObj.parent, termObj.order+1 );
-			switchedTerm.order--;
-			termObj.order++;
-
-			let $panel = this.$getPreviewPanel( termObj.parent );
-
-			if( switchedTerm.order === 1 ){
-				$panel.prepend(switchedTerm.$rendered); 
-			}
-			else{
-				$panel.children( 'tr:nth-child('+switchedTerm.order+')' ).before( switchedTerm.$rendered );
-			}
-		}
-
-		setGroupChildIncrementalOrder( term ){
-			let terms = this.getGroupChildren( term.parent );
-			term.order = terms.length + 1;
-		}
-
-		/**
-		 * 
-		 * @param {Term or string} groupName 
-		 * @returns 
-		 */
-		refreshGroupChildrenOrders( groupName='' ){
-			let groupObj = this.getTerm( groupName );
-
-			let terms = this.getGroupChildren( groupObj );
-
-			let self = this;
-			terms = terms.map( (term, index) => {
-				term.order = index+1;
-
-				if( term.isGroupTerm() ){
-					self.refreshGroupChildrenOrders( term );
-				}
-
-				return term;
-			});
-
-			return terms;
-		}
-
-		/**
-		 * Moves children of the oldGroup to newGroup.
-		 * As a result, oldGroup will have no child.
-		 * Notice that this function does not remove terms form
-		 * the data structure.
-		 * 
-		 * @param {GroupTerm} oldGroup 
-		 * @param {GroupTerm} newGroup 
-		 */
-		moveGroupChildren( oldGroup, newGroup ){
-			let oldGroupName = (typeof oldGroup === 'string') ? oldGroup : oldGroup.termName;
-			let newGroupObj = (typeof newGroup === 'object') ? newGroup : this.getTerm( newGroup );
-			
-			let $panel;
-			if( Util.isEmptyObject(newGroupObj) ){
-				$panel = DataStructure.$PREVIEW_PANEL;
-			}
-			else{
-				$panel = newGroupObj.$groupPanel;
-			}
-
-			let oldChildren = this.getGroupChildren( oldGroup );
-
-			oldChildren.forEach(child=>this.addGroupTerm(child, newGroupObj));
-
-			/*
-			let children = this.refreshGroupChildrenOrders( newGroupObj );
-			
-			$panel.empty();
-			children.forEach(child=>this.addGroupTerm(child, newGroupObj, false));
-			*/
+			return inSet;
 		}
 
 		/**
@@ -3590,24 +3366,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return null;
 			}
 
-			let self = this;
-
-			// Creates dialog content
 			let $groupTermsSelector = $('<div>');
 			this.terms.forEach((term, index)=>{
-				if( groupTerm === term || 
-					(!Util.isEmptyString(term.parent) && term.parent !== groupTerm.termName) ){
+				if( this.isInTermGroup( term ) ){
 					return;
 				}
 
-				let selected;
-				if( groupTerm.isRendered() ){
-					selected = ( groupTerm.termName === term.parent );
-				}
-				else{
-					selected = groupTerm.tempChildren.includes( term );
-				}
-
+				let selected = groupTerm.isInTermSet(term.termName);
 				$groupTermsSelector.append( FormUIUtil.$getCheckboxTag( 
 					NAMESPACE+'_term_'+(index+1),
 					NAMESPACE+'groupTermsSelector',
@@ -3617,6 +3382,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					false ) );
 			});
 
+			let self = this;
 			$groupTermsSelector.dialog({
 				title: 'Check Group Terms',
 				autoOpen: true,
@@ -3627,33 +3393,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						text: 'Confirm', 
 						click: function(){
 							let termNameSet = FormUIUtil.getFormCheckedArray('groupTermsSelector');
-							// there could be rendered children.
-							let oldChildren = self.getGroupChildren(groupTerm);
-							oldChildren = oldChildren.filter( child=>{
-								if( !termNameSet.includes(child.termName ) ){
-									self.addGroupTerm( child, self.getParentGroup(child.parent), false);
-									return SXConstants.FILTER_SKIP;
-								}
-
-								return SXConstants.FILTER_ADD;
-							});
-
-							termNameSet.forEach(termName=>{
-								let term = self.getTerm( termName );
-								if( oldChildren.includes(term) ){
-									return;
-								}
-
-								if( groupTerm.isRendered() ){
-									self.addGroupTerm( term, groupTerm, false );
-									//groupTerm.$groupPanel.append(term.$rendered);
-								}
-								else{
-									groupTerm.tempChildren.push( term );
-								}
-							});
-
-							self.refreshGroupChildrenOrders('');
+							if(!Util.isEmptyArray(termNameSet)){
+								groupTerm.setTermSet(termNameSet.map(termName=>self.getTerm(termName)));
+							}
 
 							$(this).dialog('destroy');
 						}
@@ -3668,42 +3410,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		/**
-		 * 
-		 * @param {Term or string} term 
-		 * @param {Term or string} newGroup 
-		 * @param {boolean} render 
-		 * @returns 
-		 */
-		addGroupTerm( term, newGroup=null, render=false ){
-			let termObj = this.getTerm(term);
-			let groupObj = this.getTerm( newGroup );
-			termObj.parent = Util.isEmptyObject(groupObj) ? '' : groupObj.termName;
-			this.setGroupChildIncrementalOrder( term );
-			
-			
-			let $rendered = termObj.$rendered;
-			if( render === true ){
-				$rendered = this.$renderTerm( term, SXConstants.FOR_PREVIEW );
-			}
-
-			this.$getPreviewPanel( groupObj ).append( $rendered );
-
-			return groupObj;
-		}
-
-		$getPreviewPanel( group ){
-			let groupObj = this.getTerm( group );
-
-			return Util.isEmptyObject(groupObj) ? 
-						DataStructure.$PREVIEW_PANEL : 
-						groupObj.$getGroupPanel();
-		}
-
-		/********************************************************
-		 *  APIs related with ListTerm
-		 ********************************************************/
-
 		chooseActiveTerms( targetTerm, targetOption ){
 			if( !this.terms || this.terms.length === 0 ){
 				return null;
@@ -3717,7 +3423,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					return;
 				}
 
-				let selected = targetOption.activeTerms ? targetOption.activeTerms.includes(term) : false;
+				let selected = targetOption.activeTerms ? targetOption.activeTerms.includes(term.termName) : false;
 				let disabled = false;
 
 				// Check the term is already specified as an active term from other options.
@@ -3725,7 +3431,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				targetTerm.options.every((option)=>{
 					if( option !== targetOption && 
 						option.activeTerms && 
-						option.activeTerms.includes( term ) ){
+						option.activeTerms.includes( term.termName ) ){
 						disabled = true;
 
 						return SXConstants.STOP_EVERY;
@@ -3743,7 +3449,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											disabled ) );
 			});
 
-			let self = this;
 			$activeTermsSelector.dialog({
 				title: 'Check Active Terms',
 				autoOpen: true,
@@ -3753,7 +3458,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					{
 						text: 'Confirm', 
 						click: function(){
-							targetOption.activeTerms = FormUIUtil.getFormCheckedArray('activeTermsSelector').map(termName=>self.getTerm);
+							targetOption.activeTerms = FormUIUtil.getFormCheckedArray('activeTermsSelector');
 							$(this).dialog('destroy');
 						}
 					},
@@ -3777,29 +3482,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  	term : Term instance to be added or inserted
 		 *  	preview: boolean - preview or not
 		 ********************************************************************/
-		addTerm( term, forWhat=SXConstants.FOR_NOTHING, validate=true ){
+		addTerm( term, forWhat, validate ){
 			if( validate && term.validate() === false ){
 				return false;
 			}
 			
-			if( !term.order || term.order < 1 ){
-				this.setIncrementalOrder( term );
-			}
 			this.terms.push( term );
 
-			if( forWhat !== SXConstants.FOR_NOTHING ){
-				this.renderTerm( term, forWhat );
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				this.renderTermPreview( term );
+				this.selectedTerm = term;
 			}
 
 			return true;
-		}
-
-		setIncrementalOrder( term ){
-			let topLevelTerms = this.getGroupChildren();
-
-			term.order = topLevelTerms.length + 1;
-
-			return term.order;
 		}
 
 		extractTerm( termName ){
@@ -3808,90 +3503,50 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms = this.terms.filter( function( term, index, ary ){
 				if( term.isGroupTerm() ){
 					extractedTerm = term.removeTerm(termName);
-					if( extractedTerm ){
-						return SXConstants.FILTER_SKIP;
-					}
 				}
 				else{
 					if( term.termName === termName ){
 						extractedTerm = term;
 						
-						return SXConstants.FILTER_SKIP;
+						return false;
 					}	
 				}
 				
-				return SXConstants.FILTER_ADD;
+				return true;
 			});
 
 			return extractedTerm;
 		}
 
-		/**
-		 * Delete a term from the data structure.
-		 * If deep is true and the term is a GroupTerm, 
-		 * all children of the term are also deleted.
-		 * If deep is false and the term is a GroupTerm,
-		 * all children of the term are moved to the upper group.
-		 * 
-		 * @param {Term or string} targetTerm 
-		 * @param {boolean} deep 
-		 */
-		deleteTerm( targetTerm, deep=false ){
-			let termObj = this.getTerm( targetTerm );
-			let parentObj = this.getTerm( termObj.parent );
-
-			this.terms = this.terms.filter(term=>(term.termName!==termObj.termName));
-			termObj.emptyRender();
-
-			if( termObj.isGroupTerm() && deep === false ){
-				this.moveGroupChildren( termObj, parentObj.parent );
-			}
-		}
-
-		/**
-		 * Remove term from the data structure when the term is not included
-		 * in a GroupTerm. If the term is included in a GroupTerm, the term is
-		 * removed from the Group and appened as a top level term or upper group.
-		 * @see DataStructure::deleteTerm
-		 * 
-		 * @param {Term or string} targetTerm 
-		 * @returns 
-		 */
-		removeTerm( targetTerm ){
-			let targetObj = this.getTerm( targetTerm );
-
+		removeTerm( termName ){
 			let self = this;
-			
-			let upperGroup = null;
+			let removedTerm;
 			this.terms = this.terms.filter( function( term, index, ary ){
-				if( term.termName === targetObj.termName ){
-					if( targetObj.hasParent() ){
-						let currentGroup = self.getParentGroup( term );
-						if( Util.isEmptyObject(currentGroup) ){
-						}
-						else{
-							upperGroup = self.getParentGroup( currentGroup );
-						}
-	
-						self.addGroupTerm( term, upperGroup, false );
-						return SXConstants.FILTER_ADD;
-					}
-					else{
-						self.deleteTerm( targetObj, false );
-						return SXConstants.FILTER_SKIP;
-					}
-					
+				if( term.termType === SXConstants.GROUP ){
+					removedTerm = term.removeTerm(termName);
 				}
-
-				return SXConstants.FILTER_ADD;
+				else{
+					if( term.termName === termName ){
+						if( self.selectedTerm === term ){
+							self.selectedTerm = null;
+						}
+						
+						self.removeActiveTerm( termName );
+						removedTerm = term;
+						
+						return false;
+					}	
+				}
+				
+				return true;
 			});
 
-			this.refreshGroupChildrenOrders( upperGroup );
+			return removedTerm;
 		}
 
-		removeActiveTerm( activeTerm ){
+		removeActiveTerm( termName ){
 			this.terms.every((term)=>{
-				term.removeActiveTerm( activeTerm );
+				term.removeActiveTerm( termName );
 			});
 		}
 		
@@ -3902,13 +3557,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( term.termName === termName ){
 					exist = true;
 					return SXConstants.STOP_EVERY;
-				}
-
-				if( term.isGroupTerm() ){
-					exist = term.isInTermSet( termName );
-					if( exist === true ){
-						return SXConstants.STOP_EVERY;
-					}
 				}
 				
 				return SXConstants.CONTINUE_EVERY;
@@ -3973,8 +3621,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let activeTerms = term.getOptionActiveTerms( optionValue );
 
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				term.dependentTerms.forEach((dependTerm)=>{
-					if( activeTerms.includes(dependTerm) ){
+				term.dependentTerms.forEach((termName)=>{
+					if( activeTerms.includes(termName) ){
 						$('tr.'+NAMESPACE+termName).removeClass('hide');
 					}
 					else{
@@ -3982,183 +3630,162 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				});
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				// render for editor
-			}
-			else{
-				// render for PDF
-			}
 		}
 
-		highlightTerm( term, exclusive=true ){
-			if( exclusive === true ){
-				this.clearHighlight();
-			}
-
-			if( term && term.$rendered ){
-				term.$rendered.addClass('highlight-border');
-
+		previewed( term ){
+			if( this.selectedTerm === term ){
 				return true;
 			}
-
-			return false;
+			
+			return this.exist( term.termName );
 		}
 
-		clearHighlight(){
-			this.terms.forEach(term=>{
-				if( term.$rendered ){
-					term.$rendered.removeClass('highlight-border');
-				}
+		highlightTermPreview( termName ){
+			let term = this.getTerm( termName );
+			let $panel = DataStructure.$PREVIEW_PANEL;
+			
+			$panel.find('.highlight-border').each( function(){
+				$(this).removeClass('highlight-border');
 			});
+
+
+
 		}
-
-		devideTermsByParent( parentTermName ){
-			let devided = new Object();
-			devided.hits = new Array();
-			devided.others = new Array();
-
-			this.terms.forEach(term=>{
-				if( term.parent === parentTermName ){
-					devided.hits.push( term );
-				}
-				else{
-					devided.others.push( term );
-				}
+		
+		renderTermPreview( term, order ){
+			let isGroupTrem = (term.termType === TermTypes.GROUP);
+			// Change the previous highlighted border to normal 
+			let $panel = DataStructure.$PREVIEW_PANEL;
+			
+			$panel.find('.highlight-border').each( function(){
+				$(this).removeClass('highlight-border');
 			});
+			
+			let $row = term.$render(SXConstants.FOR_PREVIEW, 'highlight-border' );
+			if( !$row ){
+				return;
+			}
 
-			return devided;
+			if( order >= 0 ){
+				this.replacePreviewRow( order, $row );
+			}
+			else{
+				$panel.append( $row );
+			}
 		}
 
 		/**
-		 * Render term and attach a panel. If the term is a top level
-		 * it is appended on the data structure's preview panel, otherwise,
-		 * it is appended to it's parent group's panel.
-		 * 
-		 * This function rerenders even if the previous rendered image already exist.
+		 * @depricated
 		 * 
 		 * @param {Term} term 
-		 * @param {int} forWhat 
+		 * @param {*} order 
 		 */
-		renderTerm( term, forWhat ){
-			let $panel;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				if( term.hasParent() ){
-					let group = this.getTerm(term.parent);
-					$panel = group.$groupPanel;
+		renderTermPreview_Freemarker( term, order ){
+			
+			// Change the previous highlighted border to normal 
+			let $panel = DataStructure.$PREVIEW_PANEL;
+			
+			$panel.find('.highlight-border').each( function(){
+				$(this).removeClass('highlight-border');
+			});
+			
+			let self = this;
+			$.when(term.$render( DataStructure.FORM_RENDER_URL, SXConstants.FOR_PREVIEW )).done(function( $row ){
+				$row.addClass('highlight-border');
+				$row.click( function( event ){
+					if( $(event.target).is('button') || $(event.target).is('i') ){
+						let idToBeRemoved = NAMESPACE+'toBeRemoved';
+						
+						$(event.currentTarget).attr('id', idToBeRemoved);
+						$panel.find('#'+idToBeRemoved).remove();
+						
+						const eventData = {
+								sxeventData:{
+									sourcePortlet: NAMESPACE,
+									targetPortlet: NAMESPACE,
+									deletedTerm: term
+								}
+						};
+						
+						Liferay.fire (SXIcecapEvents.DATATYPE_PREVIEW_TERM_DELETED, eventData );
+					}
+					else{
+						// Change the previous highlighted border to normal 
+						$panel.find('.highlight-border').each( function(){
+							$(this).removeClass('highlight-border');
+						});
+						
+						const eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								selectedTerm: term
+							}
+						};
+						
+						Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+					}
+	
+					$(this).addClass('highlight-border');
+				});
+				
+				if( order >= 0 ){
+					self.replacePreviewRow( order, $row );
 				}
 				else{
-					$panel = DataStructure.$PREVIEW_PANEL;
+					$panel.append( $row );
 				}
-				
-				this.clearHighlight();
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				// for editor
-			}
-			else{
-				// for PDF
-			}
-
-			let $row = this.$renderTerm( term, forWhat );
-
-			let rowCount = this.countPreviewRows( $panel );
-
-			if( term.order > rowCount ){
-				$panel.append( $row );
-			}
-			else if( term.order === 1 ){
-				$panel.prepend( $row );
-			}
-			else{
-				$panel.children('tr:nth-child('+term.order+')').before($row);
-			}
-
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				this.highlightTerm( term );
-			}
-		}
-
-		countPreviewRows( $panel ){
-			return $panel.children('tr').length;
-		}
-
-		countGroupChildren( group='' ){
-			return this.getGroupChildren( group ).length;
+			});
 		}
 
 		$renderTermEditor(){
 			return null;
 		}
 		
-		/**
-		 * Render all of terms in the term list 
-		 * no matter what those terms alredy have render images
-		 * 
-		 * @param { Integer } forWhat
-		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
-		 */
+		replacePreviewRow( order, $row ){
+			let rowIndex = order + 1;
+			let $panel = DataStructure.$PREVIEW_PANEL;
+
+			this.removePreviewRow( rowIndex );
+			
+			if( $panel.children( ':nth-child('+rowIndex+')' ).length === 0 ){
+				$panel.append($row);
+			}
+			else{
+				$panel.children( ':nth-child('+rowIndex+')' ).before( $row );
+			}
+		}
+		
+		removePreviewRow( order ){
+			DataStructure.$PREVIEW_PANEL.children( ':nth-child('+order+')' ).remove();
+		}
+		
 		render( forWhat ){
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				DataStructure.$PREVIEW_PANEL.empty();
 
-				let self = this;
-				//render top level
-				let topLevelTerms = this.getGroupChildren();
-				topLevelTerms.forEach((term)=>{
-					self.renderTerm(term, forWhat);
+				this.terms.forEach((term)=>{
+					this.renderTermPreview( term );
 				});
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-			}
 			else{
-				// for PDF
-			}
-		}
-
-		insertPreviewRow( $row, index, $panel=DataStructure.$PREVIEW_PANEL ){
-			if( $panel.children( ':nth-child('+index+')' ).length === 0 ){
-				$panel.append($row);
-			}
-			else{
-				$panel.children( ':nth-child('+index+')' ).before( $row );
-			}
-		}
-
-		$renderTerm( term, forWhat=SXConstants.FOR_PREVIEW ){
-			if( term.isGroupTerm() ){
-				let termSets = this.devideTermsByParent( term.termName );
-
-				return term.$render( termSets.hits, termSets.others, forWhat );
-			}
-			else{
-				return term.$render(forWhat);
+				this.terms.forEach((term)=>{
+					this.renderTermEditor( term );
+				});
 			}
 		}
 		
-		/**
-		 * Refresh term's render image on the preview panel.
-		 * 
-		 * @param {Term or string} targetTerm 
-		 */
-		refreshTerm( targetTerm, forWhat=SXConstants.FOR_PREVIEW, deep=true ){
-			let targetObj = targetTerm;
-			if( typeof targetTerm === 'string' ){
-				targetObj = this.getTerm( targetTerm );
-			}
-
-			if( Util.isEmptyObject(targetObj) || !targetObj.$rendered ){
-				return null;
-			}
-			
-			let $panel = DataStructure.$PREVIEW_PANEL;
-			if( targetObj.hasParent() ){
-				let parent = this.getParentGroup(targetObj)
-				$panel = parent.$groupPanel;
-			}
-
-			targetObj.$rendered.remove();
-
-			this.renderTerm( targetObj, forWhat );
+		refreshSelectedTermPreview(){
+			// Find index of the term on the preview
+			this.terms.every((term, index, err)=>{
+				if( term === this.selectedTerm ){
+					this.renderTermPreview( term, index);
+					return SXConstants.STOP_EVERY;
+				}
+				else{
+					return SXConstants.CONTINUE_EVERY;
+				}
+			});
 		}
 		
 		addTestSet( forWhat ){
@@ -4203,8 +3830,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						minLength: 1,
 						maxLength: 1024,
 						multipleLine: true,
-						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
-						order: 1
+						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$'
 					},
 					
 					{
@@ -4262,8 +3888,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								value:'item04',
 								activeTerms:[]
 							}
-						],
-						order: 3
+						]
 					},
 					{
 						termType: TermTypes.BOOLEAN,
@@ -4303,8 +3928,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								value:false,
 								activeTerms:[]
 							}
-						],
-						order: 4
+						]
 					},
 					{
 						termType: TermTypes.GROUP,
@@ -4325,88 +3949,75 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						mandatory: true,
 						synonyms: 'grpParam',
 						state: Term.STATE_ACTIVE,
-						order: 2
-					},
-					{
-						termType: TermTypes.STRING,
-						termName: 'testString_01',
-						termVersion: '1.0.0',
-						displayName: {
-							'en_US': 'String Term 01',
-							'ko_KR': '문자열 용어 01'
-						},
-						definition:{
-							'en_US': 'String Term 01 Definition',
-							'ko_KR': '문자열 용어 01 정의'
-						},
-						tooltip:{
-							'en_US': 'String Term 01 Tooltip',
-							'ko_KR': '문자열 용어 01 도움말'
-						},
-						mandatory: true,
-						placeHolder:{
-							'en_US': 'Enter test sting',
-							'ko_KR': '시험 분자열입력'
-						},
-						synonyms: 'testStr01',
-						value: '',
-						parent: 'groupTerm_01',
-						state: Term.STATE_ACTIVE,
-						minLength: 1,
-						maxLength: 72,
-						multipleLine: false,
-						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
-						order: 2
-					},
-					{
-						termType: TermTypes.NUMERIC,
-						termName: 'numericTerm_01',
-						termVersion: '1.0.0',
-						displayName: {
-							'en_US': 'Test Numeric Term 01',
-							'ko_KR': '뉴머릭 용어 01'
-						},
-						definition:{
-							'en_US': 'Test Numeric Term Definition',
-							'ko_KR': '뉴머릭 용어 정의'
-						},
-						tooltip:{
-							'en_US': 'Test Numeric Term Tooltip',
-							'ko_KR': '뉴머릭 용어 도움말'
-						},
-						mandatory: true,
-						synonyms: 'multiString',
-						value: '',
-						parent: 'groupTerm_01',
-						state: Term.STATE_ACTIVE,
-						minValue: 1,
-						minBoundary: true,
-						maxValue: 20,
-						maxBoundary: true,
-						unit: 'mm',
-						uncertainty: true,
-						sweepable: true,
-						order: 1
+						termSet: [
+							{
+								termType: TermTypes.STRING,
+								termName: 'testString_01',
+								termVersion: '1.0.0',
+								displayName: {
+									'en_US': 'String Term 01',
+									'ko_KR': '문자열 용어 01'
+								},
+								definition:{
+									'en_US': 'String Term 01 Definition',
+									'ko_KR': '문자열 용어 01 정의'
+								},
+								tooltip:{
+									'en_US': 'String Term 01 Tooltip',
+									'ko_KR': '문자열 용어 01 도움말'
+								},
+								mandatory: true,
+								placeHolder:{
+									'en_US': 'Enter test sting',
+									'ko_KR': '시험 분자열입력'
+								},
+								synonyms: 'testStr01',
+								value: '',
+								state: Term.STATE_ACTIVE,
+								minLength: 1,
+								maxLength: 72,
+								multipleLine: false,
+								validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$'
+							},
+							{
+								termType: TermTypes.NUMERIC,
+								termName: 'numericTerm_01',
+								termVersion: '1.0.0',
+								displayName: {
+									'en_US': 'Test Numeric Term 01',
+									'ko_KR': '뉴머릭 용어 01'
+								},
+								definition:{
+									'en_US': 'Test Numeric Term Definition',
+									'ko_KR': '뉴머릭 용어 정의'
+								},
+								tooltip:{
+									'en_US': 'Test Numeric Term Tooltip',
+									'ko_KR': '뉴머릭 용어 도움말'
+								},
+								mandatory: true,
+								synonyms: 'multiString',
+								value: '',
+								state: Term.STATE_ACTIVE,
+								minValue: 1,
+								minBoundary: true,
+								maxValue: 20,
+								maxBoundary: true,
+								unit: 'mm',
+								uncertainty: true,
+								sweepable: true
+							}
+						]
 					}
+					
 				]
 			};
 
 			this.parse( dataStructure );
 			this.render( SXConstants.FOR_PREVIEW );
 
-			//console.log( 'this.terms.length: '+this.terms.length);
-			let firstTerm = this.terms[0];
-			// this.replaceVisibleTypeSpecificSection( lastTerm.termType );
-
-			const eventData = {
-				sxeventData:{
-					sourcePortlet: NAMESPACE,
-					targetPortlet: NAMESPACE,
-					term: firstTerm
-				}
-			};
-			
-			Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+			let lastTerm = this.terms[this.terms.length - 1];
+			this.replaceVisibleTypeSpecificSection( lastTerm.termType );
 		}
 		
 	}

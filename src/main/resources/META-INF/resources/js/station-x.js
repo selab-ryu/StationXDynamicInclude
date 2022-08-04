@@ -10,14 +10,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return !ary || ary.length === 0;
 		},
 		isEmptyObject: function(obj){
-			if( obj===null )	return true;
+			if( !obj )	return true;
 			let keys = Object.keys(obj);
 			if( keys.length === 0 )	return true;
 
 			let self = this;
 			let empty = true;
 			keys.every(key=>{
-				if( obj[key] === 'undefined' || obj[key] === null ){
+				if( !obj[key] ){
 					empty = true;
 				}
 				else if( typeof obj[key] === 'object' ){
@@ -33,6 +33,49 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		isEmptyString: function(str){
 			return !str || str === '';
+		},
+		isNotNull: function(obj){
+			return obj !== null;
+		},
+		isNull: function(obj){
+			return obj === null;
+		},
+		isObject: function(obj){
+			return typeof obj === 'object';
+		},
+		deepEqualObject: function( obj1, obj2){
+			let result = true;
+
+			if( obj1 === obj2 ){
+				return true;
+			}
+			else if( (Util.isNotNull(obj1) && Util.isNull(obj2)) ||
+					 (Util.isNull(obj1) && Util.isNotNull(obj2)) ){
+				return false;
+			}
+
+			const keys1 = Object.keys(obj1);
+			const keys2 = Object.keys(obj2);
+
+			if( keys1.length !== keys2.length ){
+				return false;
+			}
+
+			keys1.every(key=>{
+				const val1 = obj1[key];
+				const val2 = obj2[key];
+				const areObjects = Util.isObject(val1) && Util.isObject(val2);
+
+				if( (areObjects && !Util.deepEqualObject(val1, val2)) ||
+					(!areObjects && val1 !== val2) ){
+					result = false;
+					return SXConstants.STOP_EVERY;
+				}
+
+				return SXConstants.CONTINUE_EVERY;
+			});
+
+			return result;
 		}
 	};
 	
@@ -225,6 +268,51 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 VALUE_DELIMITER : 'valueDelimiter',
 		 VERSION : 'version'
 	};
+
+	class TermId{
+		constructor( name, version ){
+			this.name = name ? name : '';
+			this.version = version ? version : '';
+		}
+		
+		isEmpty(){
+			if( Util.isEmptyString(this.name) ){
+				return true;
+			}
+
+			return false;
+		}
+
+		isNotEmpty(){
+			if( !(Util.isEmptyString(this.name) || Util.isEmptyString(this.version)) ){
+				return true;
+			}
+
+			return false;
+		}
+
+		sameWith( anotherId ) {
+			if( anotherId.isEmpty() && this.isEmpty() ){
+				return true;
+			}
+			else if( anotherId.isEmpty() && this.isNotEmpty() ){
+				return false;
+			}
+			else if( anotherId.name === this.name && anotherId.version === this.version ){
+				return true;
+			}
+			else{
+				return false;
+			}
+		}
+
+		toJSON(){
+			return {
+				name: this.name,
+				version: this.version
+			};
+		}
+	}
 	
 	class LocalizationUtil {
 		constructor(){}
@@ -600,7 +688,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				event.stopPropagation();
 				
 				let msg = 'Remove from group or delete from the data structure?';
-				if( Util.isEmptyString(term.parent) ){
+				if( term.isMemberOfGroup() ){
 					msg = 'Are you sure to delete the term from the data structure?';
 					if( term.isGroupTerm() ){
 						msg += 'Child terms are move up to upper group or top level.'
@@ -642,7 +730,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					]
 				};
 
-				if( term.parent ){
+				if( term.isMemberOfGroup() ){
 					dialogProperty.buttons.unshift({
 						text: 'Remove',
 						click: function(){
@@ -1099,7 +1187,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.labelMap = optionLabelMap;
 			this.activeTerms = activeTerms;
 			this.selected = selected;
-			this.editing = false;
+			this.$rendered = null;
 		}
 
 		getLabelMap(){
@@ -1120,53 +1208,58 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		$renderPreview(){
-			let html = '<tr>' +
-							'<td class="option-label" style="width:50%;">' + this.labelMap[CURRENT_LANGUAGE] + '</td>' +
-							'<td class="option-value" style="width:30%;">' + this.value + '</td>' +
-							'<td class="option-selected" style="width:10%;">';
-			if( this.selected ){
-				html += '&#10004;';
+		$renderPreview(rerender=true){
+			if( rerender === false && this.$rendered ){
+				return this.$rendered;
 			}
-			html += '</td>';
-			html += '<td>' +
-						'<button type="button" class="btn btn-default">' +
-							'<i class="icon-remove" />' +
-						'</button>' +
-					'</td> </tr>';
-			
-			let $row = $( html );
-			
-			let self = this;
-			$row.find('button').click(function(event){
-				event.stopPropagation();
+			else{
+				let html = '<tr>' +
+				'<td class="option-label" style="width:50%;">' + this.labelMap[CURRENT_LANGUAGE] + '</td>' +
+				'<td class="option-value" style="width:30%;">' + this.value + '</td>' +
+				'<td class="option-selected" style="width:10%;">';
+				if( this.selected ){
+					html += '&#10004;';
+				}
+				html += '</td>';
+				html += '<td>' +
+				'<button type="button" class="btn btn-default">' +
+				'<i class="icon-remove" />' +
+				'</button>' +
+				'</td> </tr>';
+				
+				let $row = $( html );
+				
+				let self = this;
+				$row.find('button').click(function(event){
+					event.stopPropagation();
+					
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							option: self
+						}
+					};
+					
+					Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_REMOVED, eventData );
+				});
+				
+				$row.click(function(event){
+					event.stopPropagation();
+					
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							option: self
+						}
+					};
+					
+					Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_SELECTED, eventData );
+				});
 
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						option: self
-					}
-				};
-
-				Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_REMOVED, eventData );
-			});
-
-			$row.click(function(event){
-				event.stopPropagation();
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						option: self
-					}
-				};
-
-				Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_SELECTED, eventData );
-			});
-
-			return $row;
+				return $row;
+			}
 		}
 
 		renderActiveTermsPreview( $previewPanel ){
@@ -1327,9 +1420,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$rendered = null;
 		}
 
+		getId(){
+			return new TermId(this.termName,this.termVersion);
+		}
+
 		isRendered(){
 			if( this.$rendered )	return true;
 			else					return false;
+		}
+
+		getPrimaryKey( termName='', termVersion='' ){
+			if( !(Util.isEmptyString(termName) || Util.isEmptyString(termVersion)) ){
+				return {
+					name: this.termName,
+					version: this.termVersion
+				};
+			}
+			else{
+				return {
+					name: termName,
+					version: termVersion
+				};
+			}
 		}
 
 		isHighlighted(){
@@ -1337,9 +1449,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered.hasClass('highlight-border');
 		}
 
-		hasParent(){
-			if( this.parent )	return true;
-			else				return false;
+		isMemberOfGroup(){
+			return this.groupId && this.groupId.isNotEmpty();
 		}
 
 		isGroupTerm(){
@@ -1351,6 +1462,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 				this.$rendered = null;
 			}
+		}
+
+		equal( term ){
+			if( this === term ){
+				return true;
+			}
+
+			if( this.termName === term.termName && this.termVersion === this.termVersion ){
+				return true;
+			}
+
+			return false;
 		}
 
 		getLocalizedDisplayName(){
@@ -1429,14 +1552,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		validate(){
 			let result = this.validateMandatoryFields();
 			if( result !== true ){
-				alert( result + ' should be not empty.' );
+				$.alert( result + ' should be not empty.' );
 				$('#'+NAMESPACE+result).focus();
 				
 				return false;
 			}
 			
 			if( this.validateNameExpression() === false ){
-				alert( 'Invalid term name. Please try another one.' );
+				$.alert( 'Invalid term name. Please try another one.' );
 				$('#'+NAMESPACE+result).focus();
 				return false;
 			}
@@ -1457,7 +1580,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.mandatory )		json.mandatory = this.mandatory;
 			if( this.value || this.value === 0 )	json.value = this.value;
 			if( this.order || this.order === 0 )	json.order = this.order;
-			if( this.parent )	json.parent = this.parent;
+			if( this.isMemberOfGroup() )	json.groupId = this.groupId.toJSON();
 			
 			json.status = this.status;
 			json.state = this.state;
@@ -1482,8 +1605,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'active':
 					case 'order':
 					case 'state':
-					case 'parent':
 						self[key] = json[key];
+						break;
+					case 'groupId':
+						self[key] = new TermId(json[key].name, json[key].version);
 						break;
 					case 'displayName':
 					case 'definition':
@@ -1495,6 +1620,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						unparsed[key] = json[key];
 				}
 			});
+
+			this.initAllAttributes();
 			
 			return unparsed;
 		}
@@ -1707,18 +1834,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		initAllAttributes(){
-			this.termName = '';
-			this.termVersion = Term.DEFAULT_TERM_VERSION;
-			this.displayName = null;
-			this.definition = null;
-			this.tooltip = null;
-			this.synonyms = null;
-			this.mandatory = Term.DEFAULT_MANDATORY;
-			this.value = null;
-			this.parent = null;
-			this.valueMode = Term.DEFAULT_VALUE_MODE;
-			this.status = Term.STATUS_DRAFT;
-			this.state = Term.STATE_INIT;
+			if( !this.termName ) 	this.termName = '';
+			if( !this.termVersion ) this.termVersion = Term.DEFAULT_TERM_VERSION;
+			if( !this.displayName ) this.displayName = null;
+			if( !this.definition ) 	this.definition = null;
+			if( !this.tooltip ) 	this.tooltip = null;
+			if( !this.synonyms ) 	this.synonyms = null;
+			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
+			if( !this.value ) 		this.value = null;
+			if( !this.isMemberOfGroup() ) 		this.groupId = new TermId();
+			if( !this.valueMode )	this.valueMode = Term.DEFAULT_VALUE_MODE;
+			if( !this.status )		this.status = Term.STATUS_DRAFT;
+			if( !this.state )		this.state = Term.STATE_INIT;
 		}
 		
 	} // End of Term
@@ -1967,11 +2094,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		initAllAttributes(){
 			super.initAllAttributes( 'String' ); 
-			this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
-			this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
-			this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
-			this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
-			this.placeHolder = null;
+			if( !this.minLength )	this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
+			if( !this.maxLength )	this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
+			if( !this.multipleLine ) this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
+			if( !this.validationRule ) this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
+			if( !this.placeHolder ) this.placeHolder = '';
 		}
 		
 		validation(){
@@ -2170,13 +2297,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		initAllAttributes(){
 			super.initAllAttributes( 'Numeric' );
 
-			this.minValue = null;
-			this.minBoundary = false;
-			this.maxValue = null;
-			this.maxBoundary = false;
-			this.unit = null;
-			this.uncertainty = false;
-			this.sweepable = false;
+			if( !this.minValue )	this.minValue = null;
+			if( !this.minBoundary )	this.minBoundary = false;
+			if( !this.maxValue )	this.maxValue = null;
+			if( !this.maxBoundary )	this.maxBoundary = false;
+			if( !this.unit )		this.unit = null;
+			if( !this.uncertainty )	this.uncertainty = false;
+			if( !this.sweepable )	this.sweepable = false;
 		}
 		
 		parse( json ){
@@ -2500,9 +2627,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		initAllAttributes(){
 			super.initAllAttributes( 'List' );
 
-			this.options = new Array();
-			this.displayStyle = 'select';
-			this.dependentTerms = new Array();
+			if( !this.options )			this.options = new Array();
+			if( !this.displayStyle )	this.displayStyle = 'select';
+			if( !this.dependentTerms )	this.dependentTerms = new Array();
 
 			ListTerm.$OPTION_TABLE.empty();
 			ListTerm.$OPTION_ACTIVE_TERMS.empty();
@@ -2599,6 +2726,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setAllFormValues(){
 			super.setAllFormValues();
+			this.renderOptions();
 			this.initOptionFormValues();
 		}
 
@@ -2753,7 +2881,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.parse(jsonObj);
 			}
 
-			this.tempChildren = new Array();
+			this.tempMembers = new Array();
 		}
 
 		$newGroupPanel(){
@@ -2763,7 +2891,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$getGroupPanel(){
-			if( this.$rendered ){
+			if( this.isRendered() ){
 				return this.$groupPanel;
 			}
 			else{
@@ -2772,10 +2900,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		getGroupPanelId(){
-			return NAMESPACE + this.termName + '_GroupPanel';
+			return NAMESPACE + this.termName+ '_'+ this.termVersion + '_GroupPanel';
 		}
 
-		devideTermsByParent( terms, parentName ){
+		/**
+		 * 
+		 * @param {Array} terms 
+		 * @param {TermId} groupId 
+		 * @returns 
+		 */
+		devideTermsByGroup( terms, groupId ){
 			let devided = new Object();
 
 			devided.hits = new Array();
@@ -2786,7 +2920,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			terms.forEach(term=>{
-				if( term.parent === parentName ){
+				if( groupId.sameWith(term.groupId) ){
 					devided.hits.push( term );
 				}
 				else{
@@ -2806,14 +2940,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {*} others 
 		 * @returns 
 		 */
-		$render( children, others, forWhat, deep=true ){
+		$render( members, others, forWhat, deep=true ){
 			let $panel = this.$newGroupPanel();
 
-			children.forEach(term=>{
+			members.forEach(term=>{
 				let $row;
 				if( deep === true ){
 					if( term.isGroupTerm() && !Util.isEmptyArray(others) ){
-						let termSets = term.devideTermsByParent( others, term.termName );
+						let termSets = term.devideTermsByGroup( others, term.getId() );
 						$row = term.$render( termSets.hits, termSets.others, forWhat ); 
 					}
 					else{
@@ -2836,7 +2970,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
-			if( this.tempChildren ){
+			if( this.tempMembers ){
 
 			}
 
@@ -2876,7 +3010,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toJSON(){
-
+			return super.toJSON();
 		}
 	}
 
@@ -2909,15 +3043,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		initAllAttributes(){
 			super.initAllAttributes('Boolean');
-			this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
-			this.options = new Array();
 
-			// for true
-			this.options.push( new ListOption( {'en_US':'Yes'}, true, true, [] ) );
-
-			// for false
-			this.options.push( new ListOption( {'en_US':'No'}, false, false, [] ) );
-			this.dependentTerms = null;
+			if( !this.displayStyle )	this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
+			if( !this.options ){
+				this.options = new Array();
+				// for true
+				this.options.push( new ListOption( {'en_US':'Yes'}, true, true, [] ) );
+	
+				// for false
+				this.options.push( new ListOption( {'en_US':'No'}, false, false, [] ) );
+				this.dependentTerms = null;
+			}
 		}
 
 		updateDependentTerms(){
@@ -3108,8 +3244,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.parse( jsonObj );
 			}
 			else{
-				this.dataTypeId = 0;
-
 				this.termDelimiter= DataStructure.DEFAULT_TERM_DELIMITER;
 				this.termDelimiterPosition = DataStructure.DEFAULT_TERM_DELIMITER_POSITION;
 				this.termValueDelimiter = DataStructure.DEFAULT_TERM_VALUE_DELIMITER;
@@ -3349,24 +3483,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * Get Term instance indicated by term name of the data structure.
 		 * The returned Term instance could be a child of any Group or not.
 		 * 
-		 * @param {Term or Sting} termName 
+		 * @param {TermId} termId 
 		 * @returns 
 		 * 		Term: Just argument object if termName is an object instance,
 		 *            null when termName is empty string or there is no matched term,
 		 *            otherwise searched term.
 		 */
-		getTerm( termName ){
-			if( typeof termName === 'object' ){
-				return termName;
-			}
-
-			if( Util.isEmptyString(termName) ){
+		getTerm( termId ){
+			if( termId.isEmpty() ){
 				return null;
 			}
 			
 			let searchedTerm = null;
 			this.terms.every( term => {
-				if( term.termName === termName ){
+				if( termId.sameWith( term.getId() ) ){
 					searchedTerm = term;
 					return SXConstants.STOP_EVERY;
 				}
@@ -3377,85 +3507,82 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchedTerm;
 		}
 
+		getTermByName( termName ){
+			let terms = this.terms.filter(term=>term.termName!==termName);
+			return terms;
+		}
+
 		/**************************************************************
 		 * APIs related with GroupTerm
 		 **************************************************************/
 
 		/**
-		 *  Check the term is included in a Group.
+		 * Gets group term object if term is a member of a group. 
+		 * Otherwise returns null object.
 		 * 
-		 *  @param {Term, String} term
-		 * 		a instance of Term or term name
-		 * */ 
-		isGroupChild( term ){
-			if( !this.terms ){
-				return false;
-			}
-
-			let termObj = term;
-			if( typeof term === 'string' ){
-				termObj = this.getTerm( term );
-			}
-
-			if( Util.isEmptyString(termObj.parent) )
-				return false;
-			else
-				return true;
-		}
-
-		/**
-		 * 
-		 * @param {Term or string} term 
+		 * @param {Term} term 
 		 * @returns 
 		 */
-		getParentGroup( term='' ){
+		getGroupTerm( term ){
 			if( !this.terms ){
 				return null;
 			}
 
-			term =  this.getTerm( term );
-
-			return Util.isEmptyString(term.parent) ? null : this.getTerm(term.parent);
+			let groupId = term.groupId;
+			return groupId.isEmpty() ? 
+						null : 
+						this.getTerm(groupId);
 		}
 
+		getTopLevelGroupId(){
+			return new TermId();
+		}
+		
 		/**
+		 * Gets terms which are members of a group.
 		 * 
-		 * @param {Term or string} parentTerm 
+		 * @param {TermId} groupId 
 		 * @returns 
 		 */
-		getGroupChildren( parentTerm='' ){
-			let parentObj = this.getTerm( parentTerm );
-			let parentName = Util.isEmptyObject(parentObj) ? '' : parentObj.termName;
-
-			let terms = [];
-
-			if( !Util.isEmptyArray(this.terms) ){
-				terms = this.terms.filter( term => 
-					(Util.isEmptyString(parentName) && Util.isEmptyString(term.parent)) || 
-					(parentName === term.parent) );
-				
-				if( terms.length > 1 ){
-					terms.sort( (termA, termB)=>{
-						return termA.order - termB.order;
-					});
-				}
+		getGroupMembers( groupId ){
+			if( Util.isEmptyArray(this.terms) ){
+				return [];
 			}
 
-			return terms;
+			let members = this.terms.filter( term => {
+				if( groupId.isEmpty() && !term.isMemberOfGroup() ){
+					return SXConstants.FILTER_ADD;
+				}
+				else if( term.isMemberOfGroup() && 
+						 groupId.isNotEmpty() &&
+						 groupId.sameWith(term.groupId) ){
+					return SXConstants.FILTER_ADD;
+				}
+				else{
+					return SXConstants.FILTER_SKIP;
+				};
+			});
+
+			if( members.length > 1 ){
+				members.sort( (termA, termB)=>{
+					return termA.order - termB.order;
+				});
+			}
+
+			return members;
 		}
 
 		/**
+		 * Get term by order
 		 * 
-		 * @param {Term or string} parent 
+		 * @param {TermId} groupId
 		 * @param {integer} order 
 		 * @returns 
 		 */
-		getTermByOrder( parent, order ){
+		getTermByOrder( groupId, order ){
 			let searchedTerm = null;
 
-			console.log( 'in getTermByOrder: ', parent, order );
-			let children = this.getGroupChildren(parent);
-			console.log( 'children in getTermByOrder: ', children );
+			let children = this.getGroupMembers(groupId);
 
 			if( children.length === 0 ||
 				order <= 0 || 
@@ -3477,40 +3604,35 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		moveUpTerm( term ){
-			let termObj = this.getTerm( term );
-			if( termObj.order <= 1 ){
+			if( term.order <= 1 ){
 				return;
 			}
 
-			let switchedTerm = this.getTermByOrder( termObj.parent, termObj.order-1 );
+			let switchedTerm = this.getTermByOrder( term.groupId, term.order-1 );
 			switchedTerm.order++;
-			termObj.order--;
+			term.order--;
 
-			let $panel = this.$getPreviewPanel( termObj.parent );
+			let $panel = this.$getPreviewPanel( term.groupId );
 
-			if( termObj.order === 1 ){
-				$panel.prepend(termObj.$rendered); 
+			if( term.order === 1 ){
+				$panel.prepend(term.$rendered); 
 			}
 			else{
-				$panel.children( 'tr:nth-child('+termObj.order+')' ).before( termObj.$rendered );
+				$panel.children( 'tr:nth-child('+term.order+')' ).before( term.$rendered );
 			}
-
-			console.log('After move up: ', this.getGroupChildren(term.parent) );
 		}
 
 		moveDownTerm( term ){
-			let termObj = this.getTerm( term );
-			let maxOrder = this.countGroupChildren( term.parent );
-			if( termObj.order >= maxOrder ){
+			let maxOrder = this.countGroupMembers( term.groupId );
+			if( term.order >= maxOrder ){
 				return;
 			}
 
-			console.log('before getTermByOrder: ', termObj);
-			let switchedTerm = this.getTermByOrder( termObj.parent, termObj.order+1 );
+			let switchedTerm = this.getTermByOrder( term.groupId, term.order+1 );
 			switchedTerm.order--;
-			termObj.order++;
+			term.order++;
 
-			let $panel = this.$getPreviewPanel( termObj.parent );
+			let $panel = this.$getPreviewPanel( term.groupId );
 
 			if( switchedTerm.order === 1 ){
 				$panel.prepend(switchedTerm.$rendered); 
@@ -3520,9 +3642,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		setGroupChildIncrementalOrder( term ){
-			let terms = this.getGroupChildren( term.parent );
-			term.order = terms.length + 1;
+		setGroupIncrementalOrder( term ){
+			let terms = this.getGroupMembers( term.groupId );
+			term.order = terms.length;
 		}
 
 		/**
@@ -3530,17 +3652,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {Term or string} groupName 
 		 * @returns 
 		 */
-		refreshGroupChildrenOrders( groupName='' ){
-			let groupObj = this.getTerm( groupName );
-
-			let terms = this.getGroupChildren( groupObj );
+		refreshGroupMemberOrders( groupId ){
+			let terms = this.getGroupMembers( groupId );
 
 			let self = this;
 			terms = terms.map( (term, index) => {
 				term.order = index+1;
 
 				if( term.isGroupTerm() ){
-					self.refreshGroupChildrenOrders( term );
+					self.refreshGroupMemberOrders( term.getId() );
 				}
 
 				return term;
@@ -3555,31 +3675,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * Notice that this function does not remove terms form
 		 * the data structure.
 		 * 
-		 * @param {GroupTerm} oldGroup 
-		 * @param {GroupTerm} newGroup 
+		 * @param {TermId} oldGroupId 
+		 * @param {TermId} newGroupId 
 		 */
-		moveGroupChildren( oldGroup, newGroup ){
-			let oldGroupName = (typeof oldGroup === 'string') ? oldGroup : oldGroup.termName;
-			let newGroupObj = (typeof newGroup === 'object') ? newGroup : this.getTerm( newGroup );
-			
+		moveGroupMembers( oldGroupId, newGroupId ){
 			let $panel;
-			if( Util.isEmptyObject(newGroupObj) ){
+			if( newGroupId.isEmpty() ){
 				$panel = DataStructure.$PREVIEW_PANEL;
 			}
 			else{
-				$panel = newGroupObj.$groupPanel;
+				$panel = this.getTerm( newGroupId ).$groupPanel;
 			}
 
-			let oldChildren = this.getGroupChildren( oldGroup );
+			let oldMembers = this.getGroupMembers( oldGroupId );
 
-			oldChildren.forEach(child=>this.addGroupTerm(child, newGroupObj));
-
-			/*
-			let children = this.refreshGroupChildrenOrders( newGroupObj );
-			
-			$panel.empty();
-			children.forEach(child=>this.addGroupTerm(child, newGroupObj, false));
-			*/
+			oldMembers.forEach(member=>this.addGroupMember(member, newGroupObj));
 		}
 
 		/**
@@ -3596,16 +3706,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $groupTermsSelector = $('<div>');
 			this.terms.forEach((term, index)=>{
 				if( groupTerm === term || 
-					(!Util.isEmptyString(term.parent) && term.parent !== groupTerm.termName) ){
+					term.isMemberOfGroup() && 
+					!term.groupId.sameWith(groupTerm.getId()) ){
 					return;
 				}
 
 				let selected;
 				if( groupTerm.isRendered() ){
-					selected = ( groupTerm.termName === term.parent );
+					selected = term.groupId.sameWith( groupTerm.getId() );
 				}
 				else{
-					selected = groupTerm.tempChildren.includes( term );
+					selected = groupTerm.tempMembers.includes( term );
 				}
 
 				$groupTermsSelector.append( FormUIUtil.$getCheckboxTag( 
@@ -3628,10 +3739,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						click: function(){
 							let termNameSet = FormUIUtil.getFormCheckedArray('groupTermsSelector');
 							// there could be rendered children.
-							let oldChildren = self.getGroupChildren(groupTerm);
-							oldChildren = oldChildren.filter( child=>{
-								if( !termNameSet.includes(child.termName ) ){
-									self.addGroupTerm( child, self.getParentGroup(child.parent), false);
+							let oldMembers = self.getGroupMembers(groupTerm.getId());
+							oldMembers = oldMembers.filter( member=>{
+								if( !termNameSet.includes(member.termName) ){
+									self.addGroupMember( member, groupTerm.groupId, false);
 									return SXConstants.FILTER_SKIP;
 								}
 
@@ -3639,21 +3750,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							});
 
 							termNameSet.forEach(termName=>{
-								let term = self.getTerm( termName );
-								if( oldChildren.includes(term) ){
+								let term = self.getTermByName( termName );
+								if( oldMembers.includes(term) ){
 									return;
 								}
 
 								if( groupTerm.isRendered() ){
-									self.addGroupTerm( term, groupTerm, false );
+									self.addGroupMember( term, groupTerm.getId(), false );
 									//groupTerm.$groupPanel.append(term.$rendered);
 								}
 								else{
-									groupTerm.tempChildren.push( term );
+									groupTerm.tempMembers.push( term );
 								}
 							});
 
-							self.refreshGroupChildrenOrders('');
+							self.refreshGroupMemberOrders( self.getTopLevelGroupId() );
 
 							$(this).dialog('destroy');
 						}
@@ -3670,34 +3781,37 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		/**
 		 * 
-		 * @param {Term or string} term 
-		 * @param {Term or string} newGroup 
+		 * @param {Term} term 
+		 * @param {Term} newGroup 
 		 * @param {boolean} render 
 		 * @returns 
 		 */
-		addGroupTerm( term, newGroup=null, render=false ){
-			let termObj = this.getTerm(term);
-			let groupObj = this.getTerm( newGroup );
-			termObj.parent = Util.isEmptyObject(groupObj) ? '' : groupObj.termName;
-			this.setGroupChildIncrementalOrder( term );
+		addGroupMember( term, newGroupId, render=false ){
+			term.groupId = newGroupId
+
+			this.setGroupIncrementalOrder( term );
 			
 			
-			let $rendered = termObj.$rendered;
+			let $rendered = term.$rendered;
 			if( render === true ){
 				$rendered = this.$renderTerm( term, SXConstants.FOR_PREVIEW );
 			}
 
-			this.$getPreviewPanel( groupObj ).append( $rendered );
+			this.$getPreviewPanel( newGroupId ).append( $rendered );
 
-			return groupObj;
+			return term;
 		}
 
-		$getPreviewPanel( group ){
-			let groupObj = this.getTerm( group );
+		$getPreviewPanel( groupId ){
+			let groupTerm = null;
 
-			return Util.isEmptyObject(groupObj) ? 
+			if( groupId.isNotEmpty() ){
+				groupTerm = this.getTerm( groupId );
+			}
+
+			return groupTerm === null ? 
 						DataStructure.$PREVIEW_PANEL : 
-						groupObj.$getGroupPanel();
+						groupTerm.$getGroupPanel();
 		}
 
 		/********************************************************
@@ -3795,35 +3909,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setIncrementalOrder( term ){
-			let topLevelTerms = this.getGroupChildren();
+			let topLevelTerms = this.getGroupMembers( this.getTopLevelGroupId() );
 
 			term.order = topLevelTerms.length + 1;
 
 			return term.order;
-		}
-
-		extractTerm( termName ){
-			let extractedTerm = null;
-
-			this.terms = this.terms.filter( function( term, index, ary ){
-				if( term.isGroupTerm() ){
-					extractedTerm = term.removeTerm(termName);
-					if( extractedTerm ){
-						return SXConstants.FILTER_SKIP;
-					}
-				}
-				else{
-					if( term.termName === termName ){
-						extractedTerm = term;
-						
-						return SXConstants.FILTER_SKIP;
-					}	
-				}
-				
-				return SXConstants.FILTER_ADD;
-			});
-
-			return extractedTerm;
 		}
 
 		/**
@@ -3833,19 +3923,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * If deep is false and the term is a GroupTerm,
 		 * all children of the term are moved to the upper group.
 		 * 
-		 * @param {Term or string} targetTerm 
+		 * @param {Term} targetTerm 
 		 * @param {boolean} deep 
 		 */
 		deleteTerm( targetTerm, deep=false ){
-			let termObj = this.getTerm( targetTerm );
-			let parentObj = this.getTerm( termObj.parent );
+			let targetId = targetTerm.getId();
 
-			this.terms = this.terms.filter(term=>(term.termName!==termObj.termName));
-			termObj.emptyRender();
-
-			if( termObj.isGroupTerm() && deep === false ){
-				this.moveGroupChildren( termObj, parentObj.parent );
+			this.terms = this.terms.filter( term=>term.getId().sameWith(targetId) );
+			targetTerm.emptyRender();
+			
+			//Take care of children if targetTerm is a group
+			if( targetTerm.isGroupTerm() && deep === false ){
+				let groupId = this.getTopLevelGroupId();
+				if( targetTerm.isMemberOfGroup() ){
+					groupId = targetTerm.groupId;
+				}
+				this.moveGroupMembers( targetId, groupId );
 			}
+			else if( targetTerm.isGroupTerm() && deep === true ){
+				let members = this.getGroupMembers(targetId);
+				members.forEach(member=>this.deleteTerm(member, true));
+			}
+		}
+
+		deleteTermById( termId, deep ){
+			let targetTerm = this.getTerm(termId);
+			this.deleteTerm(targetTerm, deep);
 		}
 
 		/**
@@ -3854,30 +3957,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * removed from the Group and appened as a top level term or upper group.
 		 * @see DataStructure::deleteTerm
 		 * 
-		 * @param {Term or string} targetTerm 
+		 * @param {Term} targetTerm 
 		 * @returns 
 		 */
 		removeTerm( targetTerm ){
-			let targetObj = this.getTerm( targetTerm );
-
 			let self = this;
 			
-			let upperGroup = null;
+			let superGroupId = this.getTopLevelGroupId();
 			this.terms = this.terms.filter( function( term, index, ary ){
-				if( term.termName === targetObj.termName ){
-					if( targetObj.hasParent() ){
-						let currentGroup = self.getParentGroup( term );
-						if( Util.isEmptyObject(currentGroup) ){
-						}
-						else{
-							upperGroup = self.getParentGroup( currentGroup );
-						}
+				if( term.termName === targetTerm.termName && term.termVersion === targetTerm.termVersion ){
+					if( targetTerm.isMemberOfGroup() ){
+						let currentGroup = self.getTerm(targetTerm.groupId);
+						superGroupId = currentGroup.groupId;
 	
-						self.addGroupTerm( term, upperGroup, false );
+						self.addGroupMember( term, superGroupId, false );
 						return SXConstants.FILTER_ADD;
 					}
-					else{
-						self.deleteTerm( targetObj, false );
+					else{ // It means targetTerm is a top level member.
+						self.deleteTerm( targetTerm, false );
 						return SXConstants.FILTER_SKIP;
 					}
 					
@@ -3886,7 +3983,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return SXConstants.FILTER_ADD;
 			});
 
-			this.refreshGroupChildrenOrders( upperGroup );
+			this.refreshGroupMemberOrders( superGroupId );
 		}
 
 		removeActiveTerm( activeTerm ){
@@ -3926,7 +4023,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			Object.keys(jsonObj).forEach(key=>{
 				switch(key){
-					case 'dataTypeId':
 					case 'termDelimiter':
 					case 'termDelimiterPosition':
 					case 'termValueDelimiter':
@@ -3950,7 +4046,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		
 		toJSON(){
 			return{
-				dataTypeId : this.dataTypeId,
 				termDelimiter : this.termDelimiter,
 				termValueDelimiter : this.termValueDelimiter,
 				termDelimiterPosition : this.termDelimiterPosition,
@@ -3967,8 +4062,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * APIs for Preview panel
 		 ********************************************************************/
 
-		activateDependentTerms( termName, optionValue, forWhat ){
-			let term = this.getTerm( termName );
+		activateDependentTerms( termId, optionValue, forWhat ){
+			let term = this.getTerm( termId );
 
 			let activeTerms = term.getOptionActiveTerms( optionValue );
 
@@ -4012,13 +4107,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		devideTermsByParent( parentTermName ){
+		devideTermsByGroup( groupId ){
 			let devided = new Object();
 			devided.hits = new Array();
 			devided.others = new Array();
 
 			this.terms.forEach(term=>{
-				if( term.parent === parentTermName ){
+				if( groupId.sameWith(term.groupId) ){
 					devided.hits.push( term );
 				}
 				else{
@@ -4030,9 +4125,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		/**
-		 * Render term and attach a panel. If the term is a top level
-		 * it is appended on the data structure's preview panel, otherwise,
-		 * it is appended to it's parent group's panel.
+		 * Render term and attach a panel. If the term is a top level member
+		 * it is appended to the data structure's preview panel, otherwise,
+		 * it is appended to it's group's panel.
 		 * 
 		 * This function rerenders even if the previous rendered image already exist.
 		 * 
@@ -4042,8 +4137,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		renderTerm( term, forWhat ){
 			let $panel;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				if( term.hasParent() ){
-					let group = this.getTerm(term.parent);
+				if( term.isMemberOfGroup() ){
+					let group = this.getTerm(term.groupId);
 					$panel = group.$groupPanel;
 				}
 				else{
@@ -4082,8 +4177,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $panel.children('tr').length;
 		}
 
-		countGroupChildren( group='' ){
-			return this.getGroupChildren( group ).length;
+		countGroupMembers( group=null ){
+			return this.getGroupMembers( group ).length;
 		}
 
 		$renderTermEditor(){
@@ -4103,7 +4198,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				let self = this;
 				//render top level
-				let topLevelTerms = this.getGroupChildren();
+				let topLevelTerms = this.getGroupMembers( this.getTopLevelGroupId() );
 				topLevelTerms.forEach((term)=>{
 					self.renderTerm(term, forWhat);
 				});
@@ -4126,7 +4221,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$renderTerm( term, forWhat=SXConstants.FOR_PREVIEW ){
 			if( term.isGroupTerm() ){
-				let termSets = this.devideTermsByParent( term.termName );
+				let termSets = this.devideTermsByGroup( term.getId() );
 
 				return term.$render( termSets.hits, termSets.others, forWhat );
 			}
@@ -4138,27 +4233,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * Refresh term's render image on the preview panel.
 		 * 
-		 * @param {Term or string} targetTerm 
+		 * @param {Term} targetTerm 
 		 */
 		refreshTerm( targetTerm, forWhat=SXConstants.FOR_PREVIEW, deep=true ){
-			let targetObj = targetTerm;
-			if( typeof targetTerm === 'string' ){
-				targetObj = this.getTerm( targetTerm );
-			}
-
-			if( Util.isEmptyObject(targetObj) || !targetObj.$rendered ){
+			if( !targetTerm.isRendered() ){
 				return null;
 			}
 			
 			let $panel = DataStructure.$PREVIEW_PANEL;
-			if( targetObj.hasParent() ){
-				let parent = this.getParentGroup(targetObj)
-				$panel = parent.$groupPanel;
+			if( targetTerm.isMemberOfGroup() ){
+				let group = this.getTerm(targetTerm.groupId);
+				$panel = group.$groupPanel;
 			}
 
-			targetObj.$rendered.remove();
+			targetTerm.$rendered.remove();
 
-			this.renderTerm( targetObj, forWhat );
+			this.renderTerm( targetTerm, forWhat );
 		}
 		
 		addTestSet( forWhat ){
@@ -4204,74 +4294,61 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						maxLength: 1024,
 						multipleLine: true,
 						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
-						order: 1
-					},
-					
-					{
-						termType: TermTypes.LIST,
-						termName: 'listTerm_01',
-						termVersion: '1.0.0',
-						displayName: {
-							'en_US': 'Test List Term 01',
-							'ko_KR': ' 리스트 용어 01'
-						},
-						definition:{
-							'en_US': 'Test List Term Definition',
-							'ko_KR': '리스트 용어 정의'
-						},
-						tooltip:{
-							'en_US': 'Test List Term Tooltip',
-							'ko_KR': '리스트 용어 도움말'
-						},
-						mandatory: true,
-						synonyms: 'listParam',
-						state: Term.STATE_ACTIVE,
-						value: '',
-						displayStyle: 'select',
-						options:[
-							{
-								labelMap:{
-									'en_US': 'List Term Item 01',
-									'ko_KR': '리스트 용어 항목 01'
-								},
-								value:'item01',
-								activeTerms:[]
-							},
-							{
-								labelMap:{
-									'en_US': 'List Term Item 02',
-									'ko_KR': '리스트 용어 항목 02'
-								},
-								value:'item02',
-								activeTerms:[]
-							},
-							{
-								labelMap:{
-									'en_US': 'List Term Item 03',
-									'ko_KR': '리스트 용어 항목 03'
-								},
-								value:'item03',
-								activeTerms:[]
-							},
-							,
-							{
-								labelMap:{
-									'en_US': 'List Term Item 04',
-									'ko_KR': '리스트 용어 항목 04'
-								},
-								value:'item04',
-								activeTerms:[]
-							}
-						],
 						order: 3
 					},
 					{
-						termType: TermTypes.BOOLEAN,
-						termName: 'booleanTerm_01',
+						termType: TermTypes.GROUP,
+						termName: 'groupTerm_04',
 						termVersion: '1.0.0',
 						displayName: {
-							'en_US': 'Test Boolean Term 01',
-							'ko_KR': '불리언 용어 01'
+							'en_US': 'Eligibility screening',
+							'ko_KR': '그룹 용어 01'
+						},
+						definition:{
+							'en_US': 'Test Group Term Definition',
+							'ko_KR': '그룹 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Group Term Tooltip',
+							'ko_KR': '그룹 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'grpParam',
+						state: Term.STATE_ACTIVE,
+						order: 1
+					},
+					{
+						termType: TermTypes.GROUP,
+						termName: 'groupTerm_01',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '선정 기준(Inclusion Criteria)',
+							'ko_KR': '그룹 용어 01'
+						},
+						definition:{
+							'en_US': 'Test Group Term Definition',
+							'ko_KR': '그룹 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Group Term Tooltip',
+							'ko_KR': '그룹 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'grpParam',
+						groupId:{
+							'name':'groupTerm_04',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						order: 1
+					},
+					{
+						termType: TermTypes.BOOLEAN,
+						termName: 'adultcheck',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '19세 이상 성인',
+							'ko_KR': '19세 이상 성인'
 						},
 						definition:{
 							'en_US': 'Test Boolean Term Definition',
@@ -4283,35 +4360,291 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_01',
+							'version':'1.0.0'
+						},
 						state: Term.STATE_ACTIVE,
 						value: '',
-						displayStyle: 'select',
+						displayStyle: 'radio',
 						options:[
 							{
 								labelMap:{
-									'en_US': 'Boolean Term True Item 01',
-									'ko_KR': '뷸라언 용어 트루 항목 01'
+									'en_US': '네',
+									'ko_KR': '네'
 								},
 								value:true,
 								activeTerms:[]
 							},
 							{
 								labelMap:{
-									'en_US': 'Boolean Term False Item 02',
-									'ko_KR': '뷸라언 용어 폴스 항목 02'
+									'en_US': '아니오',
+									'ko_KR': '아니오'
 								},
 								value:false,
 								activeTerms:[]
 							}
 						],
-						order: 4
+						order: 1
 					},
 					{
-						termType: TermTypes.GROUP,
-						termName: 'groupTerm_01',
+						termType: TermTypes.BOOLEAN,
+						termName: 'diseasecheck',
 						termVersion: '1.0.0',
 						displayName: {
-							'en_US': 'Test Group Term 01',
+							'en_US': 'Cerebrovascular disease 진단 여부',
+							'ko_KR': 'Cerebrovascular disease 진단 여부'
+						},
+						definition:{
+							'en_US': 'Test Boolean Term Definition',
+							'ko_KR': '불리언 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Boolean Term Tooltip',
+							'ko_KR': '불리언 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_01',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						value: '',
+						displayStyle: 'radio',
+						options:[
+							{
+								labelMap:{
+									'en_US': '네',
+									'ko_KR': '네'
+								},
+								value:true,
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '아니오',
+									'ko_KR': '아니오'
+								},
+								value:false,
+								activeTerms:[]
+							}
+						],
+						order: 2
+					},
+					{
+						termType: TermTypes.BOOLEAN,
+						termName: 'diseasefamilycheck',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': 'Cerebrovascular disease 가족력 여부',
+							'ko_KR': 'Cerebrovascular disease 가족력 여부'
+						},
+						definition:{
+							'en_US': 'Test Boolean Term Definition',
+							'ko_KR': '불리언 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Boolean Term Tooltip',
+							'ko_KR': '불리언 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_01',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						value: '',
+						displayStyle: 'radio',
+						options:[
+							{
+								labelMap:{
+									'en_US': '네',
+									'ko_KR': '네'
+								},
+								value:true,
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '아니오',
+									'ko_KR': '아니오'
+								},
+								value:false,
+								activeTerms:[]
+							}
+						],
+						order: 3
+					},
+					
+					{
+						termType: TermTypes.GROUP,
+						termName: 'groupTerm_02',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '제외 기준(Exclusion Criteria)',
+							'ko_KR': '그룹 용어 01'
+						},
+						definition:{
+							'en_US': 'Test Group Term Definition',
+							'ko_KR': '그룹 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Group Term Tooltip',
+							'ko_KR': '그룹 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'grpParam',
+						groupId:{
+							'name':'groupTerm_04',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						order: 2
+					},
+					{
+						termType: TermTypes.BOOLEAN,
+						termName: 'physicdisease',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '정신질환의 병력',
+							'ko_KR': '정신질환의 병력'
+						},
+						definition:{
+							'en_US': 'Test Boolean Term Definition',
+							'ko_KR': '불리언 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Boolean Term Tooltip',
+							'ko_KR': '불리언 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_02',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						value: '',
+						displayStyle: 'radio',
+						options:[
+							{
+								labelMap:{
+									'en_US': '네',
+									'ko_KR': '네'
+								},
+								value:true,
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '아니오',
+									'ko_KR': '아니오'
+								},
+								value:false,
+								activeTerms:[]
+							}
+						],
+						order: 1
+					},
+					{
+						termType: TermTypes.BOOLEAN,
+						termName: 'headstroke',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '두부 외상의 병력',
+							'ko_KR': '두부 외상의 병력'
+						},
+						definition:{
+							'en_US': 'Test Boolean Term Definition',
+							'ko_KR': '불리언 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Boolean Term Tooltip',
+							'ko_KR': '불리언 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_02',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						value: '',
+						displayStyle: 'radio',
+						options:[
+							{
+								labelMap:{
+									'en_US': '네',
+									'ko_KR': '네'
+								},
+								value:true,
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '아니오',
+									'ko_KR': '아니오'
+								},
+								value:false,
+								activeTerms:[]
+							}
+						],
+						order: 2
+					},
+					{
+						termType: TermTypes.BOOLEAN,
+						termName: 'cancerdisesase',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '암의 병력',
+							'ko_KR': '암의 병력'
+						},
+						definition:{
+							'en_US': 'Test Boolean Term Definition',
+							'ko_KR': '불리언 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Boolean Term Tooltip',
+							'ko_KR': '불리언 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_02',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						value: '',
+						displayStyle: 'radio',
+						options:[
+							{
+								labelMap:{
+									'en_US': '네',
+									'ko_KR': '네'
+								},
+								value:true,
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '아니오',
+									'ko_KR': '아니오'
+								},
+								value:false,
+								activeTerms:[]
+							}
+						],
+						order: 3
+					},
+
+					{
+						termType: TermTypes.GROUP,
+						termName: 'groupTerm_03',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '1. 일반인구학적 특성',
 							'ko_KR': '그룹 용어 01'
 						},
 						definition:{
@@ -4328,12 +4661,57 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						order: 2
 					},
 					{
-						termType: TermTypes.STRING,
-						termName: 'testString_01',
+						termType: TermTypes.BOOLEAN,
+						termName: 'sex',
 						termVersion: '1.0.0',
 						displayName: {
-							'en_US': 'String Term 01',
-							'ko_KR': '문자열 용어 01'
+							'en_US': '성별',
+							'ko_KR': '성별'
+						},
+						definition:{
+							'en_US': 'Test Boolean Term Definition',
+							'ko_KR': '불리언 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test Boolean Term Tooltip',
+							'ko_KR': '불리언 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'boolParam',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						value: '',
+						displayStyle: 'radio',
+						options:[
+							{
+								labelMap:{
+									'en_US': '남성',
+									'ko_KR': '남성'
+								},
+								value:true,
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '여성',
+									'ko_KR': '여성'
+								},
+								value:false,
+								activeTerms:[]
+							}
+						],
+						order: 1
+					},
+					{
+						termType: TermTypes.STRING,
+						termName: 'birth',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '생년월일',
+							'ko_KR': '생년월일'
 						},
 						definition:{
 							'en_US': 'String Term 01 Definition',
@@ -4346,11 +4724,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						mandatory: true,
 						placeHolder:{
 							'en_US': 'Enter test sting',
-							'ko_KR': '시험 분자열입력'
+							'ko_KR': '출생년도/달월/날일'
 						},
 						synonyms: 'testStr01',
 						value: '',
-						parent: 'groupTerm_01',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
 						state: Term.STATE_ACTIVE,
 						minLength: 1,
 						maxLength: 72,
@@ -4359,44 +4740,413 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						order: 2
 					},
 					{
-						termType: TermTypes.NUMERIC,
-						termName: 'numericTerm_01',
+						termType: TermTypes.STRING,
+						termName: 'weight',
 						termVersion: '1.0.0',
 						displayName: {
-							'en_US': 'Test Numeric Term 01',
-							'ko_KR': '뉴머릭 용어 01'
+							'en_US': '체중',
+							'ko_KR': '체중'
 						},
 						definition:{
-							'en_US': 'Test Numeric Term Definition',
-							'ko_KR': '뉴머릭 용어 정의'
+							'en_US': 'String Term 01 Definition',
+							'ko_KR': '문자열 용어 01 정의'
 						},
 						tooltip:{
-							'en_US': 'Test Numeric Term Tooltip',
-							'ko_KR': '뉴머릭 용어 도움말'
+							'en_US': 'String Term 01 Tooltip',
+							'ko_KR': '문자열 용어 01 도움말'
 						},
 						mandatory: true,
-						synonyms: 'multiString',
+						placeHolder:{
+							'en_US': 'Enter test sting',
+							'ko_KR': '출생년도/달월/날일'
+						},
+						synonyms: 'testStr01',
 						value: '',
-						parent: 'groupTerm_01',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
 						state: Term.STATE_ACTIVE,
-						minValue: 1,
-						minBoundary: true,
-						maxValue: 20,
-						maxBoundary: true,
-						unit: 'mm',
-						uncertainty: true,
-						sweepable: true,
-						order: 1
-					}
+						minLength: 1,
+						maxLength: 72,
+						multipleLine: false,
+						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
+						order: 3
+					},
+					{
+						termType: TermTypes.STRING,
+						termName: 'height',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '신장',
+							'ko_KR': '신장'
+						},
+						definition:{
+							'en_US': 'String Term 01 Definition',
+							'ko_KR': '문자열 용어 01 정의'
+						},
+						tooltip:{
+							'en_US': 'String Term 01 Tooltip',
+							'ko_KR': '문자열 용어 01 도움말'
+						},
+						mandatory: true,
+						placeHolder:{
+							'en_US': 'Enter test sting',
+							'ko_KR': '신장'
+						},
+						synonyms: 'testStr01',
+						value: '',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						state: Term.STATE_ACTIVE,
+						minLength: 1,
+						maxLength: 72,
+						multipleLine: false,
+						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
+						order: 4
+					},
+					{
+						termType: TermTypes.LIST,
+						termName: 'listTerm_01',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '흡연 여부',
+							'ko_KR': ' 리스트 용어 01'
+						},
+						definition:{
+							'en_US': 'Test List Term Definition',
+							'ko_KR': '리스트 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test List Term Tooltip',
+							'ko_KR': '리스트 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'listParam',
+						state: Term.STATE_ACTIVE,
+						value: '',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						displayStyle: 'select',
+						options:[
+							{
+								labelMap:{
+									'en_US': '지속적 흡연',
+									'ko_KR': '리스트 용어 항목 01'
+								},
+								value:'item01',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '과거 흡연하였으나 현재 흡연하지 않음',
+									'ko_KR': '리스트 용어 항목 02'
+								},
+								value:'item02',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '전혀 담배를 피우지 않음',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item03',
+								activeTerms:[]
+							}
+						],
+						order: 5
+					},
+
+					{
+						termType: TermTypes.LIST,
+						termName: 'listTerm_02',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '음주 여부',
+							'ko_KR': ' 리스트 용어 01'
+						},
+						definition:{
+							'en_US': 'Test List Term Definition',
+							'ko_KR': '리스트 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test List Term Tooltip',
+							'ko_KR': '리스트 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'listParam',
+						state: Term.STATE_ACTIVE,
+						value: '',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						displayStyle: 'select',
+						options:[
+							{
+								labelMap:{
+									'en_US': '지속적 음주',
+									'ko_KR': '리스트 용어 항목 01'
+								},
+								value:'item01',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '과거 음주하였으나 현재 음주하지 않음',
+									'ko_KR': '리스트 용어 항목 02'
+								},
+								value:'item02',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '전혀 음주하지 않음',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item03',
+								activeTerms:[]
+							}
+						],
+						order: 6
+					},
+
+					{
+						termType: TermTypes.LIST,
+						termName: 'listTerm_03',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '결혼 상태',
+							'ko_KR': ' 리스트 용어 01'
+						},
+						definition:{
+							'en_US': 'Test List Term Definition',
+							'ko_KR': '리스트 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test List Term Tooltip',
+							'ko_KR': '리스트 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'listParam',
+						state: Term.STATE_ACTIVE,
+						value: '',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						displayStyle: 'select',
+						options:[
+							{
+								labelMap:{
+									'en_US': '미혼',
+									'ko_KR': '리스트 용어 항목 01'
+								},
+								value:'item01',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '기혼/동거',
+									'ko_KR': '리스트 용어 항목 02'
+								},
+								value:'item02',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '별거/이혼/사별',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item03',
+								activeTerms:[]
+							}
+						],
+						order: 7
+					},
+
+					{
+						termType: TermTypes.LIST,
+						termName: 'listTerm_04',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '월 평균 수입',
+							'ko_KR': ' 리스트 용어 01'
+						},
+						definition:{
+							'en_US': 'Test List Term Definition',
+							'ko_KR': '리스트 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test List Term Tooltip',
+							'ko_KR': '리스트 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'listParam',
+						state: Term.STATE_ACTIVE,
+						value: '',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						displayStyle: 'select',
+						options:[
+							{
+								labelMap:{
+									'en_US': '100만원 미만',
+									'ko_KR': '리스트 용어 항목 01'
+								},
+								value:'item01',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '100만원 이상 - 200만원 미만',
+									'ko_KR': '리스트 용어 항목 02'
+								},
+								value:'item02',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '200만원 이상 - 300만원 미만',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item03',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '300만원 이상 - 400만원 미만',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item04',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '400만원 이상 - 500만원 미만',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item05',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '500만원 이상 - 600만원 미만',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item06',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '600만원 이상',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item07',
+								activeTerms:[]
+							}
+						],
+						order: 8
+					},
+					{
+						termType: TermTypes.LIST,
+						termName: 'listTerm_05',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': '학력',
+							'ko_KR': ' 리스트 용어 01'
+						},
+						definition:{
+							'en_US': 'Test List Term Definition',
+							'ko_KR': '리스트 용어 정의'
+						},
+						tooltip:{
+							'en_US': 'Test List Term Tooltip',
+							'ko_KR': '리스트 용어 도움말'
+						},
+						mandatory: true,
+						synonyms: 'listParam',
+						state: Term.STATE_ACTIVE,
+						value: '',
+						groupId:{
+							'name':'groupTerm_03',
+							'version':'1.0.0'
+						},
+						displayStyle: 'select',
+						options:[
+							{
+								labelMap:{
+									'en_US': '무학',
+									'ko_KR': '리스트 용어 항목 01'
+								},
+								value:'item01',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '초등학교 중퇴',
+									'ko_KR': '리스트 용어 항목 02'
+								},
+								value:'item02',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '초등학교 졸업 또는 중학교 중퇴',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item03',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '중학교 졸업 또는 고등학교 중퇴',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item04',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '고등학교 졸업',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item05',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '대학교 중퇴',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item06',
+								activeTerms:[]
+							},
+							{
+								labelMap:{
+									'en_US': '대학교 졸업 또는 대학원 이상',
+									'ko_KR': '리스트 용어 항목 03'
+								},
+								value:'item07',
+								activeTerms:[]
+							}
+						],
+						order: 9
+					},
+
 				]
 			};
 
 			this.parse( dataStructure );
 			this.render( SXConstants.FOR_PREVIEW );
 
-			//console.log( 'this.terms.length: '+this.terms.length);
 			let firstTerm = this.terms[0];
-			// this.replaceVisibleTypeSpecificSection( lastTerm.termType );
 
 			const eventData = {
 				sxeventData:{
@@ -4421,8 +5171,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
     		return new DataType();
     	},
     	DataStructure: DataStructure,
-    	newDataStructure: function (){
-    		return new DataStructure();
+    	newDataStructure: function ( jsonStructure ){
+    		return new DataStructure( jsonStructure );
     	},
     	SXIcecapEvents: SXIcecapEvents,
 		SXConstants: SXConstants, 

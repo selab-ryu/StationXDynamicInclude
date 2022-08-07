@@ -691,7 +691,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( term.isMemberOfGroup() ){
 					msg = 'Are you sure to delete the term from the data structure?';
 					if( term.isGroupTerm() ){
-						msg += 'Child terms are move up to upper group or top level.'
+						msg += ' Child terms are move up to upper group or top level.'
 					}
 				}
 
@@ -2576,20 +2576,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		configureMultipleSeletionMode( mode ){
-			if( mode === true ){
-				this.dependentTerms = new Array();
-				ListTerm.$OPTION_ACTIVE_TERMS.empty();
-
-				this.options.forEach((option)=>{
-					option.activeTerms = null;
-				});
-			}
-			else{
-				this.constructOptionActiveTermsSelector();
-			}
-		}
-
 		$render( forWhat ){
 			this.updateDependentTerms();
 			
@@ -3507,8 +3493,36 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchedTerm;
 		}
 
+		/**
+		 * Get the first term of which name is termname.
+		 * 
+		 * @param {String} termName 
+		 * @returns 
+		 * 		Term instance.
+		 */
 		getTermByName( termName ){
-			let terms = this.terms.filter(term=>term.termName!==termName);
+			let searchedTerm = null;
+			this.terms.every( term => {
+				if( term.termName === termName ){
+					searchedTerm = term;
+					return SXConstants.STOP_EVERY;
+				}
+
+				return SXConstants.CONTINUE_EVERY;
+			});
+
+			return searchedTerm;
+		}
+
+		/**
+		 * Get every terms of which names are termname.
+		 * 
+		 * @param {String} termName 
+		 * @returns
+		 * 		Array of Terms.
+		 */
+		getTermsByName( termName ){
+			let terms = this.terms.filter(term=>term.termName===termName);
 			return terms;
 		}
 
@@ -3738,6 +3752,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						text: 'Confirm', 
 						click: function(){
 							let termNameSet = FormUIUtil.getFormCheckedArray('groupTermsSelector');
+							console.log( 'Choose groupTerm termNameSet: ', termNameSet );
 							// there could be rendered children.
 							let oldMembers = self.getGroupMembers(groupTerm.getId());
 							oldMembers = oldMembers.filter( member=>{
@@ -3748,6 +3763,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 								return SXConstants.FILTER_ADD;
 							});
+							console.log( 'Choose groupTerm oldMembers: ', oldMembers );
 
 							termNameSet.forEach(termName=>{
 								let term = self.getTermByName( termName );
@@ -3756,6 +3772,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								}
 
 								if( groupTerm.isRendered() ){
+									console.log( 'Choose groupTerm : Should be here!!!', term );
 									self.addGroupMember( term, groupTerm.getId(), false );
 									//groupTerm.$groupPanel.append(term.$rendered);
 								}
@@ -3782,12 +3799,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * 
 		 * @param {Term} term 
-		 * @param {Term} newGroup 
+		 * @param {TermId} newGroup 
 		 * @param {boolean} render 
 		 * @returns 
 		 */
 		addGroupMember( term, newGroupId, render=false ){
-			term.groupId = newGroupId
+			term.groupId = newGroupId;
 
 			this.setGroupIncrementalOrder( term );
 			
@@ -3797,17 +3814,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$rendered = this.$renderTerm( term, SXConstants.FOR_PREVIEW );
 			}
 
+			console.log( 'addGroupMember: ', this.$getPreviewPanel( newGroupId ), term, newGroupId );
 			this.$getPreviewPanel( newGroupId ).append( $rendered );
 
 			return term;
 		}
 
 		$getPreviewPanel( groupId ){
-			let groupTerm = null;
-
-			if( groupId.isNotEmpty() ){
-				groupTerm = this.getTerm( groupId );
-			}
+			let groupTerm = this.getTerm( groupId );
 
 			return groupTerm === null ? 
 						DataStructure.$PREVIEW_PANEL : 

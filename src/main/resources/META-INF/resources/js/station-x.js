@@ -269,6 +269,100 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 VERSION : 'version'
 	};
 
+	const Constants = {
+		Commands:{
+			SX_DOWNLOAD: 'SX_DOWNLOAD',
+			SX_DOWNLOAD_WITH_IB: 'SX_DOWNLOAD_WITH_IB',
+			SX_GET_COPIED_TEMP_FILE_PATH: 'SX_GET_COPIED_TEMP_FILE_PATH',
+			SX_GET_FILE_INFO: 'SX_GET_FILE_INFO'
+		},
+		PathType:{
+			CONTENT: 'CONTENT',
+			EXT: 'EXT',
+			FILE: 'FILE',
+			FILE_CONTENT: 'FILE_CONTENT',
+			FOLDER: 'FOLDER',
+			FOLDER_CONTENT: 'FOLDER_CONTENT',
+			URL: 'URL'
+		},
+		RepositoryTypes:{
+			USER_JOBS: 'USER_JOBS'
+		},
+		Events:{
+			SX_CHECK_MANDATORY: 'SX_CHECK_MANDATORY',
+			SX_DATA_CHANGED: 'SX_DATA_CHANGED',
+			SX_DISABLE_CONTROLS: 'SX_DISABLE_CONTROLS',
+			SX_EVENTS_REGISTERED: 'SX_EVENTS_REGISTERED',
+			SX_HANDSHAKE: 'SX_HANDSHAKE',
+			SX_REGISTER_EVENTS: 'SX_REGISTER_EVENTS',
+			SX_RESPONSE_DATA: 'SX_RESPONSE_DATA',
+			SX_REQUEST_DATA: 'SX_REQUEST_DATA',
+			SX_REQUEST_SAMPLE_CONTENT: 'SX_REQUEST_SAMPLE_CONTENT',
+			SX_REQUEST_SAMPLE_URL: 'SX_REQUEST_SAMPLE_URL',
+			SX_SAMPLE_SELECTED:'SX_SAMPLE_SELECTED',
+		},
+		TermFields:{
+			ACTIVE : 'active',
+			AVAILABLE_LANGUAGE_IDS : 'availableLanguageIds',
+			COUNTRY_CODE : 'countryCode',
+			DATATYPE_NAME : 'dataTypeName',
+			DATATYPE_VERSION : 'dataTypeVersion',
+			DEFINITION : 'definition',
+			DEFAULT_LANGUAGE_ID : 'defaultLanguageId',
+			DEFAULT_LOCALE : 'defaultLocale',
+			DEPENDENT_TERMS : 'dependentTerms',
+			DIMENSION_X : 'dimensionX',
+			DIMENSION_Y : 'dimensionY',
+			DISABLED : 'disabled',
+			DISPLAY_NAME : 'displayName',
+			DISPLAY_STYLE : 'displayStyle',
+			ELEMENT_TYPE : 'elementType',
+			FILE_ID : 'fileId',
+			FORMAT : 'format',
+			ID : 'id',
+			ITEM_DISPLAY_NAME : 'itemDisplayName',
+			LIST_ITEM : 'listItem',
+			LIST_ITEM_VALUE : 'listItemValue',
+			LIST_ITEMS : 'listItems',
+			MANDATORY : 'mandatory',
+			NAME : 'name',
+			MAX_BOUNDARY : 'maxBoundary',
+			MAX_LENGTH :'maxLength',
+			MAX_VALUE :'maxValue',
+			MIN_BOUNDARY : 'minBoundary',
+			MIN_LENGTH :'minLength',
+			MIN_VALUE :'minValue',
+			MULTIPLE_LINE :'multipleLine',
+			OPTION_LABEL: 'optionLabel',
+			OPTION_VALUE: 'optionValue',
+			OPTION_SELECTED: 'optionSelected',
+			ORDER : 'order',
+			PATH : 'path',
+			PATH_TYPE : 'pathType',
+			PLACE_HOLDER : 'placeHolder',
+			RANGE : 'range',
+			REF_DATATYPES : 'refDataTypes',
+			REF_DATABASES : 'refDatabases',
+			SWEEPABLE : 'sweepable',
+			SYNONYMS : 'synonyms',
+			TERM_NAME : 'termName',
+			TERM_TYPE : 'termType',
+			TERM_VERSION : 'termVersion',
+			TEXT : 'text',
+			TOOLTIP : 'tooltip',
+			UNCERTAINTY : 'uncertainty',
+			UNCERTAINTY_VALUE : 'uncertaintyValue',
+			UNIT : 'unit',
+			URI : 'uri',
+			URI_TYPE : 'uriType',
+			URL : 'url',
+			VALIDATION_RULE  : 'validationRule',
+			VALUE : 'value',
+			VALUE_DELIMITER : 'valueDelimiter',
+			VERSION : 'version'
+		}
+	}
+
 	class TermId{
 		constructor( name, version ){
 			this.name = name ? name : '';
@@ -1369,6 +1463,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
 		static $TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
 		static $TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
+		static $TERM_DEFINITION_FORM_CTRL = $('#' + NAMESPACE + 'termDefinition');
+		static $TERM_TOOLTIP_FORM_CTRL = $('#' + NAMESPACE + 'termTooltip');
+		static $TERM_SYNONYMS_FORM_CTRL = $('#' + NAMESPACE + 'synonyms');
+		static $TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
+		static $TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
 
 		static validateTermVersion( updated, previous ){
 			let updatedParts = updated.split('.');
@@ -1420,7 +1519,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$rendered = null;
 		}
 
-		getId(){
+		getTermId(){
 			return new TermId(this.termName,this.termVersion);
 		}
 
@@ -1450,7 +1549,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		isMemberOfGroup(){
-			return this.groupId && this.groupId.isNotEmpty();
+			return this.groupTermId && this.groupTermId.isNotEmpty();
 		}
 
 		isGroupTerm(){
@@ -1580,7 +1679,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.mandatory )		json.mandatory = this.mandatory;
 			if( this.value || this.value === 0 )	json.value = this.value;
 			if( this.order || this.order === 0 )	json.order = this.order;
-			if( this.isMemberOfGroup() )	json.groupId = this.groupId.toJSON();
+			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
 			
 			json.status = this.status;
 			json.state = this.state;
@@ -1597,6 +1696,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'termType':
 						self.termType = json.termType;
 						break; 
+					case 'termId':
 					case 'termName':
 					case 'termVersion':
 					case 'synonyms':
@@ -1605,9 +1705,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'active':
 					case 'order':
 					case 'state':
+					case 'status':
 						self[key] = json[key];
 						break;
-					case 'groupId':
+					case 'groupTermId':
+						if( typeof json.groupTermId === 'string' ){
+							console.log('groupTermId is a string.....', json.groupTermId);
+							json.groupTermId = JSON.parse( json.groupTermId );	
+						}
+
 						self[key] = new TermId(json[key].name, json[key].version);
 						break;
 					case 'displayName':
@@ -1842,10 +1948,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.synonyms ) 	this.synonyms = null;
 			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
 			if( !this.value ) 		this.value = null;
-			if( !this.isMemberOfGroup() ) 		this.groupId = new TermId();
+			if( !this.isMemberOfGroup() ) 		this.groupTermId = new TermId();
 			if( !this.valueMode )	this.valueMode = Term.DEFAULT_VALUE_MODE;
 			if( !this.status )		this.status = Term.STATUS_DRAFT;
 			if( !this.state )		this.state = Term.STATE_INIT;
+			this.standard = false;
+		}
+
+		disableAllFormControls(){
+			Term.$TERM_TYPE_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_VERSION_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_DISPLAY_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_DEFINITION_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_TOOLTIP_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_SYNONYMS_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_MANDATORY_FORM_CTRL.prop( 'disabled', true );
+			Term.$TERM_VALUE_FORM_CTRL.prop( 'disabled', true );
 		}
 		
 	} // End of Term
@@ -1856,6 +1975,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_MAX_LENGTH = 72;
 		static DEFAULT_MULTIPLE_LINE = false;
 		static DEFAULT_VALIDATION_RULE = '^[\w\s!@#\$%\^\&*\)\(+=._-]*$';
+
+		static $TERM_MIN_LENGTH_FORM_CTRL = $('#'+NAMESPACE+'')
 		
 		constructor( jsonObj ){
 			super( 'String' );
@@ -2099,6 +2220,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.multipleLine ) this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
 			if( !this.validationRule ) this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
 			if( !this.placeHolder ) this.placeHolder = '';
+		}
+
+		disableAllFormControls(){
 		}
 		
 		validation(){
@@ -2744,6 +2868,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self[key] = json[key];
 						break;
 					case 'options':
+						if( typeof json.options === 'string' ){
+							console.log( 'json.options is string....', json.options );
+							json.options = JSON.parse( json.options );
+						}
+	
 						self.options = new Array();
 						json.options.forEach(option => self.addOption(option));
 						break;
@@ -2892,10 +3021,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * 
 		 * @param {Array} terms 
-		 * @param {TermId} groupId 
+		 * @param {TermId} groupTermId 
 		 * @returns 
 		 */
-		devideTermsByGroup( terms, groupId ){
+		devideTermsByGroup( terms, groupTermId ){
 			let devided = new Object();
 
 			devided.hits = new Array();
@@ -2906,7 +3035,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			terms.forEach(term=>{
-				if( groupId.sameWith(term.groupId) ){
+				if( groupTermId.sameWith(term.groupTermId) ){
 					devided.hits.push( term );
 				}
 				else{
@@ -2933,7 +3062,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $row;
 				if( deep === true ){
 					if( term.isGroupTerm() && !Util.isEmptyArray(others) ){
-						let termSets = term.devideTermsByGroup( others, term.getId() );
+						let termSets = term.devideTermsByGroup( others, term.getTermId() );
 						$row = term.$render( termSets.hits, termSets.others, forWhat ); 
 					}
 					else{
@@ -3193,8 +3322,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						});
 						break;
 					default:
-						unvalid[key] = json[key];
-						console.log('[BooleanTerm] Unvalid term attribute: '+key, json[key]);
+						unvalid[key] = jsonObj[key];
+						console.log('[BooleanTerm] Unvalid term attribute: '+key, jsonObj[key]);
 						break;
 				}
 			});
@@ -3210,6 +3339,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 	class DataStructure {
 		static $PREVIEW_PANEL = $('#'+NAMESPACE+'previewPanel');
+		static $DEFAULT_CANVAS = $('<iframe id='+NAMESPACE+'canvas>');
 		static $TERM_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'termDelimiter');
 		static $TERM_DELIMITER_POSITION_FORM_CTRL = $('#'+NAMESPACE+'termDelimiterPosition');
 		static $TERM_VALUE_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'termValueDelimiter');
@@ -3218,7 +3348,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $COMMENT_CHAR_FORM_CTRL = $('#'+NAMESPACE+'commentChar');
 		static FORM_RENDER_URL = '';
 
-		static DEFAULT_TERM_DELIMITER = '\n';
+		static DEFAULT_TERM_DELIMITER = 'nl';
 		static DEFAULT_TERM_DELIMITER_POSITION = true;
 		static DEFAULT_TERM_VALUE_DELIMITER = '=';
 		static DEFAULT_MATRIX_BRACKET_TYPE = '[]';
@@ -3482,7 +3612,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let searchedTerm = null;
 			this.terms.every( term => {
-				if( termId.sameWith( term.getId() ) ){
+				if( termId.sameWith( term.getTermId() ) ){
 					searchedTerm = term;
 					return SXConstants.STOP_EVERY;
 				}
@@ -3542,34 +3672,34 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return null;
 			}
 
-			let groupId = term.groupId;
-			return groupId.isEmpty() ? 
+			let groupTermId = term.groupTermId;
+			return groupTermId.isEmpty() ? 
 						null : 
-						this.getTerm(groupId);
+						this.getTerm(groupTermId);
 		}
 
-		getTopLevelGroupId(){
+		getTopLevelTermId(){
 			return new TermId();
 		}
 		
 		/**
 		 * Gets terms which are members of a group.
 		 * 
-		 * @param {TermId} groupId 
+		 * @param {TermId} groupTermId 
 		 * @returns 
 		 */
-		getGroupMembers( groupId ){
+		getGroupMembers( groupTermId ){
 			if( Util.isEmptyArray(this.terms) ){
 				return [];
 			}
 
 			let members = this.terms.filter( term => {
-				if( groupId.isEmpty() && !term.isMemberOfGroup() ){
+				if( groupTermId.isEmpty() && !term.isMemberOfGroup() ){
 					return SXConstants.FILTER_ADD;
 				}
 				else if( term.isMemberOfGroup() && 
-						 groupId.isNotEmpty() &&
-						 groupId.sameWith(term.groupId) ){
+						 groupTermId.isNotEmpty() &&
+						 groupTermId.sameWith(term.groupTermId) ){
 					return SXConstants.FILTER_ADD;
 				}
 				else{
@@ -3589,14 +3719,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * Get term by order
 		 * 
-		 * @param {TermId} groupId
-		 * @param {integer} order 
+		 * @param {TermId} groupTermId
+		 * @param {integer} order, which should be larger than 0 and less than count of members
 		 * @returns 
 		 */
-		getTermByOrder( groupId, order ){
+		getTermByOrder( groupTermId, order ){
 			let searchedTerm = null;
 
-			let children = this.getGroupMembers(groupId);
+			let children = this.getGroupMembers(groupTermId);
 
 			if( children.length === 0 ||
 				order <= 0 || 
@@ -3622,11 +3752,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			let switchedTerm = this.getTermByOrder( term.groupId, term.order-1 );
+			let switchedTerm = this.getTermByOrder( term.groupTermId, term.order-1 );
 			switchedTerm.order++;
 			term.order--;
 
-			let $panel = this.$getPreviewPanel( term.groupId );
+			let $panel = this.$getPreviewPanel( term.groupTermId );
 
 			if( term.order === 1 ){
 				$panel.prepend(term.$rendered); 
@@ -3637,16 +3767,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		moveDownTerm( term ){
-			let maxOrder = this.countGroupMembers( term.groupId );
+			let maxOrder = this.countGroupMembers( term.groupTermId );
 			if( term.order >= maxOrder ){
 				return;
 			}
 
-			let switchedTerm = this.getTermByOrder( term.groupId, term.order+1 );
+			let switchedTerm = this.getTermByOrder( term.groupTermId, term.order+1 );
 			switchedTerm.order--;
 			term.order++;
 
-			let $panel = this.$getPreviewPanel( term.groupId );
+			let $panel = this.$getPreviewPanel( term.groupTermId );
 
 			if( switchedTerm.order === 1 ){
 				$panel.prepend(switchedTerm.$rendered); 
@@ -3657,7 +3787,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setGroupIncrementalOrder( term ){
-			let terms = this.getGroupMembers( term.groupId );
+			let terms = this.getGroupMembers( term.groupTermId );
 			term.order = terms.length;
 		}
 
@@ -3666,15 +3796,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {Term or string} groupName 
 		 * @returns 
 		 */
-		refreshGroupMemberOrders( groupId ){
-			let terms = this.getGroupMembers( groupId );
+		refreshGroupMemberOrders( groupTermId ){
+			let terms = this.getGroupMembers( groupTermId );
 
 			let self = this;
 			terms = terms.map( (term, index) => {
 				term.order = index+1;
 
 				if( term.isGroupTerm() ){
-					self.refreshGroupMemberOrders( term.getId() );
+					self.refreshGroupMemberOrders( term.getTermId() );
 				}
 
 				return term;
@@ -3689,21 +3819,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * Notice that this function does not remove terms form
 		 * the data structure.
 		 * 
-		 * @param {TermId} oldGroupId 
-		 * @param {TermId} newGroupId 
+		 * @param {TermId} oldGroupTermId 
+		 * @param {TermId} newGroupTermId 
 		 */
-		moveGroupMembers( oldGroupId, newGroupId ){
+		moveGroupMembers( oldGroupTermId, newGroupTermId ){
 			let $panel;
-			if( newGroupId.isEmpty() ){
+			if( newGroupTermId.isEmpty() ){
 				$panel = DataStructure.$PREVIEW_PANEL;
 			}
 			else{
-				$panel = this.getTerm( newGroupId ).$groupPanel;
+				$panel = this.getTerm( newGroupTermId ).$groupPanel;
 			}
 
-			let oldMembers = this.getGroupMembers( oldGroupId );
+			let oldMembers = this.getGroupMembers( oldGroupTermId );
 
-			oldMembers.forEach(member=>this.addGroupMember(member, newGroupObj));
+			oldMembers.forEach(member=>this.addGroupMember(member, newGroupTermId));
 		}
 
 		/**
@@ -3721,13 +3851,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.forEach((term, index)=>{
 				if( groupTerm === term || 
 					term.isMemberOfGroup() && 
-					!term.groupId.sameWith(groupTerm.getId()) ){
+					!term.groupTermId.sameWith(groupTerm.getTermId()) ){
 					return;
 				}
 
 				let selected;
 				if( groupTerm.isRendered() ){
-					selected = term.groupId.sameWith( groupTerm.getId() );
+					selected = term.groupTermId.sameWith( groupTerm.getTermId() );
 				}
 				else{
 					selected = groupTerm.tempMembers.includes( term );
@@ -3754,10 +3884,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							let termNameSet = FormUIUtil.getFormCheckedArray('groupTermsSelector');
 							console.log( 'Choose groupTerm termNameSet: ', termNameSet );
 							// there could be rendered children.
-							let oldMembers = self.getGroupMembers(groupTerm.getId());
+							let oldMembers = self.getGroupMembers(groupTerm.getTermId());
 							oldMembers = oldMembers.filter( member=>{
 								if( !termNameSet.includes(member.termName) ){
-									self.addGroupMember( member, groupTerm.groupId, false);
+									self.addGroupMember( member, groupTerm.groupTermId, false);
 									return SXConstants.FILTER_SKIP;
 								}
 
@@ -3773,7 +3903,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 								if( groupTerm.isRendered() ){
 									console.log( 'Choose groupTerm : Should be here!!!', term );
-									self.addGroupMember( term, groupTerm.getId(), false );
+									self.addGroupMember( term, groupTerm.getTermId(), false );
 									//groupTerm.$groupPanel.append(term.$rendered);
 								}
 								else{
@@ -3781,7 +3911,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								}
 							});
 
-							self.refreshGroupMemberOrders( self.getTopLevelGroupId() );
+							self.refreshGroupMemberOrders( self.getTopLevelTermId() );
 
 							$(this).dialog('destroy');
 						}
@@ -3799,12 +3929,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * 
 		 * @param {Term} term 
-		 * @param {TermId} newGroup 
+		 * @param {TermId} newGroupTermId 
 		 * @param {boolean} render 
 		 * @returns 
 		 */
-		addGroupMember( term, newGroupId, render=false ){
-			term.groupId = newGroupId;
+		addGroupMember( term, newGroupTermId, render=false ){
+			term.groupTermId = newGroupTermId;
 
 			this.setGroupIncrementalOrder( term );
 			
@@ -3814,14 +3944,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$rendered = this.$renderTerm( term, SXConstants.FOR_PREVIEW );
 			}
 
-			console.log( 'addGroupMember: ', this.$getPreviewPanel( newGroupId ), term, newGroupId );
-			this.$getPreviewPanel( newGroupId ).append( $rendered );
+			console.log( 'addGroupMember: ', this.$getPreviewPanel( newGroupTermId ), term, newGroupTermId );
+			this.$getPreviewPanel( newGroupTermId ).append( $rendered );
 
 			return term;
 		}
 
-		$getPreviewPanel( groupId ){
-			let groupTerm = this.getTerm( groupId );
+		$getPreviewPanel( groupTermId ){
+			let groupTerm = this.getTerm( groupTermId );
 
 			return groupTerm === null ? 
 						DataStructure.$PREVIEW_PANEL : 
@@ -3913,6 +4043,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !term.order || term.order < 1 ){
 				this.setIncrementalOrder( term );
 			}
+
+			if( !this.terms ){
+				this.terms = new Array();
+			}
+			
 			this.terms.push( term );
 
 			if( forWhat !== SXConstants.FOR_NOTHING ){
@@ -3923,7 +4058,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setIncrementalOrder( term ){
-			let topLevelTerms = this.getGroupMembers( this.getTopLevelGroupId() );
+			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
 
 			term.order = topLevelTerms.length + 1;
 
@@ -3941,18 +4076,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {boolean} deep 
 		 */
 		deleteTerm( targetTerm, deep=false ){
-			let targetId = targetTerm.getId();
+			let targetId = targetTerm.getTermId();
 
-			this.terms = this.terms.filter( term=>term.getId().sameWith(targetId) );
+			this.terms = this.terms.filter( term=>term.getTermId().sameWith(targetId) );
 			targetTerm.emptyRender();
 			
 			//Take care of children if targetTerm is a group
 			if( targetTerm.isGroupTerm() && deep === false ){
-				let groupId = this.getTopLevelGroupId();
+				let groupTermId = this.getTopLevelTermId();
 				if( targetTerm.isMemberOfGroup() ){
-					groupId = targetTerm.groupId;
+					groupTermId = targetTerm.groupTermId;
 				}
-				this.moveGroupMembers( targetId, groupId );
+				this.moveGroupMembers( targetId, groupTermId );
 			}
 			else if( targetTerm.isGroupTerm() && deep === true ){
 				let members = this.getGroupMembers(targetId);
@@ -3977,14 +4112,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		removeTerm( targetTerm ){
 			let self = this;
 			
-			let superGroupId = this.getTopLevelGroupId();
+			let superGroupTermId = this.getTopLevelTermId();
 			this.terms = this.terms.filter( function( term, index, ary ){
 				if( term.termName === targetTerm.termName && term.termVersion === targetTerm.termVersion ){
 					if( targetTerm.isMemberOfGroup() ){
-						let currentGroup = self.getTerm(targetTerm.groupId);
-						superGroupId = currentGroup.groupId;
+						let currentGroup = self.getTerm(targetTerm.groupTermId);
+						superGroupTermId = currentGroup.groupTermId;
 	
-						self.addGroupMember( term, superGroupId, false );
+						self.addGroupMember( term, superGroupTermId, false );
 						return SXConstants.FILTER_ADD;
 					}
 					else{ // It means targetTerm is a top level member.
@@ -3997,7 +4132,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return SXConstants.FILTER_ADD;
 			});
 
-			this.refreshGroupMemberOrders( superGroupId );
+			this.refreshGroupMemberOrders( superGroupTermId );
 		}
 
 		removeActiveTerm( activeTerm ){
@@ -4121,13 +4256,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		devideTermsByGroup( groupId ){
+		devideTermsByGroup( groupTermId ){
 			let devided = new Object();
 			devided.hits = new Array();
 			devided.others = new Array();
 
 			this.terms.forEach(term=>{
-				if( groupId.sameWith(term.groupId) ){
+				if( groupTermId.sameWith(term.groupTermId) ){
 					devided.hits.push( term );
 				}
 				else{
@@ -4152,7 +4287,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $panel;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				if( term.isMemberOfGroup() ){
-					let group = this.getTerm(term.groupId);
+					let group = this.getTerm(term.groupTermId);
 					$panel = group.$groupPanel;
 				}
 				else{
@@ -4206,18 +4341,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param { Integer } forWhat
 		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
 		 */
-		render( forWhat ){
+		render( forWhat, $canvas ){
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				DataStructure.$PREVIEW_PANEL.empty();
 
 				let self = this;
 				//render top level
-				let topLevelTerms = this.getGroupMembers( this.getTopLevelGroupId() );
+				let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
 				topLevelTerms.forEach((term)=>{
 					self.renderTerm(term, forWhat);
 				});
 			}
 			else if( forWhat === SXConstants.FOR_EDITOR ){
+				if( !$canvas ){
+					$canvas = DataStructure.$DEFAULT_CANVAS;
+				}
+				else{
+					$canvas.empty();
+				}
+
+				
 			}
 			else{
 				// for PDF
@@ -4235,7 +4378,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$renderTerm( term, forWhat=SXConstants.FOR_PREVIEW ){
 			if( term.isGroupTerm() ){
-				let termSets = this.devideTermsByGroup( term.getId() );
+				let termSets = this.devideTermsByGroup( term.getTermId() );
 
 				return term.$render( termSets.hits, termSets.others, forWhat );
 			}
@@ -4256,7 +4399,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $panel = DataStructure.$PREVIEW_PANEL;
 			if( targetTerm.isMemberOfGroup() ){
-				let group = this.getTerm(targetTerm.groupId);
+				let group = this.getTerm(targetTerm.groupTermId);
 				$panel = group.$groupPanel;
 			}
 
@@ -4349,7 +4492,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'grpParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_04',
 							'version':'1.0.0'
 						},
@@ -4374,7 +4517,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_01',
 							'version':'1.0.0'
 						},
@@ -4419,7 +4562,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_01',
 							'version':'1.0.0'
 						},
@@ -4464,7 +4607,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_01',
 							'version':'1.0.0'
 						},
@@ -4510,7 +4653,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'grpParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_04',
 							'version':'1.0.0'
 						},
@@ -4535,7 +4678,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_02',
 							'version':'1.0.0'
 						},
@@ -4580,7 +4723,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_02',
 							'version':'1.0.0'
 						},
@@ -4625,7 +4768,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_02',
 							'version':'1.0.0'
 						},
@@ -4692,7 +4835,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						synonyms: 'boolParam',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -4742,7 +4885,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						synonyms: 'testStr01',
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -4776,7 +4919,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						synonyms: 'testStr01',
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -4810,7 +4953,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						synonyms: 'testStr01',
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -4841,7 +4984,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						synonyms: 'listParam',
 						state: Term.STATE_ACTIVE,
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -4895,7 +5038,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						synonyms: 'listParam',
 						state: Term.STATE_ACTIVE,
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -4949,7 +5092,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						synonyms: 'listParam',
 						state: Term.STATE_ACTIVE,
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -5003,7 +5146,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						synonyms: 'listParam',
 						state: Term.STATE_ACTIVE,
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -5088,7 +5231,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						synonyms: 'listParam',
 						state: Term.STATE_ACTIVE,
 						value: '',
-						groupId:{
+						groupTermId:{
 							'name':'groupTerm_03',
 							'version':'1.0.0'
 						},
@@ -5212,7 +5355,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	    			return new AddressTerm();
 	    		case TermTypes.ARRAY:
 	    			return new ArrayTerm();
-	    		case TermTypes.Matrix:
+	    		case TermTypes.MATRIX:
 	    			return new MatrixTerm();
 	    		case TermTypes.OBJECT:
 	    			return new ObjectTerm();
@@ -5224,7 +5367,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	    			return new DateTerm();
 	    		case TermTypes.FILE:
 	    			return new FileTerm();
-	    		case TermTypes.FILEArray:
+	    		case TermTypes.FILE_ARRAY:
 	    			return new FileArrayTerm();
 	    		case TermTypes.DATA_LINK:
 	    			return new DataLinkTerm();
@@ -5243,8 +5386,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		ListTerm: ListTerm,
 		BooleanTerm: BooleanTerm,
 		GroupTerm: GroupTerm,
-    	Util: Util
+		FormUIUtil: FormUIUtil,
+    	Util: Util,
+		createVisualizer: function(){
+			return new StationX.Visualizer();
+		}
     };
+
+	class SXWorkbench {
+		constructor(){
+
+		}
+
+		
+	}
 }
 
 

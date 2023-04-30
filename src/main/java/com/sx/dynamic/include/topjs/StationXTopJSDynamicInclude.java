@@ -34,7 +34,8 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		content += "<script charset=\"utf-8\" src=\"https://code.jquery.com/ui/1.13.1/jquery-ui.js\"></script>";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/station-x.js\" ></script>";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/sx-visualizer.js\"></script>";
-
+		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/sx-visualizer.css\">";
+		
 		printWriter.println(content);
 		
 	}

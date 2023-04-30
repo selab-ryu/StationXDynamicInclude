@@ -556,6 +556,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$input.change(function(event){
 				event.stopPropagation();
+				term.value = $(this).val();
 
 				let eventData = {
 					sxeventData:{
@@ -563,7 +564,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetPortlet: NAMESPACE,
 						term: term,
 						valueMode: 'single',
-						changedValue: $(this).val()  
+						value: $(this).val()  
 					}
 				};
 
@@ -574,6 +575,54 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			return $input;
+		},
+		$getDateInputNode: function( term, label, mandatory, helpMessage, date ){
+			let controlName = NAMESPACE + term.termName;
+			
+			let $dateNode = $('<div class="lfr-ddm-field-group field-wrapper">')
+					.append( this.$getLabelNode(controlName, label, mandatory, helpMessage) )
+					.append( this.$getDateInputTag( term, controlName, date ) );
+
+			return $dateNode;
+		},
+		$getDateInputTag: function( term, controlName, date ){
+			let $tag = $('<span class="lfr-input-date">');
+			
+			let $inputTag = $('<input type="date">');
+			$inputTag.prop({
+				'class': 'field form-control',
+				'id': controlName,
+				'name': controlName,
+				'placeHolder': 'mm/dd/yyyy',
+				'valueAsDate': date,
+				'aria-live': 'assertive',
+				'aria-label': ''
+			});
+
+			
+			$inputTag.change(function(event){
+				event.stopPropagation();
+				term.value = $(this).val();
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term,
+						value: $(this).val()  
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
+			});
+
+
+			$tag.append($inputTag);
+
+			return $tag;
 		},
 		$getSelectTag: function( term, controlName, options, value ){
 			let $select = $( '<select class="form-control" id="' + controlName + '" name="' + controlName + '">' );
@@ -594,6 +643,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$select.change(function(event){
 				event.stopPropagation();
+				term.value = $(this).val();
 
 				let eventData = {
 					sxeventData:{
@@ -601,7 +651,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetPortlet: NAMESPACE,
 						term: term,
 						valueMode: 'single',
-						changedValue: $(this).val()  
+						value: $(this).val()  
 					}
 				};
 
@@ -656,6 +706,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return $checkbox;
 		},
+		$getFileUploadNode: function( controlName, controlValueId, value ){
+			let $node = $('<div>');
+			let $inputTag = this.$getFileInputTag( controlName );
+			$node.append( $inputTag );
+			let $value = $('<div id="'+controlValueId+'">');
+			$value.text(value);
+			$node.append( $value );
+
+			return $node;
+		},
+		$getFileInputTag: function( controlName ){
+			let $input = $( '<input type="file" class="field lfr-input-text form-control" aria-required="true">' );
+
+			$input.prop({
+				id: controlName,
+				name: controlName
+			});
+
+			return $input;
+		},
 		$getSelectFieldsetNode: function( term, controlName, displayStyle, label, mandatory, helpMessage, options, value){
 			let $node;
 
@@ -702,6 +772,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						event.stopPropagation();
 
 						let changedVal = $(this).find('input[type="radio"]:checked').val();
+						term.value = changedVal;
 
 						let eventData = {
 							sxeventData:{
@@ -709,7 +780,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								targetPortlet: NAMESPACE,
 								term: term,
 								valueMode: 'single',
-								changedValue: changedVal
+								value: changedVal
 							}
 						};
 
@@ -740,13 +811,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							checkedValues.push( $(this).val() );
 						});
 
+						term.value = checkedValues;
+
 						let eventData = {
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term,
 								valueMode: 'multiple',
-								changedValue: checkedValues
+								value: checkedValues
 							}
 						};
 
@@ -873,7 +946,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $previewRow;
 		},
 		$getEditorRowSection: function( term, $inputSection ){
-			let $inputTd = $('<td style="width:100%;">').append( $inputSection );
+			let $inputTd = $('<td style="width:100%; border:none;">').append( $inputSection );
 
 			let $row = $('<tr>').append( $inputTd );
 
@@ -903,6 +976,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			return $String;
+		},
+		$getFormDateSection: function(
+					term,
+					label,
+					helpMessage,
+					mandatory,
+					date,
+					forWhat	){
+			let $dateInput = this.$getDateInputNode( term, label, mandatory, helpMessage, date );
+
+			let $section;
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$section = this.$getPreviewRowSection( term, $dateInput );
+			}
+			else if(forWhat === SXConstants.FOR_EDITOR){
+				$section = this.$getEditorRowSection( term, $dateInput );
+			}
+			else{
+				//PDF printing here
+			}
+
+			return $section;
 		},
 		$getFormNumericSection: function(
 			term, 
@@ -1031,6 +1126,60 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			return $List;
+		},
+		$getFormFileUploadSection: function(
+			term,
+			label,
+			helpMessage,
+			mandatory,
+			value,
+			forWhat ){
+			let controlName = NAMESPACE + term.termName;
+			let controlValueId = NAMESPACE + term.termName + '_value';
+
+			let $uploadSection = $('<div class="form-group input-text-wrapper">');
+			
+			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
+			$uploadSection.append( $label );
+
+			let $uploadNode = this.$getFileUploadNode(controlName, controlValueId, value);
+			
+			$uploadNode.change(function(event){
+				event.stopPropagation();
+
+				let fileName = $('#'+controlName)[0].files.length ? $('#'+controlName)[0].files[0].name : "";
+				term.value = fileName;
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term,
+						valueMode: 'single',
+						value: $(this).val()  
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
+			});
+
+			$uploadSection.append( $uploadNode );
+
+			let $row;
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$row = this.$getPreviewRowSection(term, $uploadSection);
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$row = this.$getEditorRowSection(term, $uploadSection);
+			}
+			else{
+				// rendering for PDF here
+			}
+
+			return $row;
 		},
 		$getAccordionForGroup: function( title, $body ){
 			let $groupHead = $('<h3>').text(title);
@@ -1178,7 +1327,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		LIST_OPTION_ACTIVE_TERMS_CHANGED:'LIST_OPTION_ACTIVE_TERMS_CHANGED',
 
 		DATATYPE_SDE_VALUE_CHANGED: 'DATATYPE_SDE_VALUE_CHANGED',
-		DATATYPE_SDE_UNCERTAINTY_CHANGED: 'DATATYPE_SDE_UNCERTAINTY_CHANGED'
 	};
 
 	const SXConstants = {
@@ -1469,6 +1617,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
 		static $TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
 
+		constructor( termType ){
+			this.termId = 0;
+			this.termType = termType;
+
+			this.$rendered = null;
+			this.dirty = false;
+		}
+
 		static validateTermVersion( updated, previous ){
 			let updatedParts = updated.split('.');
 			
@@ -1511,21 +1667,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return validationPassed;
 		}
 
-		
-		constructor( termType ){
-			this.termId = 0;
-			this.termType = termType;
-
-			this.$rendered = null;
-		}
-
 		getTermId(){
 			return new TermId(this.termName,this.termVersion);
 		}
 
 		isRendered(){
-			if( this.$rendered )	return true;
-			else					return false;
+			return !this.$rendered ? false : true;
+		}
+
+		isOrdered(){
+			return (this.order && this.order > 0) ? true : false;
+		}
+
+		setDirty( dirty ){
+			if( dirty ){
+				this.dirty = dirty;
+			}
+			else{
+				delete this.dirty;
+			}
+		}
+
+		clearDirty(){
+			this.setDirty();
 		}
 
 		getPrimaryKey( termName='', termVersion='' ){
@@ -1665,6 +1829,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return true;
 		}
+
 		
 		toJSON(){
 			let json = {};
@@ -1678,7 +1843,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
 			if( this.mandatory )		json.mandatory = this.mandatory;
 			if( this.value || this.value === 0 )	json.value = this.value;
-			if( this.order || this.order === 0 )	json.order = this.order;
+			if( this.order )	json.order = this.order;
+			if( this.dirty )	json.dirty = this.dirty;
 			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
 			
 			json.status = this.status;
@@ -1710,7 +1876,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 					case 'groupTermId':
 						if( typeof json.groupTermId === 'string' ){
-							console.log('groupTermId is a string.....', json.groupTermId);
 							json.groupTermId = JSON.parse( json.groupTermId );	
 						}
 
@@ -1740,6 +1905,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.TERM_TYPE );
 			if( save ){
 				this.termType = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -1760,6 +1926,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.TERM_NAME );
 			if( save ){
 				this.termName = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -1780,6 +1947,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.TERM_VERSION );
 			if( save ){
 				this.termVersion = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -1801,6 +1969,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( save ){
 				this.displayName = new LocalizedObject();
 				this.displayName.setLocalizedMap( valueMap );
+				this.setDirty( true );
 			}
 			
 			return valueMap;
@@ -1822,6 +1991,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( save ){
 				this.definition = new LocalizedObject();
 				this.definition.setLocalizedMap( valueMap );
+				this.setDirty( true );
 			}
 			
 			return valueMap;
@@ -1849,6 +2019,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.tooltip = new LocalizedObject();
 					this.tooltip.setLocalizedMap( valueMap );
 				}
+				this.setDirty( true );
 			}
 			
 			return valueMap;
@@ -1869,6 +2040,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.SYNONYMS );
 			if( save ){
 				this.synonyms = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -1890,6 +2062,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( save ){
 				this.mandatory = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -1910,6 +2083,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.VALUE );
 			if( save ){
 				this.value = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2107,6 +2281,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.placeHolder = new LocalizedObject();
 					this.placeHolder.setLocalizedMap( valueMap );
 				}
+				this.setDirty( true );
 			}
 			
 			return valueMap;
@@ -2127,6 +2302,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.MIN_LENGTH );
 			if( save ){
 				this.minLength = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2147,6 +2323,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.MAX_LENGTH );
 			if( save ){
 				this.maxLength = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2167,6 +2344,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MULTIPLE_LINE );
 			if( save ){
 				this.multipleLine = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2187,6 +2365,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.VALIDATION_RULE );
 			if( save ){
 				this.validationRule = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2271,6 +2450,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.MIN_VALUE );
 			if( save ){
 				this.minValue = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2291,6 +2471,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MIN_BOUNDARY );
 			if( save ){
 				this.minBoundary = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2311,6 +2492,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.MAX_VALUE );
 			if( save ){
 				this.maxValue = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2331,6 +2513,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MAX_BOUNDARY );
 			if( save ){
 				this.maxBoundary = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2351,6 +2534,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( TermAttributes.UNIT );
 			if( save ){
 				this.unit = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2371,6 +2555,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.UNCERTAINTY );
 			if( save ){
 				this.uncertainty = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2391,6 +2576,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SWEEPABLE );
 			if( save ){
 				this.sweepable = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2548,6 +2734,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.highlightOptionPreview();
 
+			this.setDirty( true );
+
 			return this.highlightedOption;
 		}
 
@@ -2568,6 +2756,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					});
 				}
 			});
+			this.setDirty( true );
 		}
 
 		clearSelectedOption(){
@@ -2577,6 +2766,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-selected').empty();
 				}
 			});
+			this.setDirty( true );
 		}
 
 		removeOption( optionValue ){
@@ -2603,6 +2793,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					return true;
 				});
+			this.setDirty( true );
 			
 			this.initOptionFormValues(this.highlightedOption);
 
@@ -2617,6 +2808,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.highlightedOption.setLabelMap( labelMap );
 				this.refreshOptionPreview( 'label' );
 			}
+			this.setDirty( true );
 		}
 
 		setOptionValue( value ){
@@ -2624,6 +2816,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.highlightedOption.value = value;
 				this.refreshOptionPreview('value');
 			}
+			this.setDirty( true );
 		}
 
 		setOptionSelected( value ){
@@ -2656,6 +2849,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.options.every((option)=>{
 				option.removeActiveTerm( term );
 			});
+			this.setDirty( true );
 		} 
 
 		refreshOptionPreview( column ){
@@ -2749,6 +2943,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormRadioValue( 'listDisplayStyle' );
 			if( save ){
 				this.displayStyle = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -2869,7 +3064,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 					case 'options':
 						if( typeof json.options === 'string' ){
-							console.log( 'json.options is string....', json.options );
 							json.options = JSON.parse( json.options );
 						}
 	
@@ -2945,22 +3139,139 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 12. DateTerm */
 	class DateTerm extends Term{
-		constructor(){
-			
+		constructor( jsonObj ){
+			super('Date');
+
+			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+
+			this.setAllFormValues();
+
+			this.$rendered = null;
+		}
+
+		$render(forWhat=SXConstants.FOR_EDITOR){
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			this.$rendered = FormUIUtil.$getFormDateSection(
+				this,
+				this.getLocalizedDisplayName(),
+				this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+				this.mandatory ? this.mandatory : false,
+				this.value ? new Date(this.value) : new Date(),
+				forWhat
+			);
+
+			return this.$rendered;
+		}
+
+		parse( jsonObj ){
+			super.parse( jsonObj );
+		}
+
+		toJSON(){
+			return super.toJSON();
 		}
 	}
 	
 	/* 13. FileTerm */
 	class FileTerm extends Term{
-		constructor(){
+		constructor( jsonObj ){
+			super( 'File' );
+
+			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+
+			this.setAllFormValues();
+
+			this.$rendered = null;
+		}
+
+		initAllAttributes(){
+			super.initAllAttributes( 'File' ); 
+		}
+
+		setAllFormValues(){
+			super.setAllFormValues();
+		}
+
+		$render( forWhat ){
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			this.$rendered = FormUIUtil.$getFormFileUploadSection(
+										this,
+										this.getLocalizedDisplayName(),
+										this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+										this.mandatory ? this.mandatory : false,
+										this.value ? this.value : '',
+										forWhat );
+
+			return this.$rendered;
+		}
+
+		parse( jsonObj ){
+			let unparsed = super.parse( jsonObj );
+			let unvalid = new Object();
 			
+			let self = this;
+			Object.keys( unparsed ).forEach( (key, index) => {
+				unvalid[key] = unparsed[key];
+			});
+
+			return unvalid;
+		}
+
+		toJSON(){
+			return super.toJSON();
 		}
 	}
 
 	/* 14. FileArrayTerm */
 	class FileArrayTerm extends Term{
-		constructor(){
+		constructor( jsonObj ){
+			super( 'File' );
+
+			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+
+			this.setAllFormValues();
+		}
+
+		initAllAttributes(){
+
+		}
+
+		setAllFormValues(){
+
+		}
+
+		$render( forWhat ){
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			this.$rendered = FormUIUtil.$getFormFileSection(
+										this,
+										this.getLocalizedDisplayName(),
+										this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+										this.mandatory ? this.mandatory : false,
+										this.value ? this.value : '',
+										forWhat );
+
+			return this.$rendered;
+		}
+
+		parse( jsonObj ){
+			let unparsed = super.parse( jsonObj );
+			let unvalid = new Object();
 			
+			let self = this;
+			Object.keys( unparsed ).forEach( (key, index) => {
+				unvalid[key] = unparsed[key];
+			});
+
+			return unvalid;
 		}
 	}
 
@@ -3112,6 +3423,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+		isRendered(){
+			return this.$rendered ? true : false;
+		}
+
 		clearHighlightedChildren(){
 			this.$groupPanel.find('tr.highlight').removeClass('highlight');
 		}
@@ -3232,6 +3547,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
 			if( save ){
 				this.displayStyle = value;
+				this.setDirty( true );
 			}
 			
 			return value;
@@ -3251,6 +3567,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getTrueLabelFormValue (){
 			let trueOption = this.options[0];
 			trueOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL ));
+			this.setDirty( true );
 			return trueOption.getLabelMap();
 		}
 		setTrueLabelFormValue ( valueMap ){
@@ -3267,6 +3584,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getFalseLabelFormValue (){
 			let falseOption = this.options[1];
 			falseOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL ));
+			this.setDirty( true );
 			return falseOption.getLabelMap();
 		}
 		setFalseLabelFormValue ( valueMap ){
@@ -3338,8 +3656,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class DataStructure {
-		static $PREVIEW_PANEL = $('#'+NAMESPACE+'previewPanel');
-		static $DEFAULT_CANVAS = $('<iframe id='+NAMESPACE+'canvas>');
+		static $DEFAULT_PREVIEW_PANEL = $('#'+NAMESPACE+'previewPanel');
+		static $DEFAULT_CANVAS = $('<iframe id='+NAMESPACE+'canvasPanel>');
 		static $TERM_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'termDelimiter');
 		static $TERM_DELIMITER_POSITION_FORM_CTRL = $('#'+NAMESPACE+'termDelimiterPosition');
 		static $TERM_VALUE_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'termValueDelimiter');
@@ -3348,7 +3666,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $COMMENT_CHAR_FORM_CTRL = $('#'+NAMESPACE+'commentChar');
 		static FORM_RENDER_URL = '';
 
-		static DEFAULT_TERM_DELIMITER = 'nl';
+		static DEFAULT_TERM_DELIMITER = '';
 		static DEFAULT_TERM_DELIMITER_POSITION = true;
 		static DEFAULT_TERM_VALUE_DELIMITER = '=';
 		static DEFAULT_MATRIX_BRACKET_TYPE = '[]';
@@ -3369,9 +3687,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				this.tooltip = new LocalizedObject();
 				this.terms = new Array();
-
-				this.dirty = false;
 			}
+
+			this.dirty = false;
+			this.uploadFiles = false;
+			this.$canvas = null;
+			this.forWhat = SXConstants.FOR_NOTHING;
 
 			this.selectedTerm = null;
 		}
@@ -3684,6 +4005,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		
 		/**
 		 * Gets terms which are members of a group.
+		 * If groupTermId is one of null, undefined, or empty TermId instance, then
+		 * the fuinction returns top level members.
 		 * 
 		 * @param {TermId} groupTermId 
 		 * @returns 
@@ -3691,6 +4014,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getGroupMembers( groupTermId ){
 			if( Util.isEmptyArray(this.terms) ){
 				return [];
+			}
+
+			if( !groupTermId ){
+				groupTermId = this.getTermId();
 			}
 
 			let members = this.terms.filter( term => {
@@ -3823,14 +4150,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {TermId} newGroupTermId 
 		 */
 		moveGroupMembers( oldGroupTermId, newGroupTermId ){
-			let $panel;
-			if( newGroupTermId.isEmpty() ){
-				$panel = DataStructure.$PREVIEW_PANEL;
-			}
-			else{
-				$panel = this.getTerm( newGroupTermId ).$groupPanel;
-			}
-
 			let oldMembers = this.getGroupMembers( oldGroupTermId );
 
 			oldMembers.forEach(member=>this.addGroupMember(member, newGroupTermId));
@@ -3944,7 +4263,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$rendered = this.$renderTerm( term, SXConstants.FOR_PREVIEW );
 			}
 
-			console.log( 'addGroupMember: ', this.$getPreviewPanel( newGroupTermId ), term, newGroupTermId );
 			this.$getPreviewPanel( newGroupTermId ).append( $rendered );
 
 			return term;
@@ -3954,7 +4272,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let groupTerm = this.getTerm( groupTermId );
 
 			return groupTerm === null ? 
-						DataStructure.$PREVIEW_PANEL : 
+						DataStructure.$DEFAULT_PREVIEW_PANEL : 
 						groupTerm.$getGroupPanel();
 		}
 
@@ -4035,14 +4353,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  	term : Term instance to be added or inserted
 		 *  	preview: boolean - preview or not
 		 ********************************************************************/
-		addTerm( term, forWhat=SXConstants.FOR_NOTHING, validate=true ){
+		addTerm( term, baseOrder=0, forWhat=SXConstants.FOR_NOTHING, highlight=false, validate=true ){
 			if( validate && term.validate() === false ){
 				return false;
 			}
 			
-			if( !term.order || term.order < 1 ){
-				this.setIncrementalOrder( term );
-			}
+			this.setOrder( term, baseOrder );
 
 			if( !this.terms ){
 				this.terms = new Array();
@@ -4051,18 +4367,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.push( term );
 
 			if( forWhat !== SXConstants.FOR_NOTHING ){
-				this.renderTerm( term, forWhat );
+				this.renderTerm( term, forWhat, highlight );
 			}
 
 			return true;
 		}
 
-		setIncrementalOrder( term ){
-			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
+		setOrder( term, baseOrder=0 ){
+			let groupTermId = term.isMemberOfGroup() ? 
+								term.groupTermId : this.getTopLevelTermId();
+			let maxOrder = this.getGroupMembers( groupTermId ).length;
 
-			term.order = topLevelTerms.length + 1;
+			term.order = (term.order > 0) ?
+							(term.order + baseOrder) : (maxOrder + baseOrder + 1);
 
 			return term.order;
+		}
+
+		sortTermsByOrder( terms, otherTerms ){
+			terms.sort(function(t1,t2){ return t1.order - t2.order; });
 		}
 
 		/**
@@ -4149,14 +4472,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					exist = true;
 					return SXConstants.STOP_EVERY;
 				}
-
-				if( term.isGroupTerm() ){
-					exist = term.isInTermSet( termName );
-					if( exist === true ){
-						return SXConstants.STOP_EVERY;
-					}
-				}
-				
 				return SXConstants.CONTINUE_EVERY;
 			});
 			
@@ -4166,8 +4481,43 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		countTerms(){
 			return this.terms.length;
 		}
+
+		toFileContent(){
+			let fileContent = {};
+
+			this.terms.every( (term) => {
+				if( term.value ){
+					fileContent[term.termName] = term.value;
+				}
+				return SXConstants.CONTINUE_EVERY;
+			});
+
+			console.log('File Content: ', fileContent );
+
+			return JSON.stringify( fileContent );
+		}
+
+		toFileContentLine( key, value ){
+			let line = "";
+			if( this.termDelimiterPosition == false ){
+				line = key + ' ' + this.termValueDelimiter + ' ' + value + ' ' + this.termDelimiter + '\n';
+			}
+			else{
+				line = this.termDelimiter + ' ' + key + ' ' + this.termValueDelimiter + ' ' + value + '\n';
+			}
+
+			return line;
+		}
+
+		fromFileContent( fileContent ){
+			let lineDelimiter = this.termDelimiter ? this.termDelimiter : '\n';
+
+			let lines = fileContent.split( lineDelimiter );
+			console.log( 'lines: ', lines );
+		}
+
 		
-		parse( jsonObj ){
+		parse( jsonObj, baseOrder=0 ){
 			let self = this;
 
 			Object.keys(jsonObj).forEach(key=>{
@@ -4185,7 +4535,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 					case 'terms':
 						jsonObj.terms.forEach( jsonTerm=>{
-							self.addTerm( TermTypes.CREATE_TERM(jsonTerm) );
+							self.addTerm( TermTypes.CREATE_TERM(jsonTerm), baseOrder );
 						});
 
 						break;
@@ -4241,7 +4591,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( term && term.$rendered ){
 				term.$rendered.addClass('highlight-border');
-
 				return true;
 			}
 
@@ -4253,6 +4602,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( term.$rendered ){
 					term.$rendered.removeClass('highlight-border');
 				}
+			});
+		}
+
+		clearTermsDirty(){
+			this.terms.forEach(term=>{
+				term.clearDirty();
+			});
+		}
+
+		setTermsDirty( dirty=true ){
+			this.terms.forEach(term=>{
+				term.setDirty( dirty );
 			});
 		}
 
@@ -4280,27 +4641,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 
 		 * This function rerenders even if the previous rendered image already exist.
 		 * 
-		 * @param {Term} term 
+		 * @param {Term} term
+		 * @param {JqueryNode} $canvas 
 		 * @param {int} forWhat 
 		 */
-		renderTerm( term, forWhat ){
-			let $panel;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				if( term.isMemberOfGroup() ){
-					let group = this.getTerm(term.groupTermId);
-					$panel = group.$groupPanel;
-				}
-				else{
-					$panel = DataStructure.$PREVIEW_PANEL;
-				}
-				
-				this.clearHighlight();
+		renderTerm( term, forWhat=SXConstants.FOR_EDITOR, highlight=false ){
+			let $panel = null;
+
+			if( term.isMemberOfGroup() ){
+				let group = this.getTerm(term.groupTermId);
+				$panel = group.$getGroupPanel();
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				// for editor
-			}
-			else{
-				// for PDF
+			else {
+				$panel = this.$canvas;
 			}
 
 			let $row = this.$renderTerm( term, forWhat );
@@ -4317,7 +4670,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$panel.children('tr:nth-child('+term.order+')').before($row);
 			}
 
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( highlight === true ){
 				this.highlightTerm( term );
 			}
 		}
@@ -4342,32 +4695,43 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
 		 */
 		render( forWhat, $canvas ){
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				DataStructure.$PREVIEW_PANEL.empty();
+			$canvas = this.$setCanvas( forWhat, $canvas );
 
-				let self = this;
-				//render top level
-				let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
-				topLevelTerms.forEach((term)=>{
-					self.renderTerm(term, forWhat);
-				});
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				if( !$canvas ){
-					$canvas = DataStructure.$DEFAULT_CANVAS;
-				}
-				else{
-					$canvas.empty();
-				}
-
-				
-			}
-			else{
-				// for PDF
-			}
+			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
+			
+			$canvas.empty();
+			
+			//render top level
+			let self = this;
+			topLevelTerms.forEach((term)=>{
+				self.renderTerm(term, forWhat);
+			});
 		}
 
-		insertPreviewRow( $row, index, $panel=DataStructure.$PREVIEW_PANEL ){
+		$setCanvas( forWhat, $canvas ){
+			if( $canvas ){
+				this.$canvas = $canvas;
+			}
+			else{
+				if( forWhat === SXConstants.FOR_PREVIEW ){
+					this.$canvas = DataStructure.$DEFAULT_PREVIEW_PANEL;
+				}
+				else if( forWhat === SXConstants.FOR_EDITOR ){
+					this.$canvas = DataStructure.$DEFAULT_CANVAS;
+				}
+				else{
+					// for PDF
+				}
+			}
+
+			return this.$canvas;
+		}
+
+		$getCanvas(){
+			return this.$canvas;
+		}
+
+		insertPreviewRow( $row, index, $panel=DataStructure.$DEFAULT_PREVIEW_PANEL ){
 			if( $panel.children( ':nth-child('+index+')' ).length === 0 ){
 				$panel.append($row);
 			}
@@ -4397,20 +4761,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return null;
 			}
 			
-			let $panel = DataStructure.$PREVIEW_PANEL;
+			let $canvas = null;
 			if( targetTerm.isMemberOfGroup() ){
 				let group = this.getTerm(targetTerm.groupTermId);
-				$panel = group.$groupPanel;
+				$canvas = group.$groupPanel;
+			}
+			else{ // It means the target term is a top level.
+				$canvas = this.$canvas;
 			}
 
 			targetTerm.$rendered.remove();
 
-			this.renderTerm( targetTerm, forWhat );
+			this.renderTerm( targetTerm, forWhat, true );
 		}
 		
-		addTestSet( forWhat ){
+		addTestSet( forWhat, $canvas ){
+			this.$canvas = $canvas
 			// StringTerm
-			let dataStructure ={
+			let dataStructure = {
 				termDelimiter: DataStructure.DEFAULT_TERM_DELIMITER,
 				termDelimiterPosition: DataStructure.DEFAULT_TERM_DELIMITER_POSITION,
 				termValueDelimiter: DataStructure.DEFAULT_TERM_VALUE_DELIMITER,
@@ -4452,6 +4820,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						multipleLine: true,
 						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
 						order: 3
+					},
+					{
+						termType: TermTypes.FILE,
+						termName: 'imageFile',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': 'X-Ray',
+							'ko_KR': '엑스레이'
+						},
+						definition:{
+							'en_US': 'Chest X-ray image',
+							'ko_KR': '가슴 엑스레이 사진'
+						},
+						tooltip:{
+							'en_US': 'Upload X-Ray image file',
+							'ko_KR': '엑스레이 이미지 파일 업로드'
+						},
+						mandatory: true,
+						synonyms: 'testFile01',
+						value: '',
+						state: Term.STATE_ACTIVE,
+						order: 4
 					},
 					{
 						termType: TermTypes.GROUP,
@@ -4897,7 +5287,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						order: 2
 					},
 					{
-						termType: TermTypes.STRING,
+						termType: TermTypes.NUMERIC,
 						termName: 'weight',
 						termVersion: '1.0.0',
 						displayName: {
@@ -4914,8 +5304,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						},
 						mandatory: true,
 						placeHolder:{
-							'en_US': 'Enter test sting',
-							'ko_KR': '출생년도/달월/날일'
+							'en_US': 'Enter weight',
+							'ko_KR': '체중 입력'
 						},
 						synonyms: 'testStr01',
 						value: '',
@@ -4924,10 +5314,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							'version':'1.0.0'
 						},
 						state: Term.STATE_ACTIVE,
-						minLength: 1,
-						maxLength: 72,
-						multipleLine: false,
-						validationRule: '^[\w\s!@#\$%\^\&*\)\(+=._-]*$',
+						minValue: 30,
+						minBoundary: true,
+						maxValue: 300,
+						maxBoundary: false,
+						unit: 'kg',
 						order: 3
 					},
 					{
@@ -5300,8 +5691,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				]
 			};
 
-			this.parse( dataStructure );
-			this.render( SXConstants.FOR_PREVIEW );
+			this.parse( dataStructure, this.terms ? this.terms.length : 0 );
+			
+			this.setTermsDirty( false );
+			let devided = this.devideTermsByGroup( this.getTopLevelTermId() );
+			this.sortTermsByOrder( devided.hits, devided.others );
+			this.terms = devided.hits.concat(devided.others);
+			console.log( 'data structure sorting: ', this.terms );
+			this.render( SXConstants.FOR_PREVIEW, $canvas );
 
 			let firstTerm = this.terms[0];
 
@@ -5315,7 +5712,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
 		}
-		
+
 	}
 	
     return {
@@ -5328,9 +5725,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
     		return new DataType();
     	},
     	DataStructure: DataStructure,
-    	newDataStructure: function ( jsonStructure ){
-    		return new DataStructure( jsonStructure );
-    	},
+    	newDataStructure: function ( jsonStructure, forWhat, $canvas ){
+    		let dataStructure = new DataStructure( jsonStructure );
+			dataStructure.$setCanvas(forWhat, $canvas);
+
+			return dataStructure;
+		},
     	SXIcecapEvents: SXIcecapEvents,
 		SXConstants: SXConstants, 
     	TermTypes: TermTypes,

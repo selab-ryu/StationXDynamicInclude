@@ -209,6 +209,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 	
 	const TermAttributes = {
+		 ABSTRACT_KEY: 'abstractKey',
 		 ACTIVE : 'active',
 		 AVAILABLE_LANGUAGE_IDS : 'availableLanguageIds',
 		 COUNTRY_CODE : 'countryCode',
@@ -576,30 +577,38 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $input;
 		},
-		$getDateInputNode: function( term, label, mandatory, helpMessage, date ){
-			let controlName = NAMESPACE + term.termName;
-			
-			let $dateNode = $('<div class="lfr-ddm-field-group field-wrapper">')
-					.append( this.$getLabelNode(controlName, label, mandatory, helpMessage) )
-					.append( this.$getDateInputTag( term, controlName, date ) );
+		$getDateInputNode: function( term ){
+			let $dateTimeNode = $('<div class="lfr-ddm-field-group field-wrapper">')
+						.append( this.$getLabelNode(
+							NAMESPACE + term.termName, 
+							term.getLocalizedDisplayName(),
+							term.mandatory ? this.mandatory : false,
+							term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '') )
+						.append( this.$getDateTimeInputNode( term ) );
 
-			return $dateNode;
+			return $dateTimeNode;
 		},
-		$getDateInputTag: function( term, controlName, date ){
+		$getDateTimeInputNode: function( term ){
+			let controlName = NAMESPACE + term.termName;
+
 			let $tag = $('<span class="lfr-input-date">');
 			
-			let $inputTag = $('<input type="date">');
+			let $inputTag = $('<input type="text">');
 			$inputTag.prop({
 				'class': 'field form-control',
 				'id': controlName,
 				'name': controlName,
-				'placeHolder': 'mm/dd/yyyy',
-				'valueAsDate': date,
+				'value': term.value,
 				'aria-live': 'assertive',
 				'aria-label': ''
 			});
 
-			
+			let options = {
+				lang: 'kr'
+			}
+			options.timepicker = ( term.enableTime === true ) ? true : false;
+			$inputTag.datetimepicker(options);
+
 			$inputTag.change(function(event){
 				event.stopPropagation();
 				term.value = $(this).val();
@@ -665,6 +674,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getRadioButtonTag: function (controlId, controlName, label, selected, value ){
 			let $label = $( '<label>' );
+			console.log( 'radio selected: ', label, selected, value)
 			let $input = $( '<input type="radio">')
 									.prop({
 										class: "field",
@@ -717,7 +727,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $node;
 		},
 		$getFileInputTag: function( controlName ){
-			let $input = $( '<input type="file" class="field lfr-input-text form-control" aria-required="true">' );
+			let $input = $( '<input type="file" class="field lfr-input-text form-control" aria-required="true" size="80">' );
 
 			$input.prop({
 				id: controlName,
@@ -758,14 +768,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
 					options.forEach((option, index)=>{
+							let selected = (value === String(option.value));
 							$panelBody.append( this.$getRadioButtonTag( 
 														controlName+'_'+(index+1),
 														controlName, 
 														option.labelMap[CURRENT_LANGUAGE],
-														option.selected || value === option.value,
+														selected,
 														option.value,
 														value ) );
-
 					});
 
 					$panelBody.change(function(event){
@@ -979,12 +989,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getFormDateSection: function(
 					term,
-					label,
-					helpMessage,
-					mandatory,
-					date,
 					forWhat	){
-			let $dateInput = this.$getDateInputNode( term, label, mandatory, helpMessage, date );
+			let $dateInput = this.$getDateInputNode( term );
 
 			let $section;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
@@ -1204,6 +1210,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $('#' + NAMESPACE +  termType.toLowerCase() + 'Attributes');
 		},
 		replaceVisibleTypeSpecificSection: function( termType ){
+			console.log( 'Changed Term Type: '+termType);
 			$('#'+NAMESPACE+'typeSpecificSection .type-specific-attrs.show').removeClass('show').addClass('hide');
 
 			FormUIUtil.$getTypeSpecificSection( termType ).removeClass('hide').addClass('show');
@@ -1326,7 +1333,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		LIST_OPTION_PREVIEW_SELECTED: 'LIST_OPTION_PREVIEW_SELECTED',
 		LIST_OPTION_ACTIVE_TERMS_CHANGED:'LIST_OPTION_ACTIVE_TERMS_CHANGED',
 
+		TERM_PROPERTY_CHANGED: 'TERM_PROPERTY_CHANGED',
 		DATATYPE_SDE_VALUE_CHANGED: 'DATATYPE_SDE_VALUE_CHANGED',
+
 	};
 
 	const SXConstants = {
@@ -1581,10 +1590,157 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 
+	class TermPropertyControl{
+		static $DEFAULT_TERM_TYPE_FORM_CTRL = $('#' + NAMESPACE + 'termType');
+		static $DEFAULT_TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
+		static $DEFAULT_TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
+		static $DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
+		static $DEFAULT_TERM_DEFINITION_FORM_CTRL = $('#' + NAMESPACE + 'termDefinition');
+		static $DEFAULT_TERM_TOOLTIP_FORM_CTRL = $('#' + NAMESPACE + 'termTooltip');
+		static $DEFAULT_TERM_SYNONYMS_FORM_CTRL = $('#' + NAMESPACE + 'synonyms');
+		static $DEFAULT_TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
+		static $DEFAULT_TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
+		static $DEFAULT_ABSTRACT_KEY_FORM_CTRL = $('#' + NAMESPACE + 'abstractKey');
+
+		constructor( termName, termVersion, propertyName, propertyType, $control){
+			this.termName = termName;
+			this.termVersion = termVersion;
+			this.propertyName = propertyName;
+			this.propertyType = propertyType;
+			this.$control = $control;
+		}
+	}
+
+	class TextTermPropertyControl extends TermPropertyControl {
+		static PROPERTY_TYPE = 'text';
+
+		constructor(termName, termVersion, propertyName, $control){
+			super(termName, termVersion, propertyName, TextTermPropertyControl.PROPERTY_TYPE, $control);
+
+			$control.change( function(event){
+				console.log( 'term property changed: ', termName, termVersion, propertyName);
+				Liferay.fire(
+					SXIcecapEvents.TERM_PROPERTY_CHANGED,
+					{
+						termName: termName,
+						termVersion: termVersion,
+						propertyName: propertyName,
+						propertyType: TextTermPropertyControl.PROPERTY_TYPE,
+						value: this.getPropertyValue()
+					}
+				);
+			});
+		}
+
+		getPropertyValue(){
+			return this.$control.val();
+		}
+
+		setPropertyValue( value ){
+			this.$control.val( value );
+		}
+	}
+
+	class SelectTermPropertyControl extends TermPropertyControl {
+		static PROPERTY_TYPE = 'select';
+
+		constructor(termName, termVersion, propertyName, $control){
+			super(termName, termVersion, propertyName, SelectTermPropertyControl.PROPERTY_TYPE, $control);
+
+			$control.change( function(event){
+				Liferay.fire(
+					SXIcecapEvents.TERM_PROPERTY_CHANGED,
+					{
+						termName: termName,
+						termVersion: termVersion,
+						propertyName: propertyName,
+						propertyType: SelectTermPropertyControl.PROPERTY_TYPE,
+						value: this.getPropertyValue()
+					}
+				);
+			});
+		}
+
+		getPropertyValue(){
+			return this.$control.val();
+		}
+
+		setPropertyValue( value ){
+			this.$control.val( value );
+		}
+	}
+
+	class RadioTermPropertyControl extends TermPropertyControl {
+		static PROPERTY_TYPE = 'radio';
+
+		constructor(termName, termVersion, propertyName, $control){
+			super(termName, termVersion, propertyName, RadioTermPropertyControl.PROPERTY_TYPE, $control);
+
+			$control.change( function(event){
+				Liferay.fire(
+					SXIcecapEvents.TERM_PROPERTY_CHANGED,
+					{
+						termName: termName,
+						termVersion: termVersion,
+						propertyName: propertyName,
+						propertyType: RadioTermPropertyControl.PROPERTY_TYPE,
+						value: this.getPropertyValue()
+					}
+				);
+			});
+		}
+
+		getPropertyValue(){
+			return this.$control.find('input[type="radio"]:checked').val();
+		}
+
+		setPropertyValue( value ){
+			this.$control.filter('[value='+value+']').prop('checked', true);
+		}
+	}
+
+	class CheckboxTermPropertyControl extends TermPropertyControl {
+		static PROPERTY_TYPE = 'checkbox';
+
+		constructor(termName, termVersion, propertyName, $control){
+			super(termName, termVersion, propertyName, CheckboxTermPropertyControl.PROPERTY_TYPE, $control);
+
+			$control.change( function(event){
+				Liferay.fire(
+					SXIcecapEvents.TERM_PROPERTY_CHANGED,
+					{
+						termName: termName,
+						termVersion: termVersion,
+						propertyName: propertyName,
+						propertyType: CheckboxTermPropertyControl.PROPERTY_TYPE,
+						value: this.getPropertyValue()
+					}
+				);
+			});
+		}
+
+		getPropertyValues(){
+			return this.$control.filter('input[type="checkbox"]:checked')
+								.map(function(){return this.value;})
+								.get();
+		}
+
+		setPropertyValues( values ){
+			for( i=0; i<values.length; i++){
+				this.$control.filter('[value='+values[i]+']').prop('checked', true);
+			}
+		}
+
+		setChecked( value, check ){
+			this.$control.find('input[type="checkbox" value='+value+']').prop('checked', check);
+		}
+	}
+
 	class Term {
 		static DEFAULT_TERM_ID = 0;
 		static DEFAULT_TERM_VERSION = '1.0.0';
 		static DEFAULT_MANDATORY = false;
+		static DEFAULT_ABSTRACT_KEY = false;
 		static DEFAULT_MIN_LENGTH = 1;
 		static DEFAULT_VALUE_MODE = SXConstants.SINGLE;
 
@@ -1607,17 +1763,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static STATUS_SCHEDULED = 7;
 		static STATUS_IN_TRASH = 8;
 
-		static $TERM_TYPE_FORM_CTRL = $('#' + NAMESPACE + 'termType');
-		static $TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
-		static $TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
-		static $TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
-		static $TERM_DEFINITION_FORM_CTRL = $('#' + NAMESPACE + 'termDefinition');
-		static $TERM_TOOLTIP_FORM_CTRL = $('#' + NAMESPACE + 'termTooltip');
-		static $TERM_SYNONYMS_FORM_CTRL = $('#' + NAMESPACE + 'synonyms');
-		static $TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
-		static $TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
+		static $DEFAULT_TERM_TYPE_FORM_CTRL = $('#' + NAMESPACE + 'termType');
+		static $DEFAULT_TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
+		static $DEFAULT_TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
+		static $DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
+		static $DEFAULT_TERM_DEFINITION_FORM_CTRL = $('#' + NAMESPACE + 'termDefinition');
+		static $DEFAULT_TERM_TOOLTIP_FORM_CTRL = $('#' + NAMESPACE + 'termTooltip');
+		static $DEFAULT_TERM_SYNONYMS_FORM_CTRL = $('#' + NAMESPACE + 'synonyms');
+		static $DEFAULT_TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
+		static $DEFAULT_TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
+		static $DEFAULT_ABSTRACT_KEY_FORM_CTRL = $('#' + NAMESPACE + 'abstractKey');
 
 		constructor( termType ){
+			
 			this.termId = 0;
 			this.termType = termType;
 
@@ -1839,6 +1997,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.termVersion && this.termVersion !== Term.DEFAULT_TERM_VERSION )	json.termVersion = this.termVersion;
 			if( this.displayName && !this.displayName.isEmpty() ) json.displayName = this.displayName.getLocalizedMap();
 			if( this.definition && !this.definition.isEmpty() ) json.definition = this.definition.getLocalizedMap();
+			if( this.abstractKey )		json.abstractKey = this.abstractKey;
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
 			if( this.mandatory )		json.mandatory = this.mandatory;
@@ -1860,12 +2019,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			Object.keys( json ).forEach(function(key, index){
 				switch( key ){
 					case 'termType':
-						self.termType = json.termType;
-						break; 
 					case 'termId':
 					case 'termName':
 					case 'termVersion':
 					case 'synonyms':
+					case 'abstractKey':
 					case 'mandatory':
 					case 'value':
 					case 'active':
@@ -2008,6 +2166,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
+		getAbstractKeyFormValue( save ){
+			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.ABSTRACT_KEY );
+			
+			if( save ){
+				this.mandatory = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+		setAbstractKeyFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, value );
+			}
+			else if( this.mandatory ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, this.abstractKey );
+			}
+			else{
+				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, Term.DEFAULT_ABSTRACT_KEY );
+			}
+		}
+
 		getTooltipFormValue ( save ){
 			let valueMap = FormUIUtil.getFormLocalizedValue( 'termTooltip' );
 
@@ -2130,15 +2310,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		disableAllFormControls(){
-			Term.$TERM_TYPE_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_NAME_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_VERSION_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_DISPLAY_NAME_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_DEFINITION_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_TOOLTIP_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_SYNONYMS_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_MANDATORY_FORM_CTRL.prop( 'disabled', true );
-			Term.$TERM_VALUE_FORM_CTRL.prop( 'disabled', true );
+			Term.$$DEFAULT_TERM_TYPE_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_VERSION_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_DEFINITION_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_TOOLTIP_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_SYNONYMS_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_MANDATORY_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_VALUE_FORM_CTRL.prop( 'disabled', true );
 		}
 		
 	} // End of Term
@@ -2150,8 +2330,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_MULTIPLE_LINE = false;
 		static DEFAULT_VALIDATION_RULE = '^[\w\s!@#\$%\^\&*\)\(+=._-]*$';
 
-		static $TERM_MIN_LENGTH_FORM_CTRL = $('#'+NAMESPACE+'')
-		
 		constructor( jsonObj ){
 			super( 'String' );
 
@@ -3139,6 +3317,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 12. DateTerm */
 	class DateTerm extends Term{
+		static $DEFAULT_ENABLE_TIME_FORM_CTRL = $('#'+NAMESPACE+'enableTime');
+		static DEFAULT_SIZE = '200px';
+		static TIME_ENABLED_SIZE = '500px';
+
 		constructor( jsonObj ){
 			super('Date');
 
@@ -3146,6 +3328,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.setAllFormValues();
 
+			this.enbaleTime = false;
 			this.$rendered = null;
 		}
 
@@ -3156,14 +3339,56 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.$rendered = FormUIUtil.$getFormDateSection(
 				this,
-				this.getLocalizedDisplayName(),
-				this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
-				this.mandatory ? this.mandatory : false,
-				this.value ? new Date(this.value) : new Date(),
 				forWhat
 			);
 
+			//this.$rendered.find('input').eq(0).datetimepicker();
+
 			return this.$rendered;
+		}
+		
+		getFormValue( save ){
+			let value = $('#'+NAMESPACE+this.termName).val();
+			if( save ){
+				this.value = value;
+			}
+			
+			return value;
+		}
+
+		setFormValue( value ){
+			if( value ){
+				this.value = value;
+			}
+
+			this.value ? 
+				$('#'+NAMESPACE+this.termName).val( this.value ) :
+				$('#'+NAMESPACE+this.termName).val( '' );
+		}
+
+		setAllFormValues(){
+			super.setAllFormValues();
+		}
+
+		initAllAttributes(){
+			super.initAllAttributes();
+		}
+
+		getEnableTimeFormValue(save=true){
+			let value = FormUIUtil.getFormCheckboxValue( 'enableTime' );
+			console.log('date value: ' + value );
+			if( save ){
+				this.enableTime = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+
+		setEnableTimeFormValue( value ){
+			this.enableTime = value;
+
+			FormUIUtil.setFormCheckboxValue( 'enableTime', value);
 		}
 
 		parse( jsonObj ){
@@ -3193,6 +3418,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setAllFormValues(){
 			super.setAllFormValues();
+		}
+
+		getFormValue( save=true ){
+			let value = $('#'+NAMESPACE+this.termName).val();
+			if( save ){
+				this.value = value;
+			}
+			
+			return value;
+		}
+
+		setFormValue( value ){
+			if( value ){
+				this.value = value;
+			}
+
+			this.value ? 
+				$('#'+NAMESPACE+this.termName).val( this.value ) :
+				$('#'+NAMESPACE+this.termName).val( '' );
 		}
 
 		$render( forWhat ){
@@ -3645,6 +3889,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 				}
 			});
+
+			console.log('boolean term: ', this);
 		}
 	}
 	
@@ -5786,6 +6032,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		ListTerm: ListTerm,
 		BooleanTerm: BooleanTerm,
 		GroupTerm: GroupTerm,
+		FileTerm: FileTerm,
+		DateTerm: DateTerm,
 		FormUIUtil: FormUIUtil,
     	Util: Util,
 		createVisualizer: function(){

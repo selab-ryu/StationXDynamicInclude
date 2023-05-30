@@ -1996,11 +1996,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.termVersion && this.termVersion !== Term.DEFAULT_TERM_VERSION )	json.termVersion = this.termVersion;
 			if( this.displayName && !this.displayName.isEmpty() ) json.displayName = this.displayName.getLocalizedMap();
 			if( this.definition && !this.definition.isEmpty() ) json.definition = this.definition.getLocalizedMap();
-			if( this.abstractKey )		json.abstractKey = this.abstractKey;
+			if( this.abstractKey )	json.abstractKey = this.abstractKey;
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
-			if( this.mandatory )		json.mandatory = this.mandatory;
-			if( this.value || this.value === 0 )	json.value = this.value;
+			if( this.mandatory )	json.mandatory = this.mandatory;
+			if( this.value || (typeof this.value) === 'number' )	json.value = this.value;
 			if( this.order )	json.order = this.order;
 			if( this.dirty )	json.dirty = this.dirty;
 			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
@@ -2017,6 +2017,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let self = this;
 			Object.keys( json ).forEach(function(key, index){
 				switch( key ){
+					case 'dirty':
+						self[key] = false;
+						break;
 					case 'termType':
 					case 'termId':
 					case 'termName':
@@ -2165,11 +2168,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getAbstractKeyFormValue( save ){
+		getAbstractKeyFormValue( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.ABSTRACT_KEY );
 			
 			if( save ){
-				this.mandatory = value;
+				this.abstractKey = value;
 				this.setDirty( true );
 			}
 			
@@ -2179,7 +2182,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( value ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, value );
 			}
-			else if( this.mandatory ){
+			else if( this.abstractKey ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, this.abstractKey );
 			}
 			else{
@@ -2257,6 +2260,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, Term.DEFAULT_MANDATORY );
 			}
 		}
+
+		getMandatoryFormValue ( save ){
+			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MANDATORY );
+			
+			if( save ){
+				this.mandatory = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+		setMandatoryFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, value );
+			}
+			else if( this.mandatory ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, this.mandatory );
+			}
+			else{
+				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, Term.DEFAULT_MANDATORY );
+			}
+		}
 		
 		getValueFormValue ( save ){
 			let value = FormUIUtil.getFormValue( TermAttributes.VALUE );
@@ -2290,6 +2315,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setSynonymsFormValue();
 			this.setMandatoryFormValue();
 			this.setValueFormValue();
+			this.setAbstractKeyFormValue();
 		}
 
 		initAllAttributes(){
@@ -2297,6 +2323,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.termVersion ) this.termVersion = Term.DEFAULT_TERM_VERSION;
 			if( !this.displayName ) this.displayName = null;
 			if( !this.definition ) 	this.definition = null;
+			if( !this.abstractKey ) 	this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
 			if( !this.tooltip ) 	this.tooltip = null;
 			if( !this.synonyms ) 	this.synonyms = null;
 			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;

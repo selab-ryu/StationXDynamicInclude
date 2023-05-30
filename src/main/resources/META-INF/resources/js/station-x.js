@@ -540,18 +540,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $input;
 			
 			if( inputType === 'text'){
-				$input = $( '<input type="text" aria-required="true">' )
-							.text( value );
+				$input = $( '<input type="text" aria-required="true">' );
 			}
 			else{
-				$input = $( '<textarea aria-required="true">' )
-							.prop( 'value', value ? value : '' );
+				$input = $( '<textarea aria-required="true">' );
 			}
 
 			$input.prop({
 				class: 'field form-control',
 				id: controlName,
 				name: controlName,
+				value: value ? value : '',
 				placeholder: placeHolder ? placeHolder : ''
 			});
 
@@ -603,6 +602,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'aria-label': ''
 			});
 
+			console.log('Before timepicker: ', term);
 			let options = {
 				lang: 'kr'
 			}
@@ -642,7 +642,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$option.prop('value', option.value);
 
 				if( option.selected === true || option.value === value ){
-					$option.prop( 'checked', true );
+					$option.prop( 'selected', true );
 				};
 
 				$option.text(option.labelMap[CURRENT_LANGUAGE]);
@@ -674,7 +674,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getRadioButtonTag: function (controlId, controlName, label, selected, value ){
 			let $label = $( '<label>' );
-			console.log( 'radio selected: ', label, selected, value)
 			let $input = $( '<input type="radio">')
 									.prop({
 										class: "field",
@@ -3318,6 +3317,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	/* 12. DateTerm */
 	class DateTerm extends Term{
 		static $DEFAULT_ENABLE_TIME_FORM_CTRL = $('#'+NAMESPACE+'enableTime');
+		static DEFAULT_ENABLE_TIME=false;
 		static DEFAULT_SIZE = '200px';
 		static TIME_ENABLED_SIZE = '500px';
 
@@ -3327,9 +3327,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
 
 			this.setAllFormValues();
-
-			this.enbaleTime = false;
-			this.$rendered = null;
 		}
 
 		$render(forWhat=SXConstants.FOR_EDITOR){
@@ -3337,6 +3334,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
+			console.log( 'Date Render: ', this);
 			this.$rendered = FormUIUtil.$getFormDateSection(
 				this,
 				forWhat
@@ -3368,15 +3366,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setAllFormValues(){
 			super.setAllFormValues();
+
+			this.setEnableTimeFormValue();
 		}
 
 		initAllAttributes(){
-			super.initAllAttributes();
+			super.initAllAttributes( 'Date' );
+
+			this.$rendered = null;
+
+			if( !this.enableTime ) 	this.enableTime = DateTerm.DEFAULT_ENABLE_TIME;
 		}
 
 		getEnableTimeFormValue(save=true){
 			let value = FormUIUtil.getFormCheckboxValue( 'enableTime' );
-			console.log('date value: ' + value );
+			
 			if( save ){
 				this.enableTime = value;
 				this.setDirty( true );
@@ -3386,17 +3390,44 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setEnableTimeFormValue( value ){
-			this.enableTime = value;
+			if( value ){
+				this.enableTime = value;
+			}
 
-			FormUIUtil.setFormCheckboxValue( 'enableTime', value);
+			FormUIUtil.setFormCheckboxValue( 'enableTime', this.value ? this.value : false );
 		}
 
-		parse( jsonObj ){
-			super.parse( jsonObj );
+		parse( json ){
+			let unparsed = super.parse( json );
+			let unvalid = new Object();
+
+			let self = this;
+			console.log('in parse: ', self, unparsed);
+			Object.keys( unparsed ).forEach(function(key, index){
+				switch( key ){
+					case 'enableTime':
+						self.enableTime = unparsed.enableTime;
+						console.log('In parse enable time: ', self.enableTime, unparsed.enableTime);
+						break;
+					default:
+						unvalid[key] = json[key];
+				}
+			});
+
+			console.log('in parse: ', this);
+			//this.initAllAttributes();
+			//console.log('after parse: ', this);
+
+			return unvalid;
 		}
 
 		toJSON(){
-			return super.toJSON();
+			let json = super.toJSON();
+			
+			if( this.enableTime )	json.enableTime = this.enableTime;
+			
+			console.log('Date toJSON(): ', json);
+			return json;
 		}
 	}
 	
@@ -3408,12 +3439,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
 
 			this.setAllFormValues();
-
-			this.$rendered = null;
 		}
-
+		
 		initAllAttributes(){
 			super.initAllAttributes( 'File' ); 
+			this.$rendered = null;
 		}
 
 		setAllFormValues(){

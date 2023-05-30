@@ -602,7 +602,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'aria-label': ''
 			});
 
-			console.log('Before timepicker: ', term);
 			let options = {
 				lang: 'kr'
 			}
@@ -1209,7 +1208,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $('#' + NAMESPACE +  termType.toLowerCase() + 'Attributes');
 		},
 		replaceVisibleTypeSpecificSection: function( termType ){
-			console.log( 'Changed Term Type: '+termType);
 			$('#'+NAMESPACE+'typeSpecificSection .type-specific-attrs.show').removeClass('show').addClass('hide');
 
 			FormUIUtil.$getTypeSpecificSection( termType ).removeClass('hide').addClass('show');
@@ -1617,7 +1615,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			super(termName, termVersion, propertyName, TextTermPropertyControl.PROPERTY_TYPE, $control);
 
 			$control.change( function(event){
-				console.log( 'term property changed: ', termName, termVersion, propertyName);
 				Liferay.fire(
 					SXIcecapEvents.TERM_PROPERTY_CHANGED,
 					{
@@ -3361,7 +3358,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			console.log( 'Date Render: ', this);
 			this.$rendered = FormUIUtil.$getFormDateSection(
 				this,
 				forWhat
@@ -3429,21 +3425,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unvalid = new Object();
 
 			let self = this;
-			console.log('in parse: ', self, unparsed);
 			Object.keys( unparsed ).forEach(function(key, index){
 				switch( key ){
 					case 'enableTime':
 						self.enableTime = unparsed.enableTime;
-						console.log('In parse enable time: ', self.enableTime, unparsed.enableTime);
 						break;
 					default:
 						unvalid[key] = json[key];
 				}
 			});
 
-			console.log('in parse: ', this);
-			//this.initAllAttributes();
-			//console.log('after parse: ', this);
+			this.initAllAttributes();
 
 			return unvalid;
 		}
@@ -3453,7 +3445,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( this.enableTime )	json.enableTime = this.enableTime;
 			
-			console.log('Date toJSON(): ', json);
 			return json;
 		}
 	}
@@ -3946,8 +3937,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 				}
 			});
-
-			console.log('boolean term: ', this);
 		}
 	}
 	
@@ -4153,7 +4142,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				data: params,
 				dataType: 'json',
 				success: function( dataStructure ){
-					console.log( dataStruture );
 					parse( dataStruture );
 				},
 				error: function( data, e ){
@@ -6000,7 +5988,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let devided = this.devideTermsByGroup( this.getTopLevelTermId() );
 			this.sortTermsByOrder( devided.hits, devided.others );
 			this.terms = devided.hits.concat(devided.others);
-			console.log( 'data structure sorting: ', this.terms );
 			this.render( SXConstants.FOR_PREVIEW, $canvas );
 
 			let firstTerm = this.terms[0];

@@ -224,6 +224,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 DISABLED : 'disabled',
 		 DISPLAY_NAME : 'displayName',
 		 DISPLAY_STYLE : 'displayStyle',
+		 DOWNLOADABLE : 'downloadable',
 		 ELEMENT_TYPE : 'elementType',
 		 FILE_ID : 'fileId',
 		 FORMAT : 'format',
@@ -241,6 +242,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 MIN_LENGTH :'minLength',
 		 MIN_VALUE :'minValue',
 		 MULTIPLE_LINE :'multipleLine',
+		 NUMERIC_PLACE_HOLDER : 'numericPlaceHolder',
 		 OPTION_LABEL: 'optionLabel',
 		 OPTION_VALUE: 'optionValue',
 		 OPTION_SELECTED: 'optionSelected',
@@ -251,6 +253,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 RANGE : 'range',
 		 REF_DATATYPES : 'refDataTypes',
 		 REF_DATABASES : 'refDatabases',
+		 SEARCHABLE: 'searchable',
 		 SWEEPABLE : 'sweepable',
 		 SYNONYMS : 'synonyms',
 		 TERM_NAME : 'termName',
@@ -862,11 +865,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$button.click(function(event){
 				event.stopPropagation();
 				
-				let msg = 'Remove from group or delete from the data structure?';
+				let msg = Liferay.Language.get('are-you-sure-to-delete-the-term-from-the-data-structure');
 				if( term.isMemberOfGroup() ){
-					msg = 'Are you sure to delete the term from the data structure?';
 					if( term.isGroupTerm() ){
-						msg += ' Child terms are move up to upper group or top level.'
+						msg = 'this-group-type-term-is-a-member-of-a-group-if-you-push-delete-button-all-sub-terms-will-be-deleted-from-the-structure-otherwise-to-remove-from-the-group'
+					}
+					else{
+						msg = Liferay.Language.get('the-term-is-a-member-of-a-group-please-push-delete-button-to-delete-from-the-structure-or-push-remove-button-to-remove-from-the-group');
+					}
+				}
+				else{
+					if( term.isGroupTerm() ){
+						msg = 'this-group-type-term-is-a-member-of-a-group-if-you-push-delete-button-all-sub-terms-will-be-deleted-from-the-structure-otherwise-to-remove-from-the-group'
+					}
+					else{
+						msg = Liferay.Language.get('the-term-is-a-member-of-a-group-please-push-delete-button-to-delete-from-the-structure-or-push-remove-button-to-remove-from-the-group');
 					}
 				}
 
@@ -1049,7 +1062,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				valueRate = 90;
 			}
 			
-			let $textInput = this.$getTextInputTag( 'text', term, controlName, '', value );
+			let $textInput = this.$getTextInputTag( 'text', term, controlName, term.placeHolder.getText(DEFAULT_LANGUAGE), value );
 			let $inputcol = $('<div style="display:inline-block; width:100%;">').append($textInput);
 			$controlSection.append( $inputcol );
 			
@@ -1737,6 +1750,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_TERM_VERSION = '1.0.0';
 		static DEFAULT_MANDATORY = false;
 		static DEFAULT_ABSTRACT_KEY = false;
+		static DEFAULT_SEARCHABLE = false;
+		static DEFAULT_DOWNLOADABLE = true;
 		static DEFAULT_MIN_LENGTH = 1;
 		static DEFAULT_VALUE_MODE = SXConstants.SINGLE;
 
@@ -1769,6 +1784,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $DEFAULT_TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
 		static $DEFAULT_TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
 		static $DEFAULT_ABSTRACT_KEY_FORM_CTRL = $('#' + NAMESPACE + 'abstractKey');
+		static $DEFAULT_SEARCHABLE_FORM_CTRL = $('#' + NAMESPACE + 'searchable');
+		static $DEFAULT_DOWNLOADABLE_FORM_CTRL = $('#' + NAMESPACE + 'downloadable');
 
 		constructor( termType ){
 			
@@ -1994,6 +2011,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.displayName && !this.displayName.isEmpty() ) json.displayName = this.displayName.getLocalizedMap();
 			if( this.definition && !this.definition.isEmpty() ) json.definition = this.definition.getLocalizedMap();
 			if( this.abstractKey )	json.abstractKey = this.abstractKey;
+			if( this.searchable )	json.searchable = this.searchable;
+			if( this.downloadable === false )	json.downloadable = this.downloadable;
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
 			if( this.mandatory )	json.mandatory = this.mandatory;
@@ -2023,6 +2042,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'termVersion':
 					case 'synonyms':
 					case 'abstractKey':
+					case 'searchable':
+					case 'downloadable':
 					case 'mandatory':
 					case 'value':
 					case 'active':
@@ -2058,7 +2079,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * Setter and getter UIs for form control values of the definer's edit section.
 		 * Form controls should be consist of [namespace]+[term attribute name]
 		 ****************************************************************/
-		getTermTypeFormValue ( save ){
+		getTermTypeFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.TERM_TYPE );
 			if( save ){
 				this.termType = value;
@@ -2079,7 +2100,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getTermNameFormValue ( save ){
+		getTermNameFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.TERM_NAME );
 			if( save ){
 				this.termName = value;
@@ -2100,7 +2121,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getTermVersionFormValue ( save ){
+		getTermVersionFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.TERM_VERSION );
 			if( save ){
 				this.termVersion = value;
@@ -2121,7 +2142,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getDisplayNameFormValue ( save ){
+		getDisplayNameFormValue ( save=true ){
 			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDisplayName' );
 			if( save ){
 				this.displayName = new LocalizedObject();
@@ -2143,7 +2164,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getDefinitionFormValue ( save ){
+		getDefinitionFormValue ( save=true ){
 			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDefinition' );
 			if( save ){
 				this.definition = new LocalizedObject();
@@ -2187,7 +2208,51 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getTooltipFormValue ( save ){
+		getSearchableFormValue( save=true ){
+			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SEARCHABLE );
+			
+			if( save ){
+				this.searchable = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+		setSearchableFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, value );
+			}
+			else if( this.searchable ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, this.searchable );
+			}
+			else{
+				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, Term.DEFAULT_SEARCHABLE );
+			}
+		}
+
+		getDownloadableFormValue( save=true ){
+			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.DOWNLOADABLE );
+			
+			if( save ){
+				this.downloadable = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+		setDownloadableFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, value );
+			}
+			else if( this.downloadable === false ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, this.downloadable );
+			}
+			else{
+				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, Term.DEFAULT_DOWNLOADABLE );
+			}
+		}
+
+		getTooltipFormValue ( save=true ){
 			let valueMap = FormUIUtil.getFormLocalizedValue( 'termTooltip' );
 
 			if( save ){
@@ -2215,7 +2280,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getSynonymsFormValue ( save ){
+		getSynonymsFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.SYNONYMS );
 			if( save ){
 				this.synonyms = value;
@@ -2236,7 +2301,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getMandatoryFormValue ( save ){
+		getMandatoryFormValue ( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MANDATORY );
 			
 			if( save ){
@@ -2258,29 +2323,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getMandatoryFormValue ( save ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MANDATORY );
-			
-			if( save ){
-				this.mandatory = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMandatoryFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, value );
-			}
-			else if( this.mandatory ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, this.mandatory );
-			}
-			else{
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, Term.DEFAULT_MANDATORY );
-			}
-		}
-		
-		getValueFormValue ( save ){
+		getValueFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.VALUE );
 			if( save ){
 				this.value = value;
@@ -2303,45 +2346,56 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		
 
 		setAllFormValues(){
-			this.setTermTypeFormValue();
-			this.setTermNameFormValue();
-			this.setTermVersionFormValue();
-			this.setDisplayNameFormValue();
-			this.setDefinitionFormValue();
-			this.setTooltipFormValue();
-			this.setSynonymsFormValue();
-			this.setMandatoryFormValue();
-			this.setValueFormValue();
 			this.setAbstractKeyFormValue();
+			this.setDefinitionFormValue();
+			this.setDisplayNameFormValue();
+			this.setDownloadableFormValue();
+			this.setMandatoryFormValue();
+			this.setSearchableFormValue();
+			this.setSynonymsFormValue();
+			this.setTermNameFormValue();
+			this.setTermTypeFormValue();
+			this.setTermVersionFormValue();
+			this.setTooltipFormValue();
+			this.setValueFormValue();
 		}
 
 		initAllAttributes(){
+
+			// Audit properties
+			if( !this.abstractKey ) 	this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
+			if( !this.definition ) 	this.definition = null;
+			if( !this.displayName ) this.displayName = null;
+			if( !this.downloadable === false ) 	this.downloadable = Term.DEFAULT_DOWNLOADABLE;
+			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
+			if( !this.searchable ) 	this.searchable = Term.DEFAULT_SEARCHABLE;
+			if( !this.state )		this.state = Term.STATE_INIT;
+			if( !this.status )		this.status = Term.STATUS_DRAFT;
+			if( !this.synonyms ) 	this.synonyms = '';
 			if( !this.termName ) 	this.termName = '';
 			if( !this.termVersion ) this.termVersion = Term.DEFAULT_TERM_VERSION;
-			if( !this.displayName ) this.displayName = null;
-			if( !this.definition ) 	this.definition = null;
-			if( !this.abstractKey ) 	this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
 			if( !this.tooltip ) 	this.tooltip = null;
-			if( !this.synonyms ) 	this.synonyms = null;
-			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
-			if( !this.value ) 		this.value = null;
-			if( !this.isMemberOfGroup() ) 		this.groupTermId = new TermId();
+			if( !this.value ) 		this.value = '';
+			
+			// These are special properties for term manipulation
 			if( !this.valueMode )	this.valueMode = Term.DEFAULT_VALUE_MODE;
-			if( !this.status )		this.status = Term.STATUS_DRAFT;
-			if( !this.state )		this.state = Term.STATE_INIT;
+			if( !this.isMemberOfGroup() ) 	this.groupTermId = new TermId();
 			this.standard = false;
 		}
 
 		disableAllFormControls(){
-			Term.$$DEFAULT_TERM_TYPE_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_NAME_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_VERSION_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_ABSTRACT_KEY_FORM_CTRL.prop( 'disabled', true );
 			Term.$DEFAULT_TERM_DEFINITION_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_TOOLTIP_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_SYNONYMS_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_DOWNLOADABLE_FORM_CTRL.prop( 'disabled', true );
 			Term.$DEFAULT_TERM_MANDATORY_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_NAME_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_SEARCHABLE_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_SYNONYMS_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_TOOLTIP_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_TYPE_FORM_CTRL.prop( 'disabled', true );
 			Term.$DEFAULT_TERM_VALUE_FORM_CTRL.prop( 'disabled', true );
+			Term.$DEFAULT_TERM_VERSION_FORM_CTRL.prop( 'disabled', true );
 		}
 		
 	} // End of Term
@@ -2793,6 +2847,34 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE );
 			}
 		}
+
+		getNumericPlaceHolderFormValue ( save=true ){
+			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER );
+
+			if( save ){
+				if( Object.keys( valueMap ).length <= 0 ){
+					this.placeHolder = null;
+				}
+				else{
+					this.placeHolder = new LocalizedObject();
+					this.placeHolder.setLocalizedMap( valueMap );
+				}
+				this.setDirty( true );
+			}
+			
+			return valueMap;
+		}
+		setNumericPlaceHolderFormValue ( valueMap ){
+			if( valueMap ){
+				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER, valueMap );
+			}
+			else if( this.placeHolder ){
+				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER, this.placeHolder.getLocalizedMap() );
+			}
+			else{
+				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER );
+			}
+		}
 		
 		setAllFormValues(){
 			super.setAllFormValues();
@@ -2803,6 +2885,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setUnitFormValue();
 			this.setUncertaintyFormValue();
 			this.setSweepableFormValue();
+			this.setNumericPlaceHolderFormValue();
 		}
 
 		initAllAttributes(){
@@ -2815,6 +2898,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.unit )		this.unit = null;
 			if( !this.uncertainty )	this.uncertainty = false;
 			if( !this.sweepable )	this.sweepable = false;
+			if( !this.placeHolder )	this.placeHolder = new LocalizedObject();
 		}
 		
 		parse( json ){
@@ -2833,6 +2917,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'sweepable':
 						self[key] = json[key];
 						break;
+					case 'placeHolder':
+						self.placeHolder = new LocalizedObject( unparsed[key] );
+						break;
 					default:
 						invalid[key] = json[key];
 				}
@@ -2849,7 +2936,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.unit )	json.unit = this.unit;
 			if( this.uncertainty )	json.uncertainty = true;
 			if( this.sweepable )	json.sweepable = true;
-			
+			if( this.placeHolder ){
+				json.placeHolder = this.placeHolder.getLocalizedMap();
+			}
+
 			return json;
 
 		}
@@ -3232,6 +3322,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setAllFormValues(){
 			super.setAllFormValues();
+			
 			this.renderOptions();
 			this.initOptionFormValues();
 		}
@@ -3943,7 +4034,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	/* 20. IntergerTerm */
 	class IntegerTerm extends NumericTerm{
 		constructor(){
-			
+			super();
 		}
 	}
 
@@ -3966,7 +4057,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_COMMENT_CHAR = '#';
 
 		constructor( jsonObj ){
-			if( jsonObj ){
+			if( !Util.isEmptyObject(jsonObj) ){
 				this.parse( jsonObj );
 			}
 			else{
@@ -3993,7 +4084,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  APIs for form controls
 		 ***********************************************************************/
 
-		getTermDelimiterFormValue ( save ){
+		getTermDelimiterFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'termDelimiter' );
 			if( save ){
 				this.termDelimiter = value;
@@ -4013,7 +4104,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getTermDelimiterPositionFormValue ( save ){
+		getTermDelimiterPositionFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'termDelimiterPosition' );
 			if( save ){
 				this.termDelimiter = value;
@@ -4033,7 +4124,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getTermValueDelimiterFormValue ( save ){
+		getTermValueDelimiterFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'termValueDelimiter' );
 			if( save ){
 				this.termDelimiter = value;
@@ -4053,7 +4144,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getMatrixBracketTypeFormValue ( save ){
+		getMatrixBracketTypeFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'matrixBracketType' );
 			if( save ){
 				this.matrixBracketType = value;
@@ -4073,7 +4164,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getMatrixElementDelimiterFormValue ( save ){
+		getMatrixElementDelimiterFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'matrixElementDelimiter' );
 			if( save ){
 				this.matrixElementDelimiter = value;
@@ -4093,7 +4184,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getCommentCharFormValue ( save ){
+		getCommentCharFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'commentChar' );
 			if( save ){
 				this.commentChar = value;
@@ -4773,6 +4864,61 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.terms.length;
 		}
 
+		/**
+		 * 
+		 * @param {*} abstractKey 
+		 * 		If it is true, get the array of terms which are defiened as abstract keyes, 
+		 * 		otherwise returns the array of terms which are not defined. 
+		 * @returns 
+		 */
+		getAbstractKeyTerms( abstractKey=true ){
+			let abstractKeyTerms = this.terms.filter(
+				term =>{
+					let definedValue = term.abstractKey ? true : false;
+					return definedValue === abstractKey;
+				}
+			);
+
+			console.log( 'Abstract Key Terms: ', abstractKeyTerms);
+			return abstractKeyTerms;
+		}
+
+		countAbstractKeyTerms( abstractKey=true ){
+			return this.getAbstractKeyTerms( abstractKey ).length;
+		}
+
+		getSearchableTerms( searchable=true ){
+			let searchableTerms = this.terms.filter(
+				term =>{
+					let definedValue = term.searchable ? true : false;
+					return definedValue === searchable;
+				}
+			);
+
+			console.log( 'Searchable Terms: ', searchableTerms);
+			return searchableTerms;
+		}
+
+		countSearchableTerms( searchable=true ){
+			return this.getSearchableTerms( searchable ).length;
+		}
+
+		getDownloadableTerms( downloadable=true ){
+			let downloadableTerms = this.terms.filter(
+				term =>{
+					let definedValue = (term.downloadable === false) ? false : true;
+					return definedValue === downloadable;
+				}
+			);
+
+			console.log( 'Downloadable Terms: ', downloadableTerms);
+			return downloadableTerms;
+		}
+
+		countDownloadableTerms( downloadable=true ){
+			return this.getDownloadableTerms( downloadable ).length;
+		}
+
 		toFileContent(){
 			let fileContent = {};
 
@@ -4835,16 +4981,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		
 		toJSON(){
-			return{
-				termDelimiter : this.termDelimiter,
-				termValueDelimiter : this.termValueDelimiter,
-				termDelimiterPosition : this.termDelimiterPosition,
-				matrixBracketType : this.matrixBracketType,
-				matrixElementDelimiter : this.matrixElementDelimiter,
-				commentString : this.commentString,
-				tooltip : this.tooltip.localizedMap,
-				terms : this.terms 
-			};
+			let json = new Object();
+
+			if( this.termDelimiter ){
+				json.termDelimiter = this.termDelimiter;
+			}
+
+			json.termValueDelimiter = this.termValueDelimiter;
+			json.termDelimiterPosition = this.termDelimiterPosition;
+			json.matrixBracketType = this.matrixBracketType;
+			json.matrixElementDelimiter = this.matrixElementDelimiter;
+
+			if( this.commentString ){
+				json.commentString = this.commentString;
+			}
+
+			if( !this.tooltip.isEmpty() ){
+				json.tooltip = this.tooltip.getLocalizedMap();
+			}
+
+			if( this.terms ){
+				json.terms = this.terms.map(term=>{
+					return term.toJSON();
+				});
+			}
+
+			return json;
 		}
 
 

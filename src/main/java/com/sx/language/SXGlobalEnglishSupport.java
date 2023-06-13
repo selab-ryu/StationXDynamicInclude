@@ -9,13 +9,13 @@ import org.osgi.service.component.annotations.Component;
 
 @Component(
 		immediate = true,
-	    property = { "language.id=en" }, 
+	    property = { "language.id=en_US" }, 
 	    service = ResourceBundle.class
 	)
 public class SXGlobalEnglishSupport extends ResourceBundle {
 	
 	private final ResourceBundle _resourceBundle = ResourceBundle.getBundle(
-	        "content.Language_en", UTF8Control.INSTANCE);
+	        "content.Language_en_US", UTF8Control.INSTANCE);
 
 	@Override
 	protected Object handleGetObject(String key) {

@@ -864,7 +864,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							 
 			$button.click(function(event){
 				event.stopPropagation();
-				
+				/*
 				let msg = Liferay.Language.get('are-you-sure-to-delete-the-term-from-the-data-structure');
 				if( term.isMemberOfGroup() ){
 					if( term.isGroupTerm() ){
@@ -882,6 +882,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						msg = Liferay.Language.get('the-term-is-a-member-of-a-group-please-push-delete-button-to-delete-from-the-structure-or-push-remove-button-to-remove-from-the-group');
 					}
 				}
+				*/
 
 				let eventData = {
 					sxeventData:{
@@ -890,7 +891,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						term: term
 					}
 				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM,
+					eventData
+				);
 				
+				/*
 				let dialogProperty = {
 					autoOpen: true,
 					title:'',
@@ -932,6 +939,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				$('<div>').text(msg).dialog( dialogProperty );
+				*/
 				
 			});
 
@@ -4497,6 +4505,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setGroupIncrementalOrder( term ){
 			let terms = this.getGroupMembers( term.groupTermId );
+			console.log('------', term, terms);
 			term.order = terms.length;
 		}
 
@@ -4534,7 +4543,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		moveGroupMembers( oldGroupTermId, newGroupTermId ){
 			let oldMembers = this.getGroupMembers( oldGroupTermId );
 
-			oldMembers.forEach(member=>this.addGroupMember(member, newGroupTermId));
+			let self = this;
+			oldMembers.forEach(member=>self.addGroupMember(member, newGroupTermId));
 		}
 
 		/**
@@ -4770,6 +4780,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			terms.sort(function(t1,t2){ return t1.order - t2.order; });
 		}
 
+		moveTermGroupUp( term ){
+			let group = this.getTerm( term.groupTermId );
+			term.groupTermId = group.groupTermId;
+			console.log('Parent group to be moved up: ', term.groupTermId);
+
+			this.refreshGroupMemberOrders( group.groupTermId );
+			this.refreshGroupMemberOrders( term.groupTermId );
+		}
+
 		/**
 		 * Delete a term from the data structure.
 		 * If deep is true and the term is a GroupTerm, 
@@ -4782,21 +4801,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 */
 		deleteTerm( targetTerm, deep=false ){
 			let targetId = targetTerm.getTermId();
-
-			this.terms = this.terms.filter( term=>term.getTermId().sameWith(targetId) );
-			targetTerm.emptyRender();
+			let	groupTermId = targetTerm.groupTermId;
 			
+			this.terms = this.terms.filter( term => !term.getTermId().sameWith(targetId) );
+
 			//Take care of children if targetTerm is a group
 			if( targetTerm.isGroupTerm() && deep === false ){
-				let groupTermId = this.getTopLevelTermId();
-				if( targetTerm.isMemberOfGroup() ){
-					groupTermId = targetTerm.groupTermId;
-				}
 				this.moveGroupMembers( targetId, groupTermId );
 			}
 			else if( targetTerm.isGroupTerm() && deep === true ){
 				let members = this.getGroupMembers(targetId);
 				members.forEach(member=>this.deleteTerm(member, true));
+			}
+			this.refreshGroupMemberOrders( groupTermId );
+
+			if( targetTerm.isRendered() ){
+				targetTerm.emptyRender();
 			}
 		}
 
@@ -4816,28 +4836,78 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 */
 		removeTerm( targetTerm ){
 			let self = this;
-			
-			let superGroupTermId = this.getTopLevelTermId();
-			this.terms = this.terms.filter( function( term, index, ary ){
-				if( term.termName === targetTerm.termName && term.termVersion === targetTerm.termVersion ){
-					if( targetTerm.isMemberOfGroup() ){
-						let currentGroup = self.getTerm(targetTerm.groupTermId);
-						superGroupTermId = currentGroup.groupTermId;
-	
-						self.addGroupMember( term, superGroupTermId, false );
-						return SXConstants.FILTER_ADD;
-					}
-					else{ // It means targetTerm is a top level member.
-						self.deleteTerm( targetTerm, false );
-						return SXConstants.FILTER_SKIP;
-					}
-					
+
+			let dlgButtons = new Array();
+			let cancelBtn = {
+				text: Liferay.Language.get('cancel'),
+				click:function(){
+					$(this).dialog('destroy');
 				}
+			}
 
-				return SXConstants.FILTER_ADD;
-			});
+			let deleteBtn = {
+				text: Liferay.Language.get('delete'),
+				click: function(){
+					self.deleteTerm(targetTerm, true);
+					self.render(SXConstants.FOR_PREVIEW);
 
-			this.refreshGroupMemberOrders( superGroupTermId );
+					$(this).dialog('destroy');
+				}
+			}
+
+			let moveUpBtn = {
+				text: Liferay.Language.get('move-group-up'),
+				click: function(){
+					self.moveTermGroupUp( targetTerm );
+					self.render(SXConstants.FOR_PREVIEW);
+
+					$(this).dialog('destroy');
+				}
+			}
+
+			let removeBtn = {
+				text: Liferay.Language.get('remove'),
+				click: function(){
+					self.deleteTerm(targetTerm, false);
+					self.render(SXConstants.FOR_PREVIEW);
+
+					$(this).dialog('destroy');
+				}
+			}
+
+			
+			let msg = Liferay.Language.get('something-wrong-to-delete-a-term');
+			if( targetTerm.isMemberOfGroup() && targetTerm.isGroupTerm() ){
+				msg = Liferay.Language.get('if-delete-button-is-clicked-all-sub-terms-will-be-deleted-from-the-structure-if-remove-button-is-clicked-the-term-is-deleted-and-all-sub-terms-are-moved-up-to-the-parent-group');
+				dlgButtons.push(deleteBtn, removeBtn, moveUpBtn);
+			}
+			else if( targetTerm.isMemberOfGroup() && !targetTerm.isGroupTerm() ){
+				msg = Liferay.Language.get('the-term-is-a-member-of-a-group-please-push-delete-button-to-delete-from-the-structure-or-push-remove-button-to-remove-from-the-group');
+				dlgButtons.push(deleteBtn, moveUpBtn);
+			}
+			else if( !targetTerm.isMemberOfGroup() && targetTerm.isGroupTerm() ){
+				msg = Liferay.Language.get('the-term-is-a-group-if-you-push-delete-button-all-sub-terms-would-be-deleted-from-the-structure-if-remove-button-is-pushed-al-sub-terms-are-moved-up-as-top-level-terms');
+				dlgButtons.push(deleteBtn, removeBtn);
+			}
+			else if( !targetTerm.isMemberOfGroup() && !targetTerm.isGroupTerm() ){
+				msg = Liferay.Language.get('are-you-sure-to-delete-the-term-from-the-data-structure');
+				dlgButtons.push(deleteBtn);
+			}
+
+			dlgButtons.push(cancelBtn);
+
+			let dialogProperty = {
+				autoOpen: true,
+				title:'',
+				modal: true,
+				draggable: true,
+				width: 400,
+				highr: 200,
+				buttons:dlgButtons
+			};
+
+			$('<div>').text(msg).dialog( dialogProperty );
+
 		}
 
 		removeActiveTerm( activeTerm ){
@@ -5147,14 +5217,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param { Integer } forWhat
 		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
 		 */
-		render( forWhat, $canvas ){
+		render( forWhat=SXConstants.FOR_PREVIEW, $canvas ){
 			$canvas = this.$setCanvas( forWhat, $canvas );
 
 			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
 			
 			$canvas.empty();
 			
-			//render top level
+			//render from top level terms
 			let self = this;
 			topLevelTerms.forEach((term)=>{
 				self.renderTerm(term, forWhat);

@@ -368,6 +368,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class TermId{
+		static getEmptyTermId(){
+			return new TermId('', '');
+		}
+
 		constructor( name, version ){
 			this.name = name ? name : '';
 			this.version = version ? version : '';
@@ -1293,6 +1297,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( focus ){
 				$control.focus();
 			}
+
 		},
 		clearFormValue: function( attrName ){
 			FormUIUtil.setFormValue( attrName );
@@ -1847,7 +1852,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		getTermId(){
-			return new TermId(this.termName,this.termVersion);
+			if( !(Util.isEmptyString( this.termName ) || Util.isEmptyString( this.termVersion )) ){
+				return new TermId(this.termName,this.termVersion);
+			}
+			else{
+				return TermId.getEmptyTermId();
+			}
+		}
+
+		getGroupId(){
+			if( this.isMemberOfGroup() ){
+				return this.groupTermId ;
+			}
+			else{
+				return TermId.getEmptyTermId();
+			}
 		}
 
 		isRendered(){
@@ -1985,7 +2004,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		
 		validateMandatoryFields(){
 			if( !this.termName )	return 'termName';
-			if( !this.termVersion )	return 'termVersion';
+			if( !this.termVersion ){
+				this.getTermVersionFormValue();
+				if( !this.termVersion )	return 'termVersion';
+			}	
 			if( !this.displayName || this.displayName.isEmpty() )	return 'displayName';
 			
 			return true;
@@ -2147,6 +2169,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else{
 				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, Term.DEFAULT_TERM_VERSION );
+			}
+
+			if( this.isRendered() ){
+
 			}
 		}
 		
@@ -3847,6 +3873,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $FALSE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_FALSE_LABEL);
 		static $TRUE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanTrueActiveTerms');
 		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
+		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
 
 		static DEFAULT_DISPLAY_STYLE = SXConstants.DISPLAY_STYLE_SELECT;
 		static AVAILABLE_TERMS = null;
@@ -5146,7 +5173,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			devided.others = new Array();
 
 			this.terms.forEach(term=>{
-				if( groupTermId.sameWith(term.groupTermId) ){
+				if( groupTermId.sameWith(term.getGroupId()) ){
 					devided.hits.push( term );
 				}
 				else{

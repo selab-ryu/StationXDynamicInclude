@@ -588,146 +588,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $input;
 		},
-		$getDateSearchSection: function( term ){
-			let $dateSearchNode = $('<div class="lfr-ddm-field-group field-wrapper">')
-						.append( this.$getLabelNode(
-							NAMESPACE + term.termName, 
-							term.getLocalizedDisplayName(),
-							term.mandatory ? this.mandatory : false,
-							term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '') )
-						.append( this.$getDateSearchNode(term) );
-
-			return $dateSearchNode;
-		},
-		$getDateTimeInputTag: function( term, controlId ){
-
-		},
-		$getDateSearchNode: function( term ){
-			term.rangeSearch = term.rangeSearch ? true : false;
-
-			let controlName = NAMESPACE + term.termName;
-			
-			let $searchKeywordSection = $('<div class="form-group">');
-			let $fromSpan = $('<span class="lfr-input-date display-inline-block" style="margin-right: 5px;">');
-			let $curlingSpan = $('<span class="hide" style="margin: 0px 5px;">~</span>');
-			let $toSpan = $('<span class="lfr-input-date hide" style="margin:0px 5px;">');
-			let $rangeCheckbox = $('<input type="checkbox" style="margin-left:5px;">');
-			
-			let $fromInputTag = $('<input type="text">');
-			$fromInputTag.prop({
-				'class': 'field form-control fromDate',
-				'id': controlName+'_from',
-				'name': controlName+'_from',
-				'value': term.fromSearchValue
-			});
-			
-			$fromSpan.append($fromInputTag);
-			
-			let options = {
-				lang: 'kr',
-				changeYear: true,
-				changeMonth : true,
-				yearRange: "1920:2025"
-			}
-			
-			options.timepicker = false;
-			options.dateFormat = 'yy. mm. dd.';
-			$fromInputTag.datepicker(options);
-			
-			$fromInputTag.change(function(event){
-				event.stopPropagation();
-				console.log( 'From Date Search Value: ' + $(this).val() );
-				term.fromSearchValue = Date.parse( $(this).val() );
-				console.log( 'term.fromSearchValue: ' +  term.fromSearchValue );
-				
-				let rangeSearch = $rangeCheckbox.prop('checked');
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: rangeSearch,
-						fromDate: term.fromSearchValue,
-						toDate: rangeSearch ? Date.parse( $toSpan.find('input').val() ) : ''
-					}
-				};
-				
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
-					eventData
-					);
-			});
-				
-			let $toInputTag = $('<input type="text">');
-			$toInputTag.prop({
-				'class': 'field form-control toDate',
-				'id': controlName+'_to',
-				'name': controlName+'_to',
-				'value': term.toSearchValue,
-				'aria-live': 'assertive',
-				'aria-label': ''
-			});
-
-			$toSpan.append($toInputTag);
-
-			$toInputTag.datepicker(options);
-
-			$toInputTag.change(function(event){
-				event.stopPropagation();
-				term.toSearchValue = Date.parse( $(this).val() );
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: true,
-						fromDate: term.fromSearchValue,
-						toDate: term.toSearchValue
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_TO_DATE_CHANGED,
-					eventData
-				);
-			});
-
-			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
-				controlName+'_rangeSearch',
-				controlName+'_rangeSearch',
-				Liferay.Language.get( 'range-search' ),
-				false,
-				'rangeSearch',
-				false
-			);
-			$rangeCheckbox.change(function(event){
-				event.stopPropagation();
-
-				term.rangeSearch = $(this).find('input').prop('checked');
-				console.log( 'term.rangeSearch: ' + $(this).find('input').prop('checked') );
-
-				if( term.rangeSearch === true ){
-					$curlingSpan.addClass('display-inline-block');
-					$toSpan.addClass('display-inline-block');
-					$curlingSpan.removeClass('hide');
-					$toSpan.removeClass('hide');
-				}
-				else{
-					$curlingSpan.addClass('hide');
-					$toSpan.addClass('hide');
-					$curlingSpan.removeClass('display-inline-block');
-					$toSpan.removeClass('display-inline-block');
-				}
-			});
-
-			$searchKeywordSection.append( $fromSpan )
-				 .append( $curlingSpan )
-				 .append( $toSpan )
-				 .append( $rangeCheckbox );
-
-			return $searchKeywordSection;
-		},
 		$getDateInputNode: function( term ){
 			let $dateTimeNode = $('<div class="lfr-ddm-field-group field-wrapper">')
 						.append( this.$getLabelNode(
@@ -757,17 +617,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let options = {
 				lang: 'kr'
 			}
-
-			if( term.enableTime ){
-				options.timepicker = true;
-				options.format = 'Y. m. d. H:m';
-				$inputTag.datetimepicker(options);
-			}
-			else{
-				options.timepicker = false;
-				options.dateFormat = 'yy. mm. dd.';
-				$inputTag.datepicker(options);
-			}
+			options.timepicker = ( term.enableTime === true ) ? true : false;
+			$inputTag.datetimepicker(options);
 
 			$inputTag.change(function(event){
 				event.stopPropagation();
@@ -800,7 +651,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $option = $( '<option>' );
 				
 				$option.prop('value', option.value);
-				console.log('Option set: ', term.termName, option, value);
+
 				if( option.selected === true || option.value === value ){
 					$option.prop( 'selected', true );
 				};
@@ -895,121 +746,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $input;
 		},
-		$getFieldSetGroupNode : function( controlId, $label ){
-			let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlId + 'Title">')
-										.append($label);
-
-			let $fieldsetHeader = $('<div class="panel-heading" id="' + controlId + 'Header" role="presentation">')
-								.append( $panelTitle );
-
-			let $panelBody = $('<div class="panel-body">').css('padding', '0 20px 0.75rem 10px');
-
-			let $fieldsetContent = $('<div aria-labelledby="' + controlId + 'Header" class="in  " id="' + controlId + 'Content" role="presentation">')
-									.append($panelBody);
-			let $fieldSet = $('<fieldset aria-labelledby="' + controlId + 'Title" role="group">')
-								.append( $fieldsetHeader )
-								.append($fieldsetContent);
-
-
-			return $('<div aria-multiselectable="true" class="panel-group" role="tablist">')
-								.append( $fieldSet );
-		},
-		$getSelectFieldSetNode: function( term, forWhat ){
-			let controlName = NAMESPACE + term.termName;
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value;
-			let displayStyle = term.displayStyle;
-			let options = term.options;
-
+		$getSelectFieldsetNode: function( term, controlName, displayStyle, label, mandatory, helpMessage, options, value){
 			let $node;
 
 			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			if( forWhat === SXConstants.FOR_SEARCH ){
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
-				let $panelBody = $panelGroup.find('.panel-body');
-
-				options.forEach((option, index)=>{
-					let $option = option.$render( SXConstants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
-					$option.change(function(event){
-						event.stopPropagation();
-
-						let checkStatus = $(this).find('input').prop('checked');
-						let optionValue = $(this).find('input').val();
-
-						if( checkStatus ){
-							term.addSearchKeyword( optionValue );
-						}
-						else{
-							term.removeSearchKeyword( optionValue );
-						}
-
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term,
-								value: optionValue
-							}
-						};
-
-						if( checkStatus === true ){
-							Liferay.fire(
-								SXIcecapEvents.SD_SEARCH_KEYWORD_ADDED,
-								eventData
-							);
-						}
-						else{
-							Liferay.fire(
-								SXIcecapEvents.SD_SEARCH_KEYWORD_REMOVED,
-								eventData
-							);
-						}
-
-					});
-
-					$panelBody.append( $option );
-				});
-					
-				$panelBody.change(function(event){
-					event.stopPropagation();
-
-					let checkedValues = new Array();
-
-					$.each( $(this).find('input[type="checkbox"]:checked'), function(){
-						checkedValues.push( $(this).val() );
-					});
-
-					term.value = checkedValues;
-
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term,
-							valueMode: 'multiple',
-							value: checkedValues
-						}
-					};
-
-					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
-					);
-				});
-
-				$node = $('<div class="card-horizontal main-content-card">')
-								.append( $panelGroup );
-			}
-			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
 				
 				$node = $('<div class="form-group input-text-wrapper">')
 									.append( $label )
 									.append( this.$getSelectTag(term, controlName, options, value) );
 			}
 			else{
-				/*
 				let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlName + 'Title">')
 										.append($label);
 
@@ -1027,13 +774,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				let $panelGroup = $('<div aria-multiselectable="true" class="panel-group" role="tablist">')
 									.append( $fieldSet );
-				*/
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
-				let $panelBody = $panelGroup.find('.panel-body');
+
 
 				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
 					options.forEach((option, index)=>{
-							let selected = (value === option.value);
+							let selected = (value === String(option.value));
 							$panelBody.append( this.$getRadioButtonTag( 
 														controlName+'_'+(index+1),
 														controlName, 
@@ -1173,6 +918,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							 
 			$button.click(function(event){
 				event.stopPropagation();
+				/*
+				let msg = Liferay.Language.get('are-you-sure-to-delete-the-term-from-the-data-structure');
+				if( term.isMemberOfGroup() ){
+					if( term.isGroupTerm() ){
+						msg = 'this-group-type-term-is-a-member-of-a-group-if-you-push-delete-button-all-sub-terms-will-be-deleted-from-the-structure-otherwise-to-remove-from-the-group'
+					}
+					else{
+						msg = Liferay.Language.get('the-term-is-a-member-of-a-group-please-push-delete-button-to-delete-from-the-structure-or-push-remove-button-to-remove-from-the-group');
+					}
+				}
+				else{
+					if( term.isGroupTerm() ){
+						msg = 'this-group-type-term-is-a-member-of-a-group-if-you-push-delete-button-all-sub-terms-will-be-deleted-from-the-structure-otherwise-to-remove-from-the-group'
+					}
+					else{
+						msg = Liferay.Language.get('the-term-is-a-member-of-a-group-please-push-delete-button-to-delete-from-the-structure-or-push-remove-button-to-remove-from-the-group');
+					}
+				}
+				*/
 
 				let eventData = {
 					sxeventData:{
@@ -1187,6 +951,50 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					eventData
 				);
 				
+				/*
+				let dialogProperty = {
+					autoOpen: true,
+					title:'',
+					modal: true,
+					draggable: true,
+					width: 400,
+					highr: 200,
+					buttons:[
+						{
+							text: 'Delete',
+							click: function(){
+								Liferay.fire(
+									SXIcecapEvents.DATATYPE_PREVIEW_DELETE_TERM,
+									eventData
+								);
+								$(this).dialog('destroy');
+							}
+						},
+						{
+							text: 'Cancel',
+							click:function(){
+								$(this).dialog('destroy');
+							}
+						}
+					]
+				};
+
+				if( term.isMemberOfGroup() ){
+					dialogProperty.buttons.unshift({
+						text: 'Remove',
+						click: function(){
+							$(this).dialog('destroy');
+							Liferay.fire(
+								SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM,
+								eventData
+							);
+						}
+					});
+				}
+
+				$('<div>').text(msg).dialog( dialogProperty );
+				*/
+				
 			});
 
 			return $button;
@@ -1194,12 +1002,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getPreviewRowSection: function( term, $inputSection ){
 			let trRowClass = NAMESPACE + term.termName;
 
-			let $inputTd = $('<span style="width:90%;float:left; padding-right:5px;">').append( $inputSection );
+			let $inputTd = $('<td style="width:90%;">').append( $inputSection );
 
-			let $buttonTd = $('<span style="float:right; width:10%;text-align:center;">')
+			let $buttonTd = $('<td style="padding-right:0;">')
 								.append( this.$getPreviewRemoveButtonNode( term, 'icon-remove' ) );
 
-			let $previewRow = $('<span class="sx-form-item-group" style="display:flex; width:100%; padding: 3px; margin:2px; align-items:center; justify-content:center;">')
+			let $previewRow = $('<tr>')
 									.addClass( trRowClass )
 									.append( $inputTd )
 									.append( $buttonTd );
@@ -1221,7 +1029,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $previewRow;
 		},
 		$getEditorRowSection: function( term, $inputSection ){
-			return $('<span style="width:100%; border:none;">').append( $inputSection );
+			let $inputTd = $('<td style="width:100%; border:none;">').append( $inputSection );
+
+			let $row = $('<tr>').append( $inputTd );
+
+			return $row;
 		},
 		$getSearchRowSection: function( term, $inputSection ){
 			return $inputSection;
@@ -1258,23 +1070,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getFormDateSection: function(
 					term,
 					forWhat	){
-			let $dateInput = null;
-			
-			if(forWhat === SXConstants.FOR_SEARCH){
-				$dateInput = this.$getDateSearchSection( term );
-			}
-			else if( forWhat === SXConstants.FOR_PREVIEW || forWhat === SXConstants.FOR_EDITOR ){
-				$dateInput = this.$getDateInputNode( term );
-			}
-			else{
-				// for PDF
-			}
+			let $dateInput = this.$getDateInputNode( term );
 
 			let $section;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				$section = this.$getPreviewRowSection( term, $dateInput );
 			}
-			else if(forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH){
+			else if(forWhat === SXConstants.FOR_EDITOR){
 				$section = this.$getEditorRowSection( term, $dateInput );
 			}
 			else{
@@ -1283,32 +1085,34 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $section;
 		},
-		$getEditorNumericNode: function( term ){
+		$getFormNumericSection: function(
+			term, 
+			label, 
+			helpMessage, 
+			mandatory, 
+			value,
+			minValue,
+			minBoundary,
+			maxValue,
+			maxBoundary,
+			unit,
+			uncertainty,
+			uncertaintyValue,
+			forWhat ){
+
 			let controlName = NAMESPACE + term.termName;
 
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value ? term.value : '';
-			let minValue = term.minValue ? term.minValue : '';
-			let minBoundary = term.minBoundary ? term.minBoundary : false;
-			let maxValue = term.maxValue ? term.maxValue : '';
-			let maxBoundary = term.maxBoundary ? term.maxBoundary : false;
-			let unit = term.unit ? term.unit : '';
-			let uncertainty = term.uncertainty ? term.uncertainty : false;
-			let uncertaintyValue = term.uncertaintyValue ? term.uncertaintyValue : '';
-
-			let $node = $('<div class="form-group input-text-wrapper">');
+			let $viewCol = $('<div>');
 			
 			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			$node.append( $label );
+			$viewCol.append( $label );
 			
 			let $controlSection = $('<div style="display:flex; align-items:center;justify-content: center; width:100%; margin:0; padding:0;">');
-			$node.append( $controlSection );
+			$viewCol.append( $controlSection );
 
 			let valueRate = 100;
 			if( minValue ){
-				let $minValueCol = $('<div style="display:inline-block;min-width:8%;text-align:center;width:fit-content;"><strong>' +
+				let $minValueCol = $('<div style="display:inline-block;min-width:3%;text-align:center;"><strong>' +
 				minValue +
 				'</strong></div>');
 				$controlSection.append( $minValueCol );
@@ -1319,7 +1123,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					minBoundaryText = '&le;';
 				}
 
-				let $minBoundaryCol = '<div style="display:inline-block;width:3%;text-align:center;margin-right:5px;"><strong>' +
+				let $minBoundaryCol = '<div style="display:inline-block;min-width:3%;text-align:center;margin-right:5px;"><strong>' +
 				minBoundaryText +
 				'</strong></div>';
 				$controlSection.append( $minBoundaryCol );
@@ -1328,20 +1132,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			let $textInput = this.$getTextInputTag( term, controlName, term.placeHolder.getText(DEFAULT_LANGUAGE), value );
-			let $inputcol = $('<div style="display:inline-block; min-width:30%;width:-webkit-fill-available;">').append($textInput);
+			let $inputcol = $('<div style="display:inline-block; width:100%;">').append($textInput);
 			$controlSection.append( $inputcol );
 			
 			if( uncertainty ){
-				let $uncertaintyOp = $('<div style="display:inline-block;width:3%;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>');
+				let $uncertaintyOp = $('<div style="display:inline-block;min-width:3%;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>');
 				$controlSection.append( $uncertaintyOp );
 
 				let $uncertaintyInput = this.$getTextInputTag( 'text', term, controlName+'_uncertainty', '', uncertaintyValue );
-				let $inputcol = $('<div style="display:inline-block; min-width:20%;width:fit-content;">').append($uncertaintyInput);
+				let $inputcol = $('<div style="display:inline-block; max-width:40%;">').append($uncertaintyInput);
 				$controlSection.append( $inputcol );
 			}
 
 			if( unit ){
-				let $unit = $('<div style="display:inline-block;min-width:7%;width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
+				let $unit = $('<div style="display:inline-block;min-width:3%;text-align:center;margin:1rem 10px 0 10px;">' +
 								unit +
 							'</div>');
 				$controlSection.append( $unit );
@@ -1354,206 +1158,70 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					maxBoundaryText = '&le;';
 				}
 				
-				let $maxBoundaryCol = '<div style="display:inline-block;width:3%;text-align:center;margin:0 2px 0 2px;"><strong>' +
+				let $maxBoundaryCol = '<div style="display:inline-block;min-width:3%;text-align:center;margin:0 2px 0 2px;"><strong>' +
 				maxBoundaryText +
 				'</strong></div>';
 
-				let $maxValueCol = $('<div style="display:inline-block;min-width:8%;width:fit-content;text-align:center;"><strong>' +
+				let $maxValueCol = $('<div style="display:inline-block;min-width:3%;text-align:center;"><strong>' +
 				maxValue +
 				'</strong></div>');
 				
 				$controlSection.append( $maxBoundaryCol );
 				$controlSection.append( $maxValueCol );
 			}
-
-			return $node;
-		},
-		$getSearchNumericNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = false;
-			let value = term.value ? term.value : '';
-			let minValue = term.minValue ? term.minValue : '';
-			let minBoundary = term.minBoundary ? term.minBoundary : false;
-			let maxValue = term.maxValue ? term.maxValue : '';
-			let maxBoundary = term.maxBoundary ? term.maxBoundary : false;
-			let unit = term.unit ? term.unit : '';
-			let uncertainty = term.uncertainty ? term.uncertainty : false;
-			let uncertaintyValue = term.uncertaintyValue ? term.uncertaintyValue : '';
-
-			let $searchKeywordSection = $('<div class="lfr-ddm-field-group field-wrapper">');
 			
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			$searchKeywordSection.append( $label );
-			
-			let $controlSection = $('<div class="form-group">');
-			$searchKeywordSection.append( $controlSection );
-
-			let $fromSpan = $('<span class="form-group input-text-wrapper display-inline-block" style="margin-right: 5px;">');
-			let $curlingSpan = $('<span class="hide" style="margin: 0px 5px;">~</span>');
-			let $toSpan = $('<span class="form-group input-text-wrapper hide" style="margin:0px 5px;">');
-			let $rangeCheckbox = $('<input type="checkbox" style="margin-left:5px;">');
-			
-			let $fromInputTag = $('<input type="text">');
-			$fromInputTag.prop({
-				'class': 'field form-control fromDate',
-				'id': controlName+'_from',
-				'name': controlName+'_from',
-				'value': term.fromSearchValue
-			});
-			
-			$fromSpan.append($fromInputTag);
-			
-			$fromInputTag.change(function(event){
-				event.stopPropagation();
-				console.log( 'From Numeric Search Value: ' + $(this).val() );
-				term.fromSearchValue = $(this).val();
-				console.log( 'term.fromSearchValue: ' +  term.fromSearchValue );
-				
-				let rangeSearch = $rangeCheckbox.prop('checked');
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: rangeSearch,
-						fromValue: term.fromSearchValue,
-						toValue: rangeSearch ? $toSpan.find('input').val() : term.fromSearchValue
-					}
-				};
-				
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_FROM_NUMERIC_CHANGED,
-					eventData
-				);
-			});
-				
-			let $toInputTag = $('<input type="text">');
-			$toInputTag.prop({
-				'class': 'field form-control toDate',
-				'id': controlName+'_to',
-				'name': controlName+'_to',
-				'value': term.toSearchValue,
-				'aria-live': 'assertive',
-				'aria-label': ''
-			});
-
-			$toSpan.append($toInputTag);
-
-			$toInputTag.change(function(event){
-				event.stopPropagation();
-				term.toSearchValue = $(this).val();
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: true,
-						fromValue: term.fromSearchValue,
-						toValue: term.toSearchValue
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_TO_NUMERIC_CHANGED,
-					eventData
-				);
-			});
-
-			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
-				controlName+'_rangeSearch',
-				controlName+'_rangeSearch',
-				Liferay.Language.get( 'range-search' ),
-				false,
-				'rangeSearch',
-				false
-			);
-			$rangeCheckbox.change(function(event){
-				event.stopPropagation();
-
-				term.rangeSearch = $(this).find('input').prop('checked');
-				console.log( 'term.rangeSearch: ' + $(this).find('input').prop('checked') );
-
-				if( term.rangeSearch === true ){
-					$curlingSpan.addClass('display-inline-block');
-					$toSpan.addClass('display-inline-block');
-					$curlingSpan.removeClass('hide');
-					$toSpan.removeClass('hide');
-				}
-				else{
-					$curlingSpan.addClass('hide');
-					$toSpan.addClass('hide');
-					$curlingSpan.removeClass('display-inline-block');
-					$toSpan.removeClass('display-inline-block');
-				}
-			});
-
-			$searchKeywordSection.append( $fromSpan )
-				 .append( $curlingSpan )
-				 .append( $toSpan )
-				 .append( $rangeCheckbox );
-
-			return $searchKeywordSection;
-		},
-		$getFormNumericSection: function(
-			term, 
-			forWhat ){
-
-			let $numericNode;
-			if( forWhat === SXConstants.FOR_SEARCH ){
-				$numericNode = this.$getSearchNumericNode( term );
-			}
-			else{
-				$numericNode = this.$getEditorNumericNode( term );
-			}
-			
-			let $numericRow = null;
+			let trRowClass = NAMESPACE + term.termName;
+			let $Numeric = null;
 			
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$numericRow = FormUIUtil.$getPreviewRowSection(term, $numericNode);
+				$Numeric = FormUIUtil.$getPreviewRowSection(term, $viewCol);
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				$numericRow = FormUIUtil.$getEditorRowSection(term, $numericNode);
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$Numeric = FormUIUtil.$getEditorRowSection(term, $viewCol);
 			}
 			else{
 				// render for PDF printing here
 			}
 			
-			return $numericRow;
+			return $Numeric;
 
 		},
 		$getFormListSection: function(
 				term,
+				label, 
+				helpMessage, 
+				mandatory, 
+				value,
+				displayStyle,
+				options,
+				dependentTerms,
 				forWhat ){
+			let controlName = NAMESPACE + term.termName;
 
-			let $fieldset = this.$getSelectFieldSetNode( term, forWhat );
+			let $fieldset = this.$getSelectFieldsetNode( term, controlName, displayStyle, label, mandatory, helpMessage, options, value );
 			
-			let $list;
+			let $List;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$list = this.$getPreviewRowSection(term, $fieldset);
+				$List = this.$getPreviewRowSection(term, $fieldset);
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				$list = this.$getEditorRowSection(term, $fieldset);
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$List = this.$getEditorRowSection(term, $fieldset);
 			}
 			else{
 				// rendering for PDF here
 			}
 
-			return $list;
+			return $List;
 		},
 		$getFormFileUploadSection: function(
 			term,
+			label,
+			helpMessage,
+			mandatory,
+			value,
 			forWhat ){
 			let controlName = NAMESPACE + term.termName;
 			let controlValueId = NAMESPACE + term.termName + '_value';
-
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value ? term.value : '';
 
 			let $uploadSection = $('<div class="form-group input-text-wrapper">');
 			
@@ -1601,7 +1269,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getAccordionForGroup: function( title, $body ){
 			let $groupHead = $('<h3>').text(title);
-			let $groupBody = $('<div style="width:100%; padding:3px;">')
+			let $groupBody = $('<div style="width:100%; height:auto;">')
 								.append($body);
 			let $accordion = $('<div style="width:100%;">')
 								.append($groupHead)
@@ -1748,13 +1416,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		TERM_PROPERTY_CHANGED: 'TERM_PROPERTY_CHANGED',
 		DATATYPE_SDE_VALUE_CHANGED: 'DATATYPE_SDE_VALUE_CHANGED',
 
-		SD_SEARCH_FROM_DATE_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
-		SD_SEARCH_TO_DATE_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
-		SD_SEARCH_FROM_NUMERIC_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
-		SD_SEARCH_TO_NUMERIC_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
-		SD_SEARCH_KEYWORD_REMOVE_ALL: 'SD_SEARCH_KEYWORD_REMOVE_ALL',
-		SD_SEARCH_KEYWORD_ADDED: 'SD_SEARCH_KEYWORD_ADDED',
-		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED'
+		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_CHANGED'
 	};
 
 	const SXConstants = {
@@ -1853,12 +1515,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class ListOption{
-		constructor( optionLabelMap, optionValue, selected, disabled, activeTerms ){
+		constructor( optionLabelMap, optionValue, selected, activeTerms ){
 			this.value = optionValue;
 			this.labelMap = optionLabelMap;
 			this.activeTerms = activeTerms;
 			this.selected = selected;
-			this.disabled = disabled;
 			this.$rendered = null;
 		}
 
@@ -1931,64 +1592,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 
 				return $row;
-			}
-		}
-
-		$render( renderStyle, optionId, optionName ){
-			if( renderStyle === SXConstants.DISPLAY_STYLE_SELECT ){
-				let $option = $( '<option>' );
-				
-				$option.prop('value', option.value);
-				if( option.selected === true || option.value === value ){
-					$option.prop( 'selected', true );
-				};
-
-				$option.text(option.labelMap[CURRENT_LANGUAGE]);
-
-				return $option;
-			}
-			else if( renderStyle === SXConstants.DISPLAY_STYLE_RADIO ){
-				let $label = $( '<label>' );
-				let $input = $( '<input type="radio">')
-										.prop({
-											class: "field",
-											id: optionId,
-											name: optionName,
-											value: this.value,
-											checked: this.selected,
-											disabled: this.disabled
-										});
-				
-				$label.prop('for', optionId )
-					.append( $input )
-					.append( this.labelMap[CURRENT_LANGUAGE] );
-
-				let $radio = $( '<div class="radio" style="display:inline-block; margin-left:10px; margin-right:10px;">' )
-								.append( $label );
-
-				return $radio;
-			}
-			else{ // renderStyle === SXConstants.DISPLAY_STYLE_CHECK
-				let $label = $( '<label>' )
-							.prop( 'for', optionId );
-			
-				let $input = $( '<input type="checkbox" style="margin-right:10px;">');
-				$input.prop({
-					class: "field",
-					id: optionId,
-					name: optionName,
-					value: this.value,
-					checked: this.selected,
-					disabled: this.disabled
-				});
-				
-				$label.append( $input )
-					  .append( this.labelMap[CURRENT_LANGUAGE] );
-
-				let $checkbox = $( '<div class="checkbox" style="display:inline-block;margin-left:10px;margin-right:20px;">' )
-									.append( $label );
-				
-				return $checkbox;
 			}
 		}
 
@@ -2305,43 +1908,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			return validationPassed;
-		}
-
-		
-		addSearchKeyword( keyword ){
-			if( !this.searchKeywords ){
-				this.searchKeywords = new Array();
-			}
-
-			this.searchKeywords.push( keyword );
-
-			return this.searchKeywords;
-		}
-
-		removeSearchKeyword( keyword ){
-			if( !this.searchKeywords ){
-				return null;
-			}
-
-			let remainedKeywords = this.searchKeywords.filter(
-				word => keyword !== word
-			);
-
-			this.searchKeywords = remainedKeywords;
-
-			return this.searchKeywords;
-		}
-
-		searchKeywordsToQuery(){
-			if( !this.searchKeywords ){
-				return '';
-			}
-
-			if( this.searchKeywords.length === this.options.length ){
-				return '';
-			}
-
-			return this.searchKeywords.join(' || ');
 		}
 
 		getTermId(){
@@ -3206,6 +2772,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.$rendered = FormUIUtil.$getFormNumericSection( 
 										this,
+										this.getLocalizedDisplayName(),
+										this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+										this.mandatory ? this.mandatory : false,
+										this.value ? this.value : '',
+										this.minValue ? this.minValue : '',
+										this.minBoundary ? this.minBoundary : false,
+										this.maxValue ? this.maxValue : '',
+										this.maxBoundary ? this.maxBoundary : false,
+										this.unit ? this.unit : '',
+										this.uncertainty ? this.uncertainty : false,
+										this.uncertaintyValue ? this.uncertaintyValue : '',
 										forWhat);
 			
 			return this.$rendered;
@@ -3477,7 +3054,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		highlightOptionPreview(){
-			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('.sx-form-item-group') );
+			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('tr') );
 			rows.forEach((row, index) => { 
 				$(row).removeClass( 'highlight-border' );
 				if( this.highlightedOption && this.highlightedOption === this.options[index] ){
@@ -3490,7 +3067,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 1. Read all values from Form
 		 * 2. Create ListOption instancec with the values
 		 * 3. Push the instance at the options array
-		 * 4. Render a preview row of the instance and add to the preview container
+		 * 4. Render a preview row of the instance and add to the preview table
 		 * 5. 
 		 */
 		addOption( option ){
@@ -3523,7 +3100,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.clearSelectedOption();
 			}
 
-			let newOption = new ListOption( optionLabelMap, optionValue, selected, false, new Array() );
+			let newOption = new ListOption( optionLabelMap, optionValue, selected, new Array() );
 
 			this.options.push(newOption);
 
@@ -3717,6 +3294,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			this.$rendered = FormUIUtil.$getFormListSection(
 									this,
+									this.getLocalizedDisplayName(),
+									this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+									this.mandatory ? this.mandatory : false,
+									this.value ? this.value : '',
+									this.displayStyle,
+									this.options,
+									this.dependentTerms,
 									forWhat );
 			
 			return this.$rendered;
@@ -4088,6 +3672,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.$rendered = FormUIUtil.$getFormFileUploadSection(
 										this,
+										this.getLocalizedDisplayName(),
+										this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+										this.mandatory ? this.mandatory : false,
+										this.value ? this.value : '',
 										forWhat );
 
 			return this.$rendered;
@@ -4193,7 +3781,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$newGroupPanel(){
-			this.$groupPanel = $('<div class="col-md-12" id="' + this.getGroupPanelId() + '"></div>');
+			this.$groupPanel = $('<tbody id="' + this.getGroupPanelId() + '">');
 
 			return this.$groupPanel;
 		}
@@ -4250,7 +3838,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 */
 		$render( members, others, forWhat, deep=true ){
 			let $panel = this.$newGroupPanel();
-			console.log( 'Group Panel; ', $panel );
 
 			members.forEach(term=>{
 				let $row;
@@ -4267,7 +3854,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$row = term.$rendered;
 				}
 				
-				let renderedCount = $panel.children('.sx-form-item-group').length;
+				let renderedCount = $panel.children('tr').length;
 				if( term.order === 1 ){
 					$panel.prepend( $row );
 				}
@@ -4275,7 +3862,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$panel.append( $row );
 				}
 				else{
-					$panel.children('.sx-form-item-group:nth-child('+term.order+')').before($row);
+					$panel.children('tr:nth-child('+term.order+')').before($row);
 				}
 			});
 
@@ -4283,18 +3870,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $container = $('<div class="container-fluid">')
-			let $containerRow = $('<div class="row">').append($panel);
-			$container.append( $containerRow );
+			let $table = $('<table class="table table-striped">').append($panel);
 
 			let $accordion = FormUIUtil.$getAccordionForGroup( 
 											this.displayName.getText(CURRENT_LANGUAGE),
-											$container);
+											$table);
 			
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(this, $accordion);
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === SXConstants.FOR_EDITOR ){
 				this.$rendered =  FormUIUtil.$getEditorRowSection(this, $accordion);
 			}
 			else{
@@ -4309,7 +3894,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		clearHighlightedChildren(){
-			this.$groupPanel.find('.sx-form-item-group.highlight').removeClass('highlight');
+			this.$groupPanel.find('tr.highlight').removeClass('highlight');
 		}
 
 
@@ -4360,10 +3945,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.options ){
 				this.options = new Array();
 				// for true
-				this.options.push( new ListOption( {'en_US':'Yes'}, true, true, false, [] ) );
+				this.options.push( new ListOption( {'en_US':'Yes'}, true, true, [] ) );
 	
 				// for false
-				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
+				this.options.push( new ListOption( {'en_US':'No'}, false, false, [] ) );
 				this.dependentTerms = null;
 			}
 		}
@@ -4412,6 +3997,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.$rendered = FormUIUtil.$getFormListSection(
 									this,
+									this.getLocalizedDisplayName(),
+									this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
+									this.mandatory ? this.mandatory : false,
+									this.value ? this.value : '',
+									this.displayStyle,
+									this.options,
+									this.dependentTerms,
 									forWhat );
 
 			return this.$rendered;
@@ -4474,8 +4066,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setAllFormValues(){
-			this.value = (this.value === true || this.value === 'true') ? true : false;
-			
 			super.setAllFormValues();
 			this.initOptionFormValues();
 		}
@@ -4512,7 +4102,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								option.labelMap,
 								option.value,
 								option.selected,
-								option.disabled,
 								option.activeTerms
 							));
 						});
@@ -4968,7 +4557,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$panel.prepend(term.$rendered); 
 			}
 			else{
-				$panel.children( '.sx-form-item-group:nth-child('+term.order+')' ).before( term.$rendered );
+				$panel.children( 'tr:nth-child('+term.order+')' ).before( term.$rendered );
 			}
 		}
 
@@ -4988,7 +4577,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$panel.prepend(switchedTerm.$rendered); 
 			}
 			else{
-				$panel.children( '.sx-form-item-group:nth-child('+switchedTerm.order+')' ).before( switchedTerm.$rendered );
+				$panel.children( 'tr:nth-child('+switchedTerm.order+')' ).before( switchedTerm.$rendered );
 			}
 		}
 
@@ -5482,7 +5071,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let fileContent = {};
 
 			this.terms.every( (term) => {
-				fileContent[term.termName] = term.value;
+				if( term.value ){
+					fileContent[term.termName] = term.value;
+				}
 				return SXConstants.CONTINUE_EVERY;
 			});
 
@@ -5579,10 +5170,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				term.dependentTerms.forEach((dependTerm)=>{
 					if( activeTerms.includes(dependTerm) ){
-						$('.sx-form-item-group.'+NAMESPACE+termName).removeClass('hide');
+						$('tr.'+NAMESPACE+termName).removeClass('hide');
 					}
 					else{
-						$('.sx-form-item-group.'+NAMESPACE+termName).addClass('hide');
+						$('tr.'+NAMESPACE+termName).addClass('hide');
 					}
 				});
 			}
@@ -5678,7 +5269,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$panel.prepend( $row );
 			}
 			else{
-				$panel.children('.sx-form-item-group:nth-child('+term.order+')').before($row);
+				$panel.children('tr:nth-child('+term.order+')').before($row);
 			}
 
 			if( highlight === true ){
@@ -5687,7 +5278,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		countPreviewRows( $panel ){
-			return $panel.children('.sx-form-item-group').length;
+			return $panel.children('tr').length;
 		}
 
 		countGroupMembers( group=null ){
@@ -5933,7 +5524,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						termName: 'adultcheck',
 						termVersion: '1.0.0',
 						displayName: {
-							'en_US': 'Adult over 19',
+							'en_US': '19세 이상 성인',
 							'ko_KR': '19세 이상 성인'
 						},
 						definition:{

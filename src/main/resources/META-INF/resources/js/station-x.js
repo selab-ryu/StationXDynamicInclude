@@ -76,6 +76,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			return result;
+		},
+		split: function( str, regExpr ){
+			let words = str.split( regExpr );
+			words = words.filter( word => word );
+
+			return words;
 		}
 	};
 	
@@ -546,7 +552,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getTextInputTag: function( term ){
 			let controlName = NAMESPACE + term.termName;
 			let inputType = term.multipleLine ? 'textarea' : 'text';
-			let placeHolder = (typeof term.getLocalizedPlaceHolder === 'function') ? term.getLocalizedPlaceHolder() : '';
+			let placeHolder = term.placeHolder ? term.placeHolder.getText(CURRENT_LANGUAGE) : '';
 			let value = term.value ? term.value : ''
 
 			let $input;
@@ -564,7 +570,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				name: controlName,
 				value: value ? value : '',
 				placeholder: placeHolder ? placeHolder : ''
-			});
+			}); 
 
 			$input.change(function(event){
 				event.stopPropagation();
@@ -588,6 +594,51 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $input;
 		},
+		$getTextSearchTag: function( term ){
+			let controlName = NAMESPACE + term.termName;
+			let placeHolder = Liferay.Language.get('keywords-for-search');
+			let searchKeywords = term.searchKeywords ? term.searchKeywords : ''
+
+			let $input = $( '<input type="text" aria-required="true">' );
+
+			$input.prop({
+				class: 'field form-control',
+				id: controlName,
+				name: controlName,
+				value: searchKeywords,
+				placeholder: placeHolder
+			});
+
+			$input.change(function(event){
+				event.stopPropagation();
+
+				let keywords = $(this).val().trim();
+
+				if( keywords ){
+					term.searchKeywords = keywords;
+				}
+				else{
+					return;
+				}
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term,
+						searchKeywords: term.searchKeywords  
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+					eventData
+				);
+			});
+
+			return $input;
+		},
+
 		$getDateSearchSection: function( term ){
 			let $dateSearchNode = $('<div class="lfr-ddm-field-group field-wrapper">')
 						.append( this.$getLabelNode(
@@ -618,7 +669,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'class': 'field form-control fromDate',
 				'id': controlName+'_from',
 				'name': controlName+'_from',
-				'value': term.fromSearchValue
+				'value': term.fromSearchDate
 			});
 			
 			$fromSpan.append($fromInputTag);
@@ -637,8 +688,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$fromInputTag.change(function(event){
 				event.stopPropagation();
 				console.log( 'From Date Search Value: ' + $(this).val() );
-				term.fromSearchValue = Date.parse( $(this).val() );
-				console.log( 'term.fromSearchValue: ' +  term.fromSearchValue );
+				term.fromSearchDate = Date.parse( $(this).val() );
+				console.log( 'term.fromSearchDate: ' +  term.fromSearchDate );
 				
 				let rangeSearch = $rangeCheckbox.prop('checked');
 				let eventData = {
@@ -647,7 +698,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetPortlet: NAMESPACE,
 						term: term,
 						rangeSearch: rangeSearch,
-						fromDate: term.fromSearchValue,
+						fromDate: term.fromSearchDate,
 						toDate: rangeSearch ? Date.parse( $toSpan.find('input').val() ) : ''
 					}
 				};
@@ -663,7 +714,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'class': 'field form-control toDate',
 				'id': controlName+'_to',
 				'name': controlName+'_to',
-				'value': term.toSearchValue,
+				'value': term.toSearchDate,
 				'aria-live': 'assertive',
 				'aria-label': ''
 			});
@@ -674,7 +725,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$toInputTag.change(function(event){
 				event.stopPropagation();
-				term.toSearchValue = Date.parse( $(this).val() );
+				term.toSearchDate = Date.parse( $(this).val() );
 
 				let eventData = {
 					sxeventData:{
@@ -682,8 +733,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetPortlet: NAMESPACE,
 						term: term,
 						rangeSearch: true,
-						fromDate: term.fromSearchValue,
-						toDate: term.toSearchValue
+						fromDate: term.fromSearchDate,
+						toDate: term.toSearchDate
 					}
 				};
 
@@ -705,7 +756,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				event.stopPropagation();
 
 				term.rangeSearch = $(this).find('input').prop('checked');
-				console.log( 'term.rangeSearch: ' + $(this).find('input').prop('checked') );
 
 				if( term.rangeSearch === true ){
 					$curlingSpan.addClass('display-inline-block');
@@ -972,33 +1022,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$panelBody.append( $option );
 				});
 					
-				$panelBody.change(function(event){
-					event.stopPropagation();
-
-					let checkedValues = new Array();
-
-					$.each( $(this).find('input[type="checkbox"]:checked'), function(){
-						checkedValues.push( $(this).val() );
-					});
-
-					term.value = checkedValues;
-
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term,
-							valueMode: 'multiple',
-							value: checkedValues
-						}
-					};
-
-					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
-					);
-				});
-
 				$node = $('<div class="card-horizontal main-content-card">')
 								.append( $panelGroup );
 			}
@@ -1009,25 +1032,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									.append( this.$getSelectTag(term, controlName, options, value) );
 			}
 			else{
-				/*
-				let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlName + 'Title">')
-										.append($label);
-
-				let $fieldsetHeader = $('<div class="panel-heading" id="' + controlName + 'Header" role="presentation">')
-									.append( $panelTitle );
-
-				let $panelBody = $('<div class="panel-body">').css('padding', '0 20px 0.75rem 10px');
-
-				let $fieldsetContent = $('<div aria-labelledby="' + controlName + 'Header" class="in  " id="' + controlName + 'Content" role="presentation">')
-										.append($panelBody);
-				let $fieldSet = $('<fieldset aria-labelledby="' + controlName + 'Title" role="group">')
-									.append( $fieldsetHeader )
-									.append($fieldsetContent);
-
-
-				let $panelGroup = $('<div aria-multiselectable="true" class="panel-group" role="tablist">')
-									.append( $fieldSet );
-				*/
 				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
 				let $panelBody = $panelGroup.find('.panel-body');
 
@@ -1111,7 +1115,96 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $node;
 		},
-		$getTextInputNode: function(term, forWhat ){
+		$getBooleanFieldSetNode: function( term, forWhat ){
+			let controlName = NAMESPACE + term.termName;
+			let label = term.getLocalizedDisplayName();
+			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
+			let mandatory = term.mandatory ? term.mandatory : false;
+			let value = term.value;
+			let displayStyle = (forWhat === SXConstants.FOR_SEARCH ) ? SXConstants.DISPLAY_STYLE_RADIO : term.displayStyle;
+			let options = term.options;
+
+			let $node;
+
+			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
+			
+			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+				$node = $('<div class="form-group input-text-wrapper">')
+									.append( $label )
+									.append( this.$getSelectTag(term, controlName, options, value) );
+			}
+			else{
+				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
+				let $panelBody = $panelGroup.find('.panel-body');
+
+				options.forEach((option, index)=>{
+					let selected = ( forWhat === SXConstants.FOR_SEARCH ) ? false : (value === option.value);
+					$panelBody.append( this.$getRadioButtonTag( 
+						controlName+'_'+(index+1),
+						controlName, 
+						option.labelMap[CURRENT_LANGUAGE],
+						selected,
+						option.value,
+						value ) );
+				});
+					
+				if( forWhat === SXConstants.FOR_SEARCH ){
+					$panelBody.change(function(event){
+						event.stopPropagation();
+
+						let $checkedRadio = $(this).find('input[type="radio"]:checked');
+						let changedVal = $checkedRadio ? $checkedRadio.val() : undefined;
+
+						if( changedVal ){
+							term.searchKeyword = changedVal;
+						}
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term,
+								value: changedVal
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+							eventData
+						);
+					});
+				}
+				else{
+					$panelBody.change(function(event){
+						event.stopPropagation();
+
+						let changedVal = $(this).find('input[type="radio"]:checked').val();
+						term.value = changedVal;
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term,
+								valueMode: 'single',
+								value: changedVal
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							eventData
+						);
+					});
+				}
+
+				$node = $('<div class="card-horizontal main-content-card">')
+								.append( $panelGroup );
+			}
+
+			return $node;
+		},
+		$getTextInputNode: function( term ){
 			let controlName = NAMESPACE + term.termName;
 			let label = term.getLocalizedDisplayName();
 			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
@@ -1120,51 +1213,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $node = $('<div class="form-group input-text-wrapper">')
 							.append( this.$getLabelNode(controlName, label, mandatory, helpMessage) );
 			
-			if( forWhat === SXConstants.FOR_SEARCH ){
-				$node.append(this.$getTextInputTag(term));
-				// $node.append(this.$getTextSearchInputTag(term));
-			}
-			else{
-				$node.append(this.$getTextInputTag(term));
-			}
-
+			$node.append(this.$getTextInputTag(term));
 			
 			return $node;
 		},
-		$getTextSearchNode: function( term, query ){
-			let controlName = NAMESPACE + term.termName + '_search';
+		$getTextSearchNode: function( term ){
+			let controlName = NAMESPACE + term.termName;
+			let label = term.getLocalizedDisplayName();
+			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
+			let $node = $('<div class="form-group input-text-wrapper">')
+							.append( this.$getLabelNode(controlName, label, false, helpMessage) );
 
-			let $input = $( '<input type="text" aria-required="true">' );
-
-			$input.prop({
-				class: 'field form-control',
-				id: controlName,
-				name: controlName,
-				value: query ? query : '',
-				placeholder: query ? query : 'Enter keywords for search'
-			});
-
-			$input.change(function(event){
-				event.stopPropagation();
-				term.value = $(this).val();
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						valueMode: 'single',
-						value: $(this).val()  
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
-					eventData
-				);
-			});
-
-			return $input;
+			let $input = this.$getTextSearchTag( term );
+				
+			$node.append( $input );
+	
+			return $node;
 		},
 		$getPreviewRemoveButtonNode: function( term, iconClass ){
 			let $button = $( '<button type="button" class="btn btn-default">' +
@@ -1230,23 +1294,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					term, 
 					forWhat ){
 
-			let inputType = term.multipleLine ? 'textarea' : 'text';
-			let label = term.getLocalizedDisplayName();
-			let placeHolder = term.getLocalizedPlaceHolder() ? term.getLocalizedPlaceHolder() : '';
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value ? term.value : '';
 
-			let $textInput = this.$getTextInputNode( term, forWhat );
+			let $textInput;
 
 			let $String;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$textInput = this.$getTextInputNode( term, forWhat );
 				$String = this.$getPreviewRowSection( term, $textInput );
 			}
 			else if(forWhat === SXConstants.FOR_EDITOR ){
+				$textInput = this.$getTextInputNode( term, forWhat );
 				$String = this.$getEditorRowSection( term, $textInput );
 			}
 			else if( forWhat === SXConstants.FOR_SEARCH ){
+				$textInput = this.$getTextSearchNode( term );
 				$String = this.$getSearchRowSection( term, $textInput );
 			}
 			else{
@@ -1401,7 +1462,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'class': 'field form-control fromDate',
 				'id': controlName+'_from',
 				'name': controlName+'_from',
-				'value': term.fromSearchValue
+				'value': term.getFromSearchValue()
 			});
 			
 			$fromSpan.append($fromInputTag);
@@ -1409,8 +1470,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$fromInputTag.change(function(event){
 				event.stopPropagation();
 				console.log( 'From Numeric Search Value: ' + $(this).val() );
-				term.fromSearchValue = $(this).val();
-				console.log( 'term.fromSearchValue: ' +  term.fromSearchValue );
+				term.setFromSearchValue( $(this).val() );
 				
 				let rangeSearch = $rangeCheckbox.prop('checked');
 				let eventData = {
@@ -1419,8 +1479,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetPortlet: NAMESPACE,
 						term: term,
 						rangeSearch: rangeSearch,
-						fromValue: term.fromSearchValue,
-						toValue: rangeSearch ? $toSpan.find('input').val() : term.fromSearchValue
+						fromValue: term.getFromSearchValue(),
+						toValue: rangeSearch ? $toSpan.find('input').val() : term.getFromSearchValue()
 					}
 				};
 				
@@ -1444,7 +1504,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$toInputTag.change(function(event){
 				event.stopPropagation();
-				term.toSearchValue = $(this).val();
+				term.setToSearchValue( $(this).val() );
 
 				let eventData = {
 					sxeventData:{
@@ -1452,8 +1512,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetPortlet: NAMESPACE,
 						term: term,
 						rangeSearch: true,
-						fromValue: term.fromSearchValue,
-						toValue: term.toSearchValue
+						fromValue: term.getFromSearchValue(),
+						toValue: term.getToSearchValue()
 					}
 				};
 
@@ -1530,6 +1590,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				forWhat ){
 
 			let $fieldset = this.$getSelectFieldSetNode( term, forWhat );
+			
+			let $list;
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$list = this.$getPreviewRowSection(term, $fieldset);
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
+				$list = this.$getEditorRowSection(term, $fieldset);
+			}
+			else{
+				// rendering for PDF here
+			}
+
+			return $list;
+		},
+		$getFormBooleanSection: function(
+					term,
+					forWhat ){
+
+			let $fieldset = this.$getBooleanFieldSetNode( term, forWhat );
 			
 			let $list;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
@@ -1754,7 +1833,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_SEARCH_TO_NUMERIC_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
 		SD_SEARCH_KEYWORD_REMOVE_ALL: 'SD_SEARCH_KEYWORD_REMOVE_ALL',
 		SD_SEARCH_KEYWORD_ADDED: 'SD_SEARCH_KEYWORD_ADDED',
-		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED'
+		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED',
+		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_REMOVED'
 	};
 
 	const SXConstants = {
@@ -1787,7 +1867,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.localizedMap = localizedMap;
 			}
 			else{
-				this.localizedMap = {};
+				this.localizedMap = new Object();
 			}
 		}
 		
@@ -2219,7 +2299,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_TERM_VERSION = '1.0.0';
 		static DEFAULT_MANDATORY = false;
 		static DEFAULT_ABSTRACT_KEY = false;
-		static DEFAULT_SEARCHABLE = false;
+		static DEFAULT_SEARCHABLE = true;
 		static DEFAULT_DOWNLOADABLE = true;
 		static DEFAULT_MIN_LENGTH = 1;
 		static DEFAULT_VALUE_MODE = SXConstants.SINGLE;
@@ -2255,6 +2335,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $DEFAULT_ABSTRACT_KEY_FORM_CTRL = $('#' + NAMESPACE + 'abstractKey');
 		static $DEFAULT_SEARCHABLE_FORM_CTRL = $('#' + NAMESPACE + 'searchable');
 		static $DEFAULT_DOWNLOADABLE_FORM_CTRL = $('#' + NAMESPACE + 'downloadable');
+
+		static KEYWORD_DELIMITERS = /\s|,/;
 
 		constructor( termType ){
 			
@@ -2308,42 +2390,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		
-		addSearchKeyword( keyword ){
-			if( !this.searchKeywords ){
-				this.searchKeywords = new Array();
-			}
-
-			this.searchKeywords.push( keyword );
-
-			return this.searchKeywords;
-		}
-
-		removeSearchKeyword( keyword ){
-			if( !this.searchKeywords ){
-				return null;
-			}
-
-			let remainedKeywords = this.searchKeywords.filter(
-				word => keyword !== word
-			);
-
-			this.searchKeywords = remainedKeywords;
-
-			return this.searchKeywords;
-		}
-
-		searchKeywordsToQuery(){
-			if( !this.searchKeywords ){
-				return '';
-			}
-
-			if( this.searchKeywords.length === this.options.length ){
-				return '';
-			}
-
-			return this.searchKeywords.join(' || ');
-		}
-
 		getTermId(){
 			if( !(Util.isEmptyString( this.termName ) || Util.isEmptyString( this.termVersion )) ){
 				return new TermId(this.termName,this.termVersion);
@@ -2524,7 +2570,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return true;
 		}
 
-		
 		toJSON(){
 			let json = {};
 			
@@ -2739,7 +2784,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SEARCHABLE );
 			
 			if( save ){
-				this.searchable = value;
+				this.searchable = true;
 				this.setDirty( true );
 			}
 			
@@ -2956,6 +3001,43 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return this.localizedMap;
 		}
+
+		addSearchKeyword( keyword ){
+			if( !this.searchKeywords ){
+				this.searchKeywords = new Array();
+			}
+
+			let keywords = this.searchKeywords.split(Term.KEYWORD_DELIMITERS);
+			console.log('Splitted keywords: ', keywords );
+
+			this.searchKeywords.push( keyword );
+
+			return this.searchKeywords;
+		}
+
+		removeSearchKeyword( keyword ){
+			if( !this.searchKeywords ){
+				return null;
+			}
+
+			let remainedKeywords = this.searchKeywords.filter(
+				word => keyword !== word
+			);
+
+			this.searchKeywords = remainedKeywords;
+
+			return this.searchKeywords;
+		}
+
+		getSearchQuery( operator ){
+			if( !this.searchKeywords ){
+				return '';
+			}
+
+			let keywordArray = Util.split( this.searchKeywords, Term.KEYWORD_DELIMITERS );
+
+			return keywordArray.join(' ' + operator + ' ');
+		}
 		
 		
 		toJSON(){
@@ -3016,33 +3098,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		$render_Freemarker( renderInputUrl, forWhat ){
-			let params = Liferay.Util.ns(NAMESPACE, {
-				controlType: 'string',
-				renderType: forWhat ? forWhat : false,
-				controlName: NAMESPACE+this.termName,
-				label: this.getLocalizedDisplayName(),
-				required: this.mandatory ? this.mandatory : false,
-				inputType: this.multipleLine ? 'textarea' : 'text',
-				placeHolder: this.getLocalizedPlaceHolder() ? this.getLocalizedPlaceHolder() : '',
-				value: this.value ? this.value : '',
-				helpMessage: this.getLocalizedTooltip() ? this.getLocalizedTooltip() : ''
-			});
-
-			return FormUIUtil.$getRenderedFormControl( renderInputUrl, params );
-		}
-
-		renderEditControl(){
-			return null;
-		}
-
-		getLocalizedPlaceHolder(){
+		getLocalizedPlaceHolder( locale=CURRENT_LANGUAGE){
 			if( !this.placeHolder || this.placeHolder.isEmpty() ){
-				return false;
+				return '';
 			}
 			else{
-				const placeHolder = this.placeHolder.getText(CURRENT_LANGUAGE);
-				return placeHolder ? placeHolder : this.placeHolder.getText(DEFAULT_LANGUAGE);
+				return this.placeHolder.getText(locale);
 			}
 		}
 
@@ -3209,6 +3270,119 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										forWhat);
 			
 			return this.$rendered;
+		}
+
+		setFromSearchValue( value ){
+			if( this.rangeSearch && value > this.toSearchValue ){
+				//
+			}
+
+			let keywords = this.searchKeywords.split(Term.KEYWORD_DELIMITERS);
+			console.log('Splitted keywords: ', keywords );
+
+			this.searchKeywords.push( keyword );
+
+			return this.searchKeywords;
+		}
+
+		getFromSearchValue(){
+			return this.fromSearchValue;
+		}
+
+		setToSearchValue( keyword ){
+			if( !this.searchKeywords ){
+				return null;
+			}
+
+			let remainedKeywords = this.searchKeywords.filter(
+				word => keyword !== word
+			);
+
+			this.searchKeywords = remainedKeywords;
+
+			return this.searchKeywords;
+		}
+		
+		getToSearchValue(){
+			return this.toSearchValue;
+		}
+
+		getSearchQuery( operator ){
+			if( !this.fromSearchValue && !this.toSearchValue ){
+				return '';
+			}
+
+			if( this.rangeSearch ){
+				return {
+					gte: this.fromSearchValue ? this.fromSearchValue : '',
+					lte: this.toSearchValue ? this.toSearchValue : ''
+				}
+			}
+			else{
+				return this.fromSearchValue ? this.fromSearchValue : '';
+			}
+		}
+
+		setFromSearchValue( value ){
+			if( this.minValue ){
+				if( this.minBoundary === true ){
+					if( value < this.minValue  ){
+						// show error dialog
+						return;
+					}
+				}
+				else{
+					if( value <= this.minValue ){
+						// show error dialog
+						return;
+					}
+				}
+			}
+
+			if( this.maxValue ){
+				if( this.maxBoundary === true ){
+					if( value > this.maxValue  ){
+						// show error dialog
+						return;
+					}
+				}
+				else{
+					if( value >= this.maxValue ){
+						// show error dialog
+						return;
+					}
+				}
+			}
+
+			this.fromSearchValue = value;
+
+			return this.fromSearchValue;
+		}
+
+		setToSearchValue( value ){
+			if( this.maxValue ){
+				if( this.maxBoundary === true ){
+					if( value > this.maxValue  ){
+						// show error dialog
+						return;
+					}
+				}
+				else{
+					if( value >= this.maxValue ){
+						// show error dialog
+						return;
+					}
+				}
+			}
+
+			if( this.fromSearchValue > this.toSearchValue ){
+				// show error dialog
+				return;
+			}
+
+			this.toSearchValue = value;
+
+			return this.toSearchValue;
 		}
 
 		getMinValueFormValue ( save ){
@@ -3653,6 +3827,38 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setDirty( true );
 		} 
 
+		addSearchKeyword( keyword ){
+			if( !this.searchKeywords ){
+				this.searchKeywords = new Array();
+			}
+
+			this.searchKeywords.push( keyword );
+
+			return this.searchKeywords;
+		}
+
+		removeSearchKeyword( keyword ){
+			if( !this.searchKeywords ){
+				return null;
+			}
+
+			this.searchKeywords = this.searchKeywords.filter(
+				word => keyword !== word
+			);
+
+			return this.searchKeywords;
+		}
+
+		getSearchQuery( operator ){
+			if( this.searchKeywords === undefined ){
+				return '';
+			}
+
+			console.log( 'search keyword: ', this.searchKeywords);
+
+			return this.searchKeywords.join(' ' + operator + ' ');
+		}
+
 		refreshOptionPreview( column ){
 			if( !this.highlightedOption )	return;
 
@@ -3995,6 +4201,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.enableTime ) 	this.enableTime = DateTerm.DEFAULT_ENABLE_TIME;
 		}
 
+		getSearchQuery(){
+			if( this.fromSearchDate === undefined && this.toSearchDate === undefined ){
+				return '';
+			}
+
+			if( this.toSearchDate === undefined ){
+				return this.fromSearchDate;
+			}
+			else{
+				let query = {
+					gte: this.fromSearchDate,
+					lte: this.toSearchDate
+				};
+
+				return JSON.stringify( query );
+			}
+		}
+
 		getEnableTimeFormValue(save=true){
 			let value = FormUIUtil.getFormCheckboxValue( 'enableTime' );
 			
@@ -4058,6 +4282,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$rendered = null;
 		}
 
+		getSearchQuery( operator ){
+			if( !this.searchKeywords ){
+				return '';
+			}
+
+			let keywordArray = Util.split( this.searchKeywords, Term.KEYWORD_DELIMITERS );
+
+			return keywordArray.join(' ' + operator + ' ');
+
+		}
+
 		setAllFormValues(){
 			super.setAllFormValues();
 		}
@@ -4086,9 +4321,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			this.$rendered = FormUIUtil.$getFormFileUploadSection(
-										this,
-										forWhat );
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				this.placeHolder = new LocalizedObject();
+				this.placeHolder.addText( CURRENT_LANGUAGE, Liferay.Language.get('file-name-for-search') );
+				
+				this.$rendered = FormUIUtil.$getFormStringSection( this, forWhat );
+			}
+			else{
+				this.$rendered = FormUIUtil.$getFormFileUploadSection(
+												this,
+												forWhat );
+			}
 
 			return this.$rendered;
 		}
@@ -4250,7 +4493,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 */
 		$render( members, others, forWhat, deep=true ){
 			let $panel = this.$newGroupPanel();
-			console.log( 'Group Panel; ', $panel );
 
 			members.forEach(term=>{
 				let $row;
@@ -4382,6 +4624,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
+		getSearchQuery(){
+			return this.searchKeyword;
+		}
+
 		getTrueOption(){
 			return this.options[BooleanTerm.OPTION_FOR_TRUE];
 		}
@@ -4393,24 +4639,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$render( forWhat ){
 			this.updateDependentTerms();
 			
-			let options = new Array();
-			this.options.forEach((option)=>{
-				let rOption = {};
-
-				rOption.label = option.labelMap[CURRENT_LANGUAGE];
-				rOption.value = option.value;
-				rOption.selected = option.selected;
-				rOption.activeTerms = option.activeTerms;
-				rOption.inactiveTerms = this.dependentTerms.filter((term)=>!option.activeTerms.includes(term));
-
-				options.push( rOption );
-			});
-
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
-			this.$rendered = FormUIUtil.$getFormListSection(
+			this.$rendered = FormUIUtil.$getFormBooleanSection(
 									this,
 									forWhat );
 
@@ -4553,6 +4786,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_MATRIX_ELEMENT_DELIMITER = ' ';
 		static DEFAULT_COMMENT_CHAR = '#';
 
+		static DEFAULT_FIELD_OPERATOR = 'or';
+		static DEFAULT_INFIELD_OPERATOR = 'or';
+
 		constructor( jsonObj ){
 			if( !Util.isEmptyObject(jsonObj) ){
 				this.parse( jsonObj );
@@ -4567,12 +4803,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				this.tooltip = new LocalizedObject();
 				this.terms = new Array();
-			}
 
+			}
+			
 			this.dirty = false;
 			this.uploadFiles = false;
 			this.$canvas = null;
 			this.forWhat = SXConstants.FOR_NOTHING;
+			this.fieldOperator = DataStructure.DEFAULT_FIELD_OPERATOR;
+			this.infieldOperator = DataStructure.DEFAULT_INFIELD_OPERATOR;
 
 			this.selectedTerm = null;
 		}
@@ -5454,12 +5693,42 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			);
 
-			console.log( 'Searchable Terms: ', searchableTerms);
 			return searchableTerms;
+		}
+
+		setSearchable( term, searchable=true ){
+			if( term.isGroupTerm() ){
+				let children = this.getGroupMembers( term.getTermId() );
+
+				let self = this;
+				children.forEach( childTerm => {
+					childTerm.searchable = searchable;
+					self.setSearchable( childTerm );
+				});
+			}
 		}
 
 		countSearchableTerms( searchable=true ){
 			return this.getSearchableTerms( searchable ).length;
+		}
+
+		getSearchQuery(){
+			let query = new Object();
+			let searchableTerms = this.getSearchableTerms();
+
+			let self = this;
+			searchableTerms.forEach(term=>{
+				if( !term.isGroupTerm() ){
+
+					let termQuery = term.getSearchQuery( self.infieldOperator );
+	
+					if( termQuery ){
+						query[term.termName] = termQuery;
+					}
+				}
+			});
+
+			return query;
 		}
 
 		getDownloadableTerms( downloadable=true ){
@@ -5470,7 +5739,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			);
 
-			console.log( 'Downloadable Terms: ', downloadableTerms);
 			return downloadableTerms;
 		}
 
@@ -5657,6 +5925,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {boolean} highlight 
 		 */
 		renderTerm( term, forWhat=SXConstants.FOR_EDITOR, highlight=false ){
+			if( forWhat === SXConstants.FOR_SEARCH && !term.searchable ){
+				console.log( 'Not searchable term: ', term );
+				return;
+			}
+
 			let $panel = null;
 
 			if( term.isMemberOfGroup() ){

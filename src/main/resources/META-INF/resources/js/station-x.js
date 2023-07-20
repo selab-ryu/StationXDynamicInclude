@@ -805,7 +805,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			let options = {
-				lang: 'kr'
+				lang: 'kr',
+				changeYear: true,
+				changeMonth : true,
+				yearRange: "1920:2025"
 			}
 
 			if( term.enableTime ){
@@ -822,6 +825,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$inputTag.change(function(event){
 				event.stopPropagation();
 				term.value = $(this).val();
+
+				console.log( "Value of Date term: " + term.value );
+				console.log( JSON.stringify( term, null, 4) );
 
 				let eventData = {
 					sxeventData:{
@@ -1069,15 +1075,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						);
 					});
 				}
-				else{
+				else{ //For Checkbox
 					options.forEach((option, index)=>{
 							$panelBody.append( this.$getCheckboxTag( 
 														controlName+'_'+(index+1),
 														controlName,
 														option.labelMap[CURRENT_LANGUAGE],
-														option.selected || value === option.value,
+														option.selected || value.includes(option.value),
 														option.value,
-														value,
 														false ) );
 					});
 						
@@ -1091,6 +1096,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						});
 
 						term.value = checkedValues;
+						term.valueMode = 'multiple';
 
 						let eventData = {
 							sxeventData:{
@@ -2578,8 +2584,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.termVersion && this.termVersion !== Term.DEFAULT_TERM_VERSION )	json.termVersion = this.termVersion;
 			if( this.displayName && !this.displayName.isEmpty() ) json.displayName = this.displayName.getLocalizedMap();
 			if( this.definition && !this.definition.isEmpty() ) json.definition = this.definition.getLocalizedMap();
-			if( this.abstractKey )	json.abstractKey = this.abstractKey;
-			if( this.searchable )	json.searchable = this.searchable;
+			json.abstractKey = this.abstractKey ? this.abstractKey : false;
+			json.searchable = this.searchable ? this.searchable : false;
 			if( this.downloadable === false )	json.downloadable = this.downloadable;
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
@@ -4263,6 +4269,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( this.enableTime )	json.enableTime = this.enableTime;
 			
+			console.log( "Date Value: ", this.value );
 			return json;
 		}
 	}
@@ -6382,6 +6389,54 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						],
 						order: 4
+					},
+					{
+						termType: TermTypes.LIST,
+						termName: 'illHistory',
+						termVersion: '1.0.0',
+						displayName: {
+							'en_US': 'History of illness',
+							'ko_KR': '병력'
+						},
+						definition:{
+							'en_US': 'History of illness',
+							'ko_KR': '병력'
+						},
+						tooltip:{
+							'en_US': 'ListTerm with \'checkbox\' display type',
+							'ko_KR': '\'radio\' 디스플레이 타입을 가진 ListTerm'
+						},
+						mandatory: true,
+						state: Term.STATE_ACTIVE,
+						groupTermId:{
+							'name':'listBasedTermGroup',
+							'version':'1.0.0'
+						},
+						displayStyle: 'check',
+						options:[
+							{
+								labelMap:{
+									'en_US': 'cancer',
+									'ko_KR': '암'
+								},
+								value:'cc'
+							},
+							{
+								labelMap:{
+									'en_US': 'Stomach Disease',
+									'ko_KR': '위장병'
+								},
+								value:'sd'
+							},
+							{
+								labelMap:{
+									'en_US': 'Heart Disease',
+									'ko_KR': '심장병'
+								},
+								value:'hd'
+							}
+						],
+						order: 5
 					},
 					{
 						termType: TermTypes.GROUP,

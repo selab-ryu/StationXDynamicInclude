@@ -574,6 +574,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$input.change(function(event){
 				event.stopPropagation();
+				event.preventDefault();
+
 				term.value = $(this).val();
 
 				let eventData = {
@@ -684,12 +686,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			options.timepicker = false;
 			options.dateFormat = 'yy. mm. dd.';
 			$fromInputTag.datepicker(options);
-			
+
 			$fromInputTag.change(function(event){
 				event.stopPropagation();
-				console.log( 'From Date Search Value: ' + $(this).val() );
+				event.preventDefault();
 				term.fromSearchDate = Date.parse( $(this).val() );
-				console.log( 'term.fromSearchDate: ' +  term.fromSearchDate );
 				
 				let rangeSearch = $rangeCheckbox.prop('checked');
 				let eventData = {
@@ -714,9 +715,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'class': 'field form-control toDate',
 				'id': controlName+'_to',
 				'name': controlName+'_to',
-				'value': term.toSearchDate,
-				'aria-live': 'assertive',
-				'aria-label': ''
+				'value': term.toSearchDate
 			});
 
 			$toSpan.append($toInputTag);
@@ -725,6 +724,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$toInputTag.change(function(event){
 				event.stopPropagation();
+				event.preventDefault();
+
 				term.toSearchDate = Date.parse( $(this).val() );
 
 				let eventData = {
@@ -798,52 +799,61 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$inputTag.prop({
 				'class': 'field form-control',
 				'id': controlName,
-				'name': controlName,
-				'value': term.value,
-				'aria-live': 'assertive',
-				'aria-label': ''
+				'name': controlName
 			});
 
 			let options = {
 				lang: 'kr',
 				changeYear: true,
 				changeMonth : true,
-				yearRange: "1920:2025"
-			}
+				yearRange: "1920:2025",
+				setDate: new Date(Number(term.value)),
+				value: term.enableTime ? term.toDateTimeString() : term.toDateString(),
+				validateOnBlur: false,
+				id:controlName,
+				onChangeDateTime: function(dateText, inst){
+					term.value = $inputTag.datetimepicker("getValue").getTime();
 
+					if( term.enableTime ){
+						$inputTag.val(term.toDateTimeString());
+					}
+					else{
+						$inputTag.val(term.toDateString());
+					}
+
+					$inputTag.datetimepicker('setDate', $inputTag.datetimepicker("getValue"));
+
+					let eventData = {
+						bubbles: false,
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term,
+							value: term.value  
+						}
+					};
+
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				}
+			};
+			
 			if( term.enableTime ){
 				options.timepicker = true;
-				options.format = 'Y. m. d. H:m';
+				options.format = 'Y. m. d. HH:mm';
+				options.value = term.toDateTimeString(),
 				$inputTag.datetimepicker(options);
+				$inputTag.val(term.toDateTimeString());
 			}
 			else{
 				options.timepicker = false;
-				options.dateFormat = 'yy. mm. dd.';
-				$inputTag.datepicker(options);
+				options.format = 'Y. m. d.';
+				options.value = term.toDateString(),
+				$inputTag.datetimepicker(options);
+				$inputTag.val(term.toDateString());
 			}
-
-			$inputTag.change(function(event){
-				event.stopPropagation();
-				term.value = $(this).val();
-
-				console.log( "Value of Date term: " + term.value );
-				console.log( JSON.stringify( term, null, 4) );
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						value: $(this).val()  
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
-			});
-
 
 			$tag.append($inputTag);
 
@@ -856,7 +866,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $option = $( '<option>' );
 				
 				$option.prop('value', option.value);
-				console.log('Option set: ', term.termName, option, value);
+				
 				if( option.selected === true || option.value === value ){
 					$option.prop( 'selected', true );
 				};
@@ -868,6 +878,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$select.change(function(event){
 				event.stopPropagation();
+				event.preventDefault();
+
 				term.value = $(this).val();
 
 				let eventData = {
@@ -1055,6 +1067,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					$panelBody.change(function(event){
 						event.stopPropagation();
+						event.preventDefault();
 
 						let changedVal = $(this).find('input[type="radio"]:checked').val();
 						term.value = changedVal;
@@ -1088,6 +1101,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						
 					$panelBody.change(function(event){
 						event.stopPropagation();
+						event.preventDefault();
 
 						let checkedValues = new Array();
 
@@ -1183,6 +1197,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				else{
 					$panelBody.change(function(event){
 						event.stopPropagation();
+						event.stopImmediatePropagation();
+						event.preventDefault();
 
 						let changedVal = $(this).find('input[type="radio"]:checked').val();
 						term.value = changedVal;
@@ -1649,6 +1665,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			$uploadNode.change(function(event){
 				event.stopPropagation();
+				event.preventDefault();
 
 				let fileName = $('#'+controlName)[0].files.length ? $('#'+controlName)[0].files[0].name : "";
 				term.value = fileName;
@@ -4169,8 +4186,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				forWhat
 			);
 
-			//this.$rendered.find('input').eq(0).datetimepicker();
-
 			return this.$rendered;
 		}
 		
@@ -4244,18 +4259,46 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			FormUIUtil.setFormCheckboxValue( 'enableTime', this.enableTime ? this.enableTime : false );
 		}
 
+		toDateTimeString(){
+			let date = new Date( Number( this.value ) );
+			let year = date.getFullYear();
+			let month = (date.getMonth()+1);
+			let day = date.getDate();
+			let hour = date.getHours().toLocaleString(undefined, {minimumIntegerDigits:2});
+			let minuite = date.getMinutes().toLocaleString(undefined, {minimumIntegerDigits:2});
+			let dateAry = [year, month, day];
+			let timeAry = [hour, minuite];
+			return dateAry.join('. ') + '. ' + timeAry.join(':');
+		}
+
+		toDateString(){
+			let date = new Date( Number( this.value ) );
+			let dateAry = [date.getFullYear(), date.getMonth()+1, date.getDate()];
+
+			return dateAry.join('. ') + '.';
+		}
+
+		toDate(){
+			return this.value ? new Date( Number(this.value) ) : '';
+		}
+
 		parse( json ){
 			let unparsed = super.parse( json );
 			let unvalid = new Object();
 
 			let self = this;
-			Object.keys( unparsed ).forEach(function(key, index){
+			Object.keys( json ).forEach(function(key, index){
 				switch( key ){
 					case 'enableTime':
-						self.enableTime = unparsed.enableTime;
+						self.enableTime = json.enableTime;
+						break;
+					case 'value':
+						self.value = Number( json.value );
 						break;
 					default:
-						unvalid[key] = json[key];
+						if( unparsed.hasOwnProperty(key) ){
+							unvalid[key] = json[key];
+						}
 				}
 			});
 
@@ -4269,7 +4312,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( this.enableTime )	json.enableTime = this.enableTime;
 			
-			console.log( "Date Value: ", this.value );
 			return json;
 		}
 	}
@@ -5240,7 +5282,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setGroupIncrementalOrder( term ){
 			let terms = this.getGroupMembers( term.groupTermId );
-			console.log('------', term, terms);
 			term.order = terms.length;
 		}
 
@@ -5328,7 +5369,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						text: 'Confirm', 
 						click: function(){
 							let termNameSet = FormUIUtil.getFormCheckedArray('groupTermsSelector');
-							console.log( 'Choose groupTerm termNameSet: ', termNameSet );
 							// there could be rendered children.
 							let oldMembers = self.getGroupMembers(groupTerm.getTermId());
 							oldMembers = oldMembers.filter( member=>{
@@ -5339,7 +5379,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 								return SXConstants.FILTER_ADD;
 							});
-							console.log( 'Choose groupTerm oldMembers: ', oldMembers );
 
 							termNameSet.forEach(termName=>{
 								let term = self.getTermByName( termName );
@@ -5348,7 +5387,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								}
 
 								if( groupTerm.isRendered() ){
-									console.log( 'Choose groupTerm : Should be here!!!', term );
 									self.addGroupMember( term, groupTerm.getTermId(), false );
 									//groupTerm.$groupPanel.append(term.$rendered);
 								}
@@ -5518,7 +5556,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		moveTermGroupUp( term ){
 			let group = this.getTerm( term.groupTermId );
 			term.groupTermId = group.groupTermId;
-			console.log('Parent group to be moved up: ', term.groupTermId);
 
 			this.refreshGroupMemberOrders( group.groupTermId );
 			this.refreshGroupMemberOrders( term.groupTermId );
@@ -5684,7 +5721,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			);
 
-			console.log( 'Abstract Key Terms: ', abstractKeyTerms);
 			return abstractKeyTerms;
 		}
 
@@ -5761,8 +5797,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return SXConstants.CONTINUE_EVERY;
 			});
 
-			console.log('File Content: ', fileContent );
-
 			return JSON.stringify( fileContent );
 		}
 
@@ -5782,7 +5816,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let lineDelimiter = this.termDelimiter ? this.termDelimiter : '\n';
 
 			let lines = fileContent.split( lineDelimiter );
-			console.log( 'lines: ', lines );
 		}
 
 		

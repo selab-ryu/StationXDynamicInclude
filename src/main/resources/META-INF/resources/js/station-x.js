@@ -675,41 +675,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 			
 			$fromSpan.append($fromInputTag);
-			
-			let options = {
-				lang: 'kr',
-				changeYear: true,
-				changeMonth : true,
-				yearRange: "1920:2025"
-			}
-			
-			options.timepicker = false;
-			options.dateFormat = 'yy. mm. dd.';
-			$fromInputTag.datepicker(options);
 
-			$fromInputTag.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
-				term.fromSearchDate = Date.parse( $(this).val() );
-				
-				let rangeSearch = $rangeCheckbox.prop('checked');
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: rangeSearch,
-						fromDate: term.fromSearchDate,
-						toDate: rangeSearch ? Date.parse( $toSpan.find('input').val() ) : ''
-					}
-				};
-				
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
-					eventData
-					);
-			});
-				
 			let $toInputTag = $('<input type="text">');
 			$toInputTag.prop({
 				'class': 'field form-control toDate',
@@ -719,31 +685,52 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			$toSpan.append($toInputTag);
-
-			$toInputTag.datepicker(options);
-
-			$toInputTag.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
-
-				term.toSearchDate = Date.parse( $(this).val() );
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: true,
-						fromDate: term.fromSearchDate,
-						toDate: term.toSearchDate
+			
+			let options = {
+				lang: 'kr',
+				changeYear: true,
+				changeMonth : true,
+				validateOnBlur: false,
+				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
+				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
+				timepicker: false,
+				format: 'Y. m. d.',
+				onClose: function( dateText, instance ){
+					term.fromSearchDate = $fromInputTag.datetimepicker("getValue").getTime();
+				
+					let toDate = term.fromSearchDate;
+					
+					if( term.rangeSearch ){
+						toDate = $toInputTag.datetimepicker("getValue").getTime();
+						if( toDate - term.fromSearchDate < 0 ){
+							toDate = term.fromSearchDate;
+							$toInputTag.val('');
+						}
 					}
-				};
 
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_TO_DATE_CHANGED,
-					eventData
-				);
-			});
+					let rangeSearch = $rangeCheckbox.prop('checked');
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term,
+							rangeSearch: rangeSearch,
+							fromDate: term.fromSearchDate,
+							toDate: rangeSearch ? toDate : ''
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
+						eventData
+						);
+				}
+			}
+			
+			
+			$fromInputTag.datetimepicker(options);
+
+			$toInputTag.datetimepicker(options);
 
 			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
 				controlName+'_rangeSearch',
@@ -806,7 +793,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				lang: 'kr',
 				changeYear: true,
 				changeMonth : true,
-				yearRange: "1920:2025",
+				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
+				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
+				scrollInput:false,
 				setDate: new Date(Number(term.value)),
 				value: term.enableTime ? term.toDateTimeString() : term.toDateString(),
 				validateOnBlur: false,
@@ -839,6 +828,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					);
 				}
 			};
+
+			/*
+			let thisYear = new Date().getFullYear();
+			options.yearStart = term.startYear ? term.startYear : thisYear;
+			options.yearEnd = term.endYear ? term.endYear : thisYear;
+			*/
+			console.log( 'Date Options: ', options );
 			
 			if( term.enableTime ){
 				options.timepicker = true;
@@ -4164,14 +4160,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	/* 12. DateTerm */
 	class DateTerm extends Term{
 		static $DEFAULT_ENABLE_TIME_FORM_CTRL = $('#'+NAMESPACE+'enableTime');
-		static DEFAULT_ENABLE_TIME=false;
+		static $DEFAULT_START_YEAR_FORM_CTRL = $('#'+NAMESPACE+'startYear');
+		static $DEFAULT_END_YEAR_FORM_CTRL = $('#'+NAMESPACE+'endYear');
+		static DEFAULT_ENABLE_TIME = false;
+		static DEFAULT_START_YEAR = '1950';
+		static DEFAULT_END_YEAR = new Date().getFullYear();
 		static DEFAULT_SIZE = '200px';
 		static TIME_ENABLED_SIZE = '500px';
 
 		constructor( jsonObj ){
 			super('Date');
 
-			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+			if( jsonObj ) 	this.parse( jsonObj );
+			
+			this.initAllAttributes();
 
 			this.setAllFormValues();
 		}
@@ -4212,6 +4214,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			super.setAllFormValues();
 
 			this.setEnableTimeFormValue();
+			this.setStartYearFormValue();
+			this.setEndYearFormValue();
 		}
 
 		initAllAttributes(){
@@ -4220,6 +4224,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$rendered = null;
 
 			if( !this.enableTime ) 	this.enableTime = DateTerm.DEFAULT_ENABLE_TIME;
+			if( !this.startYear )	this.startYear = DateTerm.DEFAULT_START_YEAR;
+			if( !this.endYear )		this.endYear = DateTerm.DEFAULT_END_YEAR;
 		}
 
 		getSearchQuery(){
@@ -4259,6 +4265,44 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			FormUIUtil.setFormCheckboxValue( 'enableTime', this.enableTime ? this.enableTime : false );
 		}
 
+		getStartYearFormValue(save=true){
+			let value = FormUIUtil.getFormValue( 'startYear' );
+			
+			if( save ){
+				this.startYear = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+
+		setStartYearFormValue( value ){
+			if( value ){
+				this.startYear = value;
+			}
+
+			FormUIUtil.setFormValue( 'startYear', this.startYear ? this.startYear : '' );
+		}
+
+		getEndYearFormValue(save=true){
+			let value = FormUIUtil.getFormValue( 'endYear' );
+			
+			if( save ){
+				this.endYear = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+
+		setEndYearFormValue( value ){
+			if( value ){
+				this.endYear = value;
+			}
+
+			FormUIUtil.setFormValue( 'endYear', this.endYear ? this.endYear : '' );
+		}
+
 		toDateTimeString(){
 			let date = new Date( Number( this.value ) );
 			let year = date.getFullYear();
@@ -4290,7 +4334,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			Object.keys( json ).forEach(function(key, index){
 				switch( key ){
 					case 'enableTime':
-						self.enableTime = json.enableTime;
+					case 'startYear':
+					case 'endYear':
+						self[key] = json[key];
 						break;
 					case 'value':
 						self.value = Number( json.value );
@@ -4302,8 +4348,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
-			this.initAllAttributes();
-
 			return unvalid;
 		}
 
@@ -4311,6 +4355,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let json = super.toJSON();
 			
 			if( this.enableTime )	json.enableTime = this.enableTime;
+			if( this.startYear )	json.startYear = this.startYear;
+			if( this.endYear )	json.endYear = this.endYear;
 			
 			return json;
 		}
@@ -6495,7 +6541,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						termName: 'birth',
 						termVersion: '1.0.0',
 						displayName: {
-							'en_US': '생년월일',
+							'en_US': 'Birthday',
 							'ko_KR': '생년월일'
 						},
 						definition:{

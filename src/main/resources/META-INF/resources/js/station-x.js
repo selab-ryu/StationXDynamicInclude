@@ -77,6 +77,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return result;
 		},
+		getTokenArray( sentence ){
+			return sentence.trim().split( /\s+/ );
+		},
+		getFirstToken( sentence ){
+			let tokens = sentence.trim().split( /\s+/ );
+
+			return tokens[0];
+		},
+		getLastToken( sentence ){
+			let tokens = sentence.trim().split( /\s+/ );
+
+			return tokens[tokens.length - 1];
+		},
 		split: function( str, regExpr ){
 			let words = str.split( regExpr );
 			words = words.filter( word => word );
@@ -505,6 +518,135 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			LocalizationUtil.setLocalizedInputValue( inputId );
 		}
 	}
+
+	class SearchField{
+		constructor( fieldName, infieldOperator = 'or' ){
+			console.assert( fieldName );
+
+			this.fieldName = fieldName;
+			this.operator = infieldOperator;
+			this.keywords = new Array();
+		}
+
+		addKeywords( keywords ){
+			let aryKeywords = keywords;
+
+			if( typeof keywords === 'string' || keywords instanceof String){
+				aryKeywords = Util.getTokenArray( keywords );
+			}
+
+			if( keywords.isArray() ){
+				this.keywords = this.keywords.concat( keywords.filter( keyword => {
+						return !this.keywords.includes( keyword );
+					})
+				);
+			}
+			else{
+				this.keywords = keywords;
+			}
+		}
+
+		removeKeywords( keywords ){
+			let aryKeywords = keywords;
+
+			if( typeof keywords === 'string' || keywords instanceof String){
+				aryKeywords = Util.getTokenArray( keywords );
+			}
+
+			return this.keywords.filter( storedKeyword => {
+				return !aryKeywords.includes(storedKeyword);
+			});
+		}
+
+		clearKeywords(){
+			this.keywords = new Array();
+		}
+
+		setOperator( operator ){
+			this.operator = operator;
+		}
+
+		toJSON(){
+			if( this.keywords.length < 1 ){
+				return '';
+			}
+
+			let json = {
+				fieldName: this.fieldName,
+				operator: this.operator,
+				keywords: this.keywords
+			}
+			
+			/*
+			new Object();
+			json[this.fieldName] = new Object();
+
+			json[this.fieldName][operator] = this.keywords;
+			*/
+
+			return json;
+		}
+	}
+
+	class SearchQuery{
+		static DEFAULT_SEARCH_OPERATOR = 'or';
+		constructor( fieldOperator ){
+			this.fieldOperator = fieldOperator;
+			this.fields = new Array();
+		}
+
+		addSearchQuery( query ){
+			this.fields.push( query );
+		}
+
+		addKeywords( fieldName, keywords, infieldOperator=SearchQuery.DEFAULT_SEARCH_OPERATOR ){
+			let searchField = null;
+
+			this.fields.every( field => {
+				if( field.fieldName === fieldName ){
+					searchField = field;
+					return SXConstants.STOP_EVERY;
+				}
+			});
+			
+			if( !searchField ){
+				searchField = new SearchField( fieldName, infieldOperator );
+				this.fields.push( searchField );
+			}
+			
+			searchField.setOperator( infieldOperator );
+			searchField.addKeywords( keywords );
+
+			return this.fields;
+		}
+
+		removeKeywords( fieldName, keywords ){
+			if( this.fields.length < 1 ){
+				return this.fields;
+			}
+
+			this.fields = this.fields.filter( field => {
+				if( field.fieldName === fieldName ){
+					if( !keywords ){
+						return SXConstants.FILTER_SKIP; 
+					}
+					else{
+						field.removeKeywords( keywords );
+						return SXConstants.FILTER_ADD;
+					}
+				}
+			});
+		}
+
+		toJSON(){
+			let json = new Object();
+
+			json.fieldOperator = this.fieldOperator;
+			json.fields = this.fields;
+
+			return json;
+		}
+	}
 	
 	let FormUIUtil = {
 		$getRequiredLabelMark: function( style ){
@@ -583,7 +725,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: term,
-						valueMode: 'single',
 						value: $(this).val()  
 					}
 				};
@@ -628,6 +769,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: term,
+						searchMode: SXConstants.SINGLE,
 						searchKeywords: term.searchKeywords  
 					}
 				};
@@ -651,9 +793,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						.append( this.$getDateSearchNode(term) );
 
 			return $dateSearchNode;
-		},
-		$getDateTimeInputTag: function( term, controlId ){
-
 		},
 		$getDateSearchNode: function( term ){
 			term.rangeSearch = term.rangeSearch ? true : false;
@@ -771,7 +910,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						.append( this.$getLabelNode(
 							NAMESPACE + term.termName, 
 							term.getLocalizedDisplayName(),
-							term.mandatory ? this.mandatory : false,
+							term.mandatory,
 							term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '') )
 						.append( this.$getDateTimeInputNode( term ) );
 
@@ -855,64 +994,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $tag;
 		},
-		$getSelectTag: function( term, controlName, options, value ){
+		$getSelectTag: function( controlName, options, value, label, mandatory, helpMessage ){
+			let $label = this.$getLabelNode(controlName, label, mandatory, helpMessage);
 			let $select = $( '<select class="form-control" id="' + controlName + '" name="' + controlName + '">' );
 
 			options.forEach( (option)=>{
-				let $option = $( '<option>' );
+				let $option = option.$render( SXConstants.DISPLAY_STYLE_SELECT, controlName+'_'+option.value, controlName);
 				
-				$option.prop('value', option.value);
-				
+				$option.text(option.labelMap[CURRENT_LANGUAGE]);
+
+				$select.append( $option );
+
 				if( option.selected === true || option.value === value ){
 					$option.prop( 'selected', true );
 				};
 
-				$option.text(option.labelMap[CURRENT_LANGUAGE]);
-
-				$select.append( $option );
 			});
 
-			$select.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
+			return $('<div class="form-group input-text-wrapper">')
+									.append( $label )
+									.append( $select );
 
-				term.value = $(this).val();
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						valueMode: 'single',
-						value: $(this).val()  
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
-			});
-
-			return $select;
 		},
-		$getRadioButtonTag: function (controlId, controlName, label, selected, value ){
-			let $label = $( '<label>' );
-			let $input = $( '<input type="radio">')
-									.prop({
-										class: "field",
-										id: controlId,
-										name: controlName,
-										value: value,
-										checked: selected
-									});
-			
-			$label.prop('for', controlId )
-				  .append( $input )
-				  .append( label );
-
-  			let $radio = $( '<div class="radio" style="display:inline-block; margin-left:10px; margin-right:10px;">' )
-							.append( $label );
+		$getRadioButtonTag: function (controlId, controlName, option ){
+			let $radio = option.$render( SXConstants.DISPLAY_STYLE_RADIO, controlId, controlName )
 
 			return $radio;
 		},
@@ -959,18 +1064,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $input;
 		},
-		$getFieldSetGroupNode : function( controlId, $label ){
-			let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlId + 'Title">')
+		$getFieldSetGroupNode : function( controlName, label, mandatory, helpMessage ){
+			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
+
+			let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlName + 'Title">')
 										.append($label);
 
-			let $fieldsetHeader = $('<div class="panel-heading" id="' + controlId + 'Header" role="presentation">')
+			let $fieldsetHeader = $('<div class="panel-heading" id="' + controlName + 'Header" role="presentation">')
 								.append( $panelTitle );
 
 			let $panelBody = $('<div class="panel-body">').css('padding', '0 20px 0.75rem 10px');
 
-			let $fieldsetContent = $('<div aria-labelledby="' + controlId + 'Header" class="in  " id="' + controlId + 'Content" role="presentation">')
+			let $fieldsetContent = $('<div aria-labelledby="' + controlName + 'Header" class="in  " id="' + controlName + 'Content" role="presentation">')
 									.append($panelBody);
-			let $fieldSet = $('<fieldset aria-labelledby="' + controlId + 'Title" role="group">')
+			let $fieldSet = $('<fieldset aria-labelledby="' + controlName + 'Title" role="group">')
 								.append( $fieldsetHeader )
 								.append($fieldsetContent);
 
@@ -989,47 +1096,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node;
 
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
 			if( forWhat === SXConstants.FOR_SEARCH ){
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
+				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, false, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
 					let $option = option.$render( SXConstants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
+
 					$option.change(function(event){
 						event.stopPropagation();
 
-						let checkStatus = $(this).find('input').prop('checked');
-						let optionValue = $(this).find('input').val();
-
-						if( checkStatus ){
-							term.addSearchKeyword( optionValue );
-						}
-						else{
-							term.removeSearchKeyword( optionValue );
-						}
+						term.emptySearchKeywords();
+						$.each( $('input[name="' + controlName + '"]:checked'), function(){
+							term.addSearchKeyword( $(this).val() );
+						});
 
 						let eventData = {
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
-								value: optionValue
+								term: term
 							}
 						};
 
-						if( checkStatus === true ){
-							Liferay.fire(
-								SXIcecapEvents.SD_SEARCH_KEYWORD_ADDED,
-								eventData
-							);
-						}
-						else{
-							Liferay.fire(
-								SXIcecapEvents.SD_SEARCH_KEYWORD_REMOVED,
-								eventData
-							);
-						}
+						Liferay.fire(
+							SXIcecapEvents.SD_SEARCH_KEYWORDS_CHANGED, 
+							eventData );
 
 					});
 
@@ -1040,13 +1132,36 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								.append( $panelGroup );
 			}
 			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
-				
-				$node = $('<div class="form-group input-text-wrapper">')
-									.append( $label )
-									.append( this.$getSelectTag(term, controlName, options, value) );
+				let $node = $('<div class="form-group input-text-wrapper">')
+								.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage) );
+
+				$node.change(function(event){
+					event.stopPropagation();
+					event.preventDefault();
+	
+					term.value = $node.find('input:radio[name ="' + controlName + '"]:checked').val();
+	
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term,
+							controlName: constrolName,
+							value: term.value
+						}
+					};
+	
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
+	
+				return $node;
+	
 			}
 			else{
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
+				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
@@ -1055,10 +1170,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							$panelBody.append( this.$getRadioButtonTag( 
 														controlName+'_'+(index+1),
 														controlName, 
-														option.labelMap[CURRENT_LANGUAGE],
-														selected,
-														option.value,
-														value ) );
+														option ) );
 					});
 
 					$panelBody.change(function(event){
@@ -1073,7 +1185,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term,
-								valueMode: 'single',
 								value: changedVal
 							}
 						};
@@ -1106,14 +1217,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						});
 
 						term.value = checkedValues;
-						term.valueMode = 'multiple';
+						term.valueMode = SXConstants.ARRAY;
 
 						let eventData = {
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term,
-								valueMode: 'multiple',
 								value: checkedValues
 							}
 						};
@@ -1142,15 +1252,35 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node;
 
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			
 			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+
 				$node = $('<div class="form-group input-text-wrapper">')
-									.append( $label )
-									.append( this.$getSelectTag(term, controlName, options, value) );
+							.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage) );
+
+				$node.change(function(event){
+					event.stopPropagation();
+					event.preventDefault();
+	
+					term.value = $node.find('input:radio[name ="' + controlName + '"]:checked').val();
+	
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term,
+							controlName: constrolName,
+							value: term.value
+						}
+					};
+	
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
 			}
-			else{
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, $label );
+			else{ // Radio fieldset. Boolean terms don't provide checkbox display style. 
+				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
@@ -1158,10 +1288,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$panelBody.append( this.$getRadioButtonTag( 
 						controlName+'_'+(index+1),
 						controlName, 
-						option.labelMap[CURRENT_LANGUAGE],
-						selected,
-						option.value,
-						value ) );
+						option ) );
 				});
 					
 				if( forWhat === SXConstants.FOR_SEARCH ){
@@ -1180,6 +1307,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term,
+								searchMode: SXConstants.SINGLE,
 								value: changedVal
 							}
 						};
@@ -1204,7 +1332,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term,
-								valueMode: 'single',
 								value: changedVal
 							}
 						};
@@ -1671,7 +1798,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: term,
-						valueMode: 'single',
 						value: $(this).val()  
 					}
 				};
@@ -1853,7 +1979,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_SEARCH_KEYWORD_REMOVE_ALL: 'SD_SEARCH_KEYWORD_REMOVE_ALL',
 		SD_SEARCH_KEYWORD_ADDED: 'SD_SEARCH_KEYWORD_ADDED',
 		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED',
-		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_REMOVED'
+		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_REMOVED',
+		SD_SEARCH_KEYWORDS_CHANGED: 'SD_SEARCH_KEYWORDS_REMOVED'
 	};
 
 	const SXConstants = {
@@ -1877,6 +2004,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SUCCESS: true,
 
 		SINGLE: false,
+		MULTIPLE: true,
 		ARRAY: true
 	};
 	
@@ -2037,12 +2165,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( renderStyle === SXConstants.DISPLAY_STYLE_SELECT ){
 				let $option = $( '<option>' );
 				
-				$option.prop('value', option.value);
-				if( option.selected === true || option.value === value ){
+				$option.prop('value', this.value);
+				if( this.selected === true ){
 					$option.prop( 'selected', true );
 				};
 
-				$option.text(option.labelMap[CURRENT_LANGUAGE]);
+				$option.text(this.labelMap[CURRENT_LANGUAGE]);
 
 				return $option;
 			}
@@ -2357,6 +2485,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		static KEYWORD_DELIMITERS = /\s|,/;
 
+		static DEFAULT_SEARCH_OPERATOR = 'and';
+
 		constructor( termType ){
 			
 			this.termId = 0;
@@ -2604,6 +2734,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
 			if( this.mandatory )	json.mandatory = this.mandatory;
 			if( this.value || (typeof this.value) === 'number' )	json.value = this.value;
+			if( this.valueMode )	json.valueMode = this.valueMode;
 			if( this.order )	json.order = this.order;
 			if( this.dirty )	json.dirty = this.dirty;
 			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
@@ -2633,6 +2764,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'downloadable':
 					case 'mandatory':
 					case 'value':
+					case 'valueMode':
 					case 'active':
 					case 'order':
 					case 'state':
@@ -3047,15 +3179,37 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return this.searchKeywords;
 		}
+		
+		/**
+		 * Replace all search keywords.
+		 * 
+		 * @param {*} keywords 
+		 */
+		setSearchKeywords( keywords ){
+			this.searchKeywords = keywords;
+		}
 
-		getSearchQuery( operator ){
-			if( !this.searchKeywords ){
-				return '';
+
+		/**
+		 * Gets an instance of SearchField is filled with search query information.
+		 * searchKeyword may have one or more keywords.
+		 * keywords are(is) stored as an array in SearchField instance.
+		 * 
+		 * @param {String} searchOperator : default operator is 'and'
+		 * @returns 
+		 *  An instance of SearchField if searchable is true and 
+		 *  searchKeywords has value.
+		 *  Otherwise null.
+		 */
+		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
+			if( this.searchable === false || !this.searchKeywords ){
+				return null;
 			}
 
-			let keywordArray = Util.split( this.searchKeywords, Term.KEYWORD_DELIMITERS );
+			let searchField = new SearchField( this.termName, searchOperator );
+			searchField.addKeywords( this.searchKeywords);
 
-			return keywordArray.join(' ' + operator + ' ');
+			return searchField;
 		}
 		
 		
@@ -3291,19 +3445,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		setFromSearchValue( value ){
-			if( this.rangeSearch && value > this.toSearchValue ){
-				//
-			}
-
-			let keywords = this.searchKeywords.split(Term.KEYWORD_DELIMITERS);
-			console.log('Splitted keywords: ', keywords );
-
-			this.searchKeywords.push( keyword );
-
-			return this.searchKeywords;
-		}
-
 		getFromSearchValue(){
 			return this.fromSearchValue;
 		}
@@ -3344,7 +3485,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setFromSearchValue( value ){
 			if( this.minValue ){
-				if( this.minBoundary === true ){
+				if( !this.hasOwnProperty( this.minBoundary ) && this.minBoundary !== true ){
 					if( value < this.minValue  ){
 						// show error dialog
 						return;
@@ -3868,6 +4009,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.searchKeywords;
 		}
 
+		emptySearchKeywords(){
+			this.searchKeywords = new Array();
+		}
+
 		getSearchQuery( operator ){
 			if( this.searchKeywords === undefined ){
 				return '';
@@ -3922,19 +4067,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$render( forWhat ){
 			this.updateDependentTerms();
-			
-			let options = new Array();
-			this.options.forEach((option)=>{
-				let rOption = {};
-				
-				rOption.label = option.labelMap[CURRENT_LANGUAGE];
-				rOption.value = option.value;
-				rOption.selected = option.selected;
-				rOption.activeTerms = option.activeTerms;
-				rOption.inactiveTerms = this.dependentTerms.filter((term)=>!option.activeTerms.includes(term));
-				
-				options.push( rOption );
-			});
 			
 			if( this.$rendered ){
 				this.$rendered.remove();
@@ -4168,6 +4300,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_SIZE = '200px';
 		static TIME_ENABLED_SIZE = '500px';
 
+		static IMPOSSIBLE_DATE = -1;
+		static OUT_OF_RANGE = -2;
+		static SUCCESS = 1;
+
 		constructor( jsonObj ){
 			super('Date');
 
@@ -4228,22 +4364,109 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.endYear )		this.endYear = DateTerm.DEFAULT_END_YEAR;
 		}
 
-		getSearchQuery(){
-			if( this.fromSearchDate === undefined && this.toSearchDate === undefined ){
-				return '';
-			}
+		/**
+		 * Sets fromSearchDates.
+		 * If it is not a range search, the parameter may contain more than one values.
+		 * In this case, a value of the values is out of range, the function returns
+		 * error with -1, out of range error.
+		 * 
+		 * If it is a range search, 
+		 * the function takes the very first value as a search keyword.
+		 * 
+		 * Test Cases:
+		 * 	1. Dates included in strFromDates are out of range of startDate and endDate
+		 * 	2. strFromDates has more than one date.
+		 * 	3. Dates included in strFromDates are LARGER than to toSearchDate 
+		 * 		if toSearchDate is defined.
+		 * 
+		 * @param {String} strFromDate 
+		 * @returns 
+		 * 		-1, if fromDate out of range of startDate and endDate
+		 * 		-2, if fromDate is larger than toSearchDate while range search
+		 * 		1, success
+		 */
+		setFromSearchDate( strFromDates ){
 
-			if( this.toSearchDate === undefined ){
-				return this.fromSearchDate;
+			if( this.rangeSearch ){
+				let fromDate = parseLong( Util.getFirstToken(strFromDates) );
+
+				if( fromDate < this.startDate || fromDate > this.endDate ){
+					return DateTerm.IMPOSSIBLE_DATE;
+				}
+
+				if( this.hasOwnProperty('toSearchDate') && fromDate > this.toSearchDate ){
+					return DateTerm.OUT_OF_RANGE;
+				}
+
+				this.fromSearchDate = fromDate;
+
+				return DateTerm.SUCCESS;
 			}
 			else{
-				let query = {
-					gte: this.fromSearchDate,
-					lte: this.toSearchDate
-				};
+				let aryFromDates = Util.getTokenArray( strFromDates );
 
-				return JSON.stringify( query );
+				let validation = DateTerm.SUCCESS;
+				aryFromDates.every( fromDate => {
+					if( fromDate < startDate || fromDate > endDate ){
+						validation = DateTerm.IMPOSSIBLE_DATE;
+						return SXConstants.STOP_EVERY;
+					}
+
+					if( this.hasOwnProperty('toSearchDate') && fromDate > this.toSearchDate ){
+						validation = DateTerm.OUT_OF_RANGE;
+						return SXConstants.STOP_EVERY;
+					}
+					
+					return SXConstants.CONTINUE_EVERY;
+				});
+				
+				this.fromSearchDate = aryFromDates;
+
+				return validation;
 			}
+			
+		}
+
+		/**
+		 * Sets toSearchDate.
+		 * 
+		 * @param {*} toDate 
+		 * @returns 
+		 * 		-1, if toDate out of range of startDate and endDate
+		 * 		-2, if toDate is smaller than fromSearchDate while range search
+		 * 		1, success
+		 */
+		setToSearchDate( toDate ){
+			if( toDate < startDate || toDate > endDate ){
+				return -1;
+			}
+
+			if( this.hasOwnProperty('fromSearchDate') && this.fromSearchDate > toDate ){
+				return -2;
+			}
+			
+			this.toSearchDate = toDate;
+
+			return 1;
+		}
+
+		getSearchQuery(){
+			if( !(this.hasOwnProperty('fromSearchDate') || this.hasOwnProperty('toSearchDate')) ){
+				return null;
+			}
+
+			let searchField = new SearchField(this.termName, '');
+			let query = new Object();
+
+			if( this.hasOwnProperty('fromSearchDate') ){
+				query.gte = this.fromSearchDate;
+			}
+
+			if( this.hasOwnProperty('toSearchDate') ){
+				query.lte = this.toSearchDate;
+			}
+
+			
 		}
 
 		getEnableTimeFormValue(save=true){
@@ -4377,14 +4600,35 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$rendered = null;
 		}
 
-		getSearchQuery( operator ){
+		/**
+		 * Replace all search keywords.
+		 * 
+		 * @param {*} keywords 
+		 */
+		setSearchKeywords( keywords ){
+			this.searchKeywords = keywords;
+		}
+
+		/**
+		 * Gets an instance of SearchField is filled with search query information.
+		 * searchKeyword may have one or more keywords.
+		 * keywords are(is) stored as an array in SearchField instance.
+		 * 
+		 * @param {String} searchOperator : default operator is 'and'
+		 * @returns 
+		 *  An instance of SearchField if searchable is true and 
+		 *  searchKeywords has value.
+		 *  Otherwise null.
+		 */
+		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
 			if( !this.searchKeywords ){
 				return '';
 			}
 
-			let keywordArray = Util.split( this.searchKeywords, Term.KEYWORD_DELIMITERS );
+			let searchField = new SearchField( this.termName, searchOperator );
+			searchField.addKeywords( this.searchKeywords);
 
-			return keywordArray.join(' ' + operator + ' ');
+			return searchField;
 
 		}
 
@@ -4719,8 +4963,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
+		setSearchKeywords( keywords ){
+			this.searchKeywords = keywords.toString();
+		}
+
 		getSearchQuery(){
-			return this.searchKeyword;
+			let searchFiled = new SearchField( this.termName, '' );
+			searchField.addKeywords( this.searchKeywords );
+
+			return searchField;
 		}
 
 		getTrueOption(){
@@ -5774,15 +6025,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.getAbstractKeyTerms( abstractKey ).length;
 		}
 
-		getSearchableTerms( searchable=true ){
-			let searchableTerms = this.terms.filter(
+		getSearchableTerms( searchable=true, includeGroup=false ){
+			return this.terms.filter(
 				term =>{
-					let definedValue = term.searchable ? true : false;
-					return definedValue === searchable;
+					if( term.isGroupTerm() && includeGroup === false ){
+						return SXConstants.FILTER_SKIP;
+					}
+					else{
+						if( term.searchable === searchable ){
+							return SXConstants.FILTER_ADD;
+						}
+						else{
+							return SXConstants.FILTER_SKIP;
+						}
+					}
 				}
 			);
-
-			return searchableTerms;
 		}
 
 		setSearchable( term, searchable=true ){
@@ -5801,22 +6059,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.getSearchableTerms( searchable ).length;
 		}
 
+		/**
+		 * Get the query which is consisted of searchable terms.
+		 * The query doesn't contain the searchable terms 
+		 * which don't have any search keywords.
+		 * 
+		 * @returns JSON object of the full query
+		 */
 		getSearchQuery(){
-			let query = new Object();
+			let query = new SearchQuery( this.fieldOperator );
+
 			let searchableTerms = this.getSearchableTerms();
 
 			let self = this;
-			searchableTerms.forEach(term=>{
-				if( !term.isGroupTerm() ){
+			searchableTerms.forEach((term, index) => {
+				let termQuery = term.getSearchQuery();
 
-					let termQuery = term.getSearchQuery( self.infieldOperator );
-	
-					if( termQuery ){
-						query[term.termName] = termQuery;
-					}
+				if( termQuery ){
+					query.addSearchQuery( termQuery );
 				}
 			});
 
+			console.log( 'searchQuery: ', query );
 			return query;
 		}
 
@@ -5839,7 +6103,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let fileContent = {};
 
 			this.terms.every( (term) => {
-				fileContent[term.termName] = term.value;
+				if( !term.isGroupTerm() ){
+					fileContent[term.termName] = term.value;
+				}
+				
 				return SXConstants.CONTINUE_EVERY;
 			});
 

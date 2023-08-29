@@ -37,6 +37,7 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/sx-visualizer.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/jquery/dateTimePicker/jquery.datetimepicker.full.min.js\"></script>";
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/jquery/dateTimePicker/jquery.datetimepicker.min.css\">";
+		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/lodash.js\"></script>";
 		
 		printWriter.println(content);
 		

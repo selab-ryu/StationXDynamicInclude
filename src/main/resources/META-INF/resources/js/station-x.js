@@ -77,8 +77,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return result;
 		},
-		getTokenArray( sentence ){
-			return sentence.trim().split( /\s+/ );
+		getTokenArray( sentence, regExpr=/\s+/  ){
+			return sentence.trim().split(regExpr);
 		},
 		getFirstToken( sentence ){
 			let tokens = sentence.trim().split( /\s+/ );
@@ -520,42 +520,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class SearchField{
-		constructor( fieldName, infieldOperator = 'or' ){
+		constructor( fieldName, infieldOperator = 'and' ){
 			console.assert( fieldName );
 
 			this.fieldName = fieldName;
 			this.operator = infieldOperator;
+			this.range = new Object();
 			this.keywords = new Array();
 		}
 
-		addKeywords( keywords ){
-			let aryKeywords = keywords;
-
-			if( typeof keywords === 'string' || keywords instanceof String){
-				aryKeywords = Util.getTokenArray( keywords );
-			}
-
-			if( keywords.isArray() ){
-				this.keywords = this.keywords.concat( keywords.filter( keyword => {
-						return !this.keywords.includes( keyword );
-					})
-				);
-			}
-			else{
-				this.keywords = keywords;
-			}
+		setKeywords( keywords ){
+			this.keywords = keywords;
 		}
 
-		removeKeywords( keywords ){
-			let aryKeywords = keywords;
-
-			if( typeof keywords === 'string' || keywords instanceof String){
-				aryKeywords = Util.getTokenArray( keywords );
-			}
-
-			return this.keywords.filter( storedKeyword => {
-				return !aryKeywords.includes(storedKeyword);
-			});
+		getKeywords(){
+			return this.keywords;
 		}
 
 		clearKeywords(){
@@ -573,21 +552,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let json = {
 				fieldName: this.fieldName,
-				operator: this.operator,
-				keywords: this.keywords
+				type: this.type,
+				operator: this.operator
+			}
+
+			if( this.hasOwnProperty('range') && !Util.isEmptyObject(this.range) ){
+				json.range = this.range;
+			}
+			else{
+				json.keywords = this.keywords;
 			}
 			
-			/*
-			new Object();
-			json[this.fieldName] = new Object();
-
-			json[this.fieldName][operator] = this.keywords;
-			*/
-
 			return json;
+		}
+
+		toString(){
+			if( this.keywords.length < 1 ){
+				return '';
+			}
+
+			return json.keywords.join( '\xA0'+this.operator+'\xA0' );
 		}
 	}
 
+	/**
+	 * Contains full search query for a structured data
+	 */
 	class SearchQuery{
 		static DEFAULT_SEARCH_OPERATOR = 'or';
 		constructor( fieldOperator ){
@@ -599,6 +589,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.fields.push( query );
 		}
 
+		/**
+		 * Creates a search field and add to the search query.
+		 * 
+		 * @param {String} fieldName 
+		 * @param {Array} keywords 
+		 * @param {String of and, or operator} infieldOperator 
+		 * @returns
+		 * 		Array of search fields
+		 */
 		addKeywords( fieldName, keywords, infieldOperator=SearchQuery.DEFAULT_SEARCH_OPERATOR ){
 			let searchField = null;
 
@@ -615,7 +614,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			searchField.setOperator( infieldOperator );
-			searchField.addKeywords( keywords );
+			searchField.setKeywords( keywords );
 
 			return this.fields;
 		}
@@ -642,9 +641,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let json = new Object();
 
 			json.fieldOperator = this.fieldOperator;
-			json.fields = this.fields;
+			json.fields = new Array();
+
+			this.fields.forEach( field => {
+				json.fields.push( field.toJSON() );
+			});
 
 			return json;
+		}
+
+		toString(){
+			let strQuery = '';
+
+			let self = this;
+			this.fields.forEach( field => {
+				if( strQuery ){
+					strQuery += '\xA0'+self.fieldOperator+'\xA0';
+				}
+
+				strQuery += '(' + field.toString() + ')';
+			});
+
+			return strQuery;
 		}
 	}
 	
@@ -758,19 +776,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let keywords = $(this).val().trim();
 
 				if( keywords ){
-					term.searchKeywords = keywords;
+					term.searchKeywords = Util.getTokenArray(keywords);
 				}
 				else{
-					return;
+					delete term.searchKeywords;
 				}
 
 				let eventData = {
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						term: term,
-						searchMode: SXConstants.SINGLE,
-						searchKeywords: term.searchKeywords  
+						term: term
 					}
 				};
 
@@ -833,41 +849,120 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
 				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
 				timepicker: false,
-				format: 'Y. m. d.',
-				onClose: function( dateText, instance ){
-					term.fromSearchDate = $fromInputTag.datetimepicker("getValue").getTime();
-				
-					let toDate = term.fromSearchDate;
+				format: 'Y. m. d.'
+			};
+
+			$fromInputTag.change( function(e){
+				e.stopPropagation();
+				e.preventDefault();
+
+				if( term.rangeSearch ){
+					let previousDate = null;
 					
-					if( term.rangeSearch ){
-						toDate = $toInputTag.datetimepicker("getValue").getTime();
-						if( toDate - term.fromSearchDate < 0 ){
-							toDate = term.fromSearchDate;
-							$toInputTag.val('');
+					if( term.hasOwnProperty('fromSearchDate') ){
+						previousDate = term.fromSearchDate;
+					}
+					term.fromSearchDate = $fromInputTag.datetimepicker("getValue").getTime();
+
+					if( term.hasOwnProperty('toSearchDate') ){
+						if( term.toSearchDate - term.fromSearchDate < 0 ){
+							FormUIUtil.showError(
+								SXConstants.ERROR,
+								'search-out-of-range-error',
+								'from-date-must-smaller-or-equel-to-to-date',
+								{
+									ok: {
+										text: 'OK',
+										btnClass: 'btn-blue',
+										action: function(){
+											if( previousDate !== null ){
+												term.fromSearchDate = previousDate;
+												$fromInputTag.datetimepicker('setOptions', {defaultDate: new Date(previousDate)});
+												$fromInputTag.val(term.toDateString( term.fromSearchDate ));
+											}
+										}
+									}
+								}
+							);
 						}
 					}
-
-					let rangeSearch = $rangeCheckbox.prop('checked');
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term,
-							rangeSearch: rangeSearch,
-							fromDate: term.fromSearchDate,
-							toDate: rangeSearch ? toDate : ''
-						}
-					};
-					
-					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
-						eventData
-						);
+					else{
+						term.toSearchDate = term.fromSearchDate;
+					}
 				}
-			}
-			
-			
+				else{
+					delete term.fromSearchDate;
+
+					let textDates = Util.getTokenArray( $fromInputTag.val(), ',' );
+					let dates = new Array();
+					textDates.forEach( date => {
+						dates.push( new Date(date).getTime() );
+					});
+					
+					term.searchDates = dates;
+				};
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term
+					}
+				};
+				
+				Liferay.fire(
+					SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
+					eventData
+					);
+			});
+
 			$fromInputTag.datetimepicker(options);
+
+			//options = JSON.parse( JSON.stringify(options) );
+			$toInputTag.change(function( e ){
+				e.stopPropagation();
+				e.preventDefault();
+
+				let previousDate = term.toSearchDate;
+				term.toSearchDate = $toInputTag.datetimepicker("getValue").getTime();
+
+				console.log( 'previous date: ', previousDate, new Date( previousDate ) );
+				console.log( 'toSearchDate: ', term.toSearchDate, new Date( term.toSearchDate ) );
+			
+				if( term.toSearchDate - term.fromSearchDate < 0 ){
+					FormUIUtil.showError(
+						SXConstants.ERROR,
+						'search-out-of-range-error',
+						'to-date-must-larger-or-equel-to-from-date',
+						{
+							ok: {
+								text: 'OK',
+								btnClass: 'btn-blue',
+								action: function(){
+									if( previousDate ){
+										term.toSearchDate = previousDate;
+										$toInputTag.datetimepicker('setOptions', {defaultDate: new Date(previousDate)});
+										$toInputTag.val(term.toDateString( term.toSearchDate ));
+									}
+								}
+							}
+						}
+					);
+				}
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term
+					}
+				};
+				
+				Liferay.fire(
+					SXIcecapEvents.SD_SEARCH_TO_DATE_CHANGED,
+					eventData
+					);
+			});
 
 			$toInputTag.datetimepicker(options);
 
@@ -889,12 +984,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$toSpan.addClass('display-inline-block');
 					$curlingSpan.removeClass('hide');
 					$toSpan.removeClass('hide');
+
+					if( term.hasOwnProperty('searchDates') ){
+						term.fromSearchDate = term.searchDates[0];
+					}
+					delete term.searchDates;
 				}
 				else{
 					$curlingSpan.addClass('hide');
 					$toSpan.addClass('hide');
 					$curlingSpan.removeClass('display-inline-block');
 					$toSpan.removeClass('display-inline-block');
+
+					if( term.hasOwnProperty('fromSearchDate') ){
+						term.searchDates = [term.fromSearchDate];
+					}
+					delete term.fromSearchDate;
+					delete term.toSearchDate;
+					$toInputTag.val('');
 				}
 			});
 
@@ -973,11 +1080,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			options.yearStart = term.startYear ? term.startYear : thisYear;
 			options.yearEnd = term.endYear ? term.endYear : thisYear;
 			*/
-			console.log( 'Date Options: ', options );
-			
 			if( term.enableTime ){
 				options.timepicker = true;
-				options.format = 'Y. m. d. HH:mm';
+				options.format = 'Y. m. d. H:i';
 				options.value = term.toDateTimeString(),
 				$inputTag.datetimepicker(options);
 				$inputTag.val(term.toDateTimeString());
@@ -1016,8 +1121,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									.append( $select );
 
 		},
-		$getRadioButtonTag: function (controlId, controlName, option ){
-			let $radio = option.$render( SXConstants.DISPLAY_STYLE_RADIO, controlId, controlName )
+		$getRadioButtonTag: function (controlId, controlName, option, selected ){
+			let $radio = option.$render( SXConstants.DISPLAY_STYLE_RADIO, controlId, controlName );
+			$radio.find('input[type="radio"]').prop('checked', selected);
 
 			return $radio;
 		},
@@ -1096,6 +1202,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node;
 
+			console.log('Term.select render: ', term );
+
 			if( forWhat === SXConstants.FOR_SEARCH ){
 				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, false, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
@@ -1103,13 +1211,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				options.forEach((option, index)=>{
 					let $option = option.$render( SXConstants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
 
-					$option.change(function(event){
+					$option.unbind('change').change(function(event){
 						event.stopPropagation();
+						event.preventDefault();
 
 						term.emptySearchKeywords();
-						$.each( $('input[name="' + controlName + '"]:checked'), function(){
-							term.addSearchKeyword( $(this).val() );
-						});
+						let $checkedInputs = $('input[name="' + controlName + '"]:checked');
+						if( $checkedInputs.length > 0 && 
+							$checkedInputs.length < term.options.length ){
+							term.searchKeywords = new Array();
+							$.each( $checkedInputs, function(){
+								term.addSearchKeyword( $(this).val() );
+							});
+						}
 
 						let eventData = {
 							sxeventData:{
@@ -1120,7 +1234,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.SD_SEARCH_KEYWORDS_CHANGED, 
+							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, 
 							eventData );
 
 					});
@@ -1135,18 +1249,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $node = $('<div class="form-group input-text-wrapper">')
 								.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage) );
 
-				$node.change(function(event){
+				$node.unbind('change').change(function(event){
 					event.stopPropagation();
 					event.preventDefault();
 	
-					term.value = $node.find('input:radio[name ="' + controlName + '"]:checked').val();
+					term.value = $node.find('select').val();
 	
 					let eventData = {
 						sxeventData:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term,
-							controlName: constrolName,
+							controlName: controlName,
 							value: term.value
 						}
 					};
@@ -1170,12 +1284,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							$panelBody.append( this.$getRadioButtonTag( 
 														controlName+'_'+(index+1),
 														controlName, 
-														option ) );
+														option,
+														selected ) );
 					});
 
-					$panelBody.change(function(event){
+					$panelBody.unbind('change').change(function(event){
 						event.stopPropagation();
 						event.preventDefault();
+
+						console.log('Panel body changed......');
 
 						let changedVal = $(this).find('input[type="radio"]:checked').val();
 						term.value = changedVal;
@@ -1206,7 +1323,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 														false ) );
 					});
 						
-					$panelBody.change(function(event){
+					$panelBody.unbind('change').change(function(event){
 						event.stopPropagation();
 						event.preventDefault();
 
@@ -1261,14 +1378,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					event.stopPropagation();
 					event.preventDefault();
 	
-					term.value = $node.find('input:radio[name ="' + controlName + '"]:checked').val();
+					term.value = $node.find('select').val();
 	
 					let eventData = {
 						sxeventData:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term,
-							controlName: constrolName,
+							controlName: controlName,
 							value: term.value
 						}
 					};
@@ -1285,30 +1402,48 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				options.forEach((option, index)=>{
 					let selected = ( forWhat === SXConstants.FOR_SEARCH ) ? false : (value === option.value);
-					$panelBody.append( this.$getRadioButtonTag( 
-						controlName+'_'+(index+1),
-						controlName, 
-						option ) );
+
+					let $radioTag = this.$getRadioButtonTag( 
+										controlName+'_'+(index+1),
+										controlName, 
+										option,
+										selected );
+					$panelBody.append( $radioTag );
+
+					$radioTag.bind('click', function(event){
+						let wasChecked =  $(this).data('checked');
+						
+						if( wasChecked ){
+							$(this).find('input').prop('checked', false);
+							$(this).find('input').trigger('change');
+						}
+						else{
+							$(this).find('input').prop('checked', true);
+						}
+						$(this).data('checked', !wasChecked);
+					});
 				});
 					
 				if( forWhat === SXConstants.FOR_SEARCH ){
 					$panelBody.change(function(event){
 						event.stopPropagation();
+						event.preventDefault();
 
 						let $checkedRadio = $(this).find('input[type="radio"]:checked');
-						let changedVal = $checkedRadio ? $checkedRadio.val() : undefined;
+						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
 
 						if( changedVal ){
-							term.searchKeyword = changedVal;
+							term.searchKeywords = [changedVal];
+						}
+						else{
+							delete  term.searchKeywords;
 						}
 
 						let eventData = {
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
-								searchMode: SXConstants.SINGLE,
-								value: changedVal
+								term: term
 							}
 						};
 
@@ -1321,18 +1456,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				else{
 					$panelBody.change(function(event){
 						event.stopPropagation();
-						event.stopImmediatePropagation();
 						event.preventDefault();
 
-						let changedVal = $(this).find('input[type="radio"]:checked').val();
-						term.value = changedVal;
+						let $checkedRadio = $(this).find('input[type="radio"]:checked');
+						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
+
+						if( changedVal ){
+							term.value = changedVal;
+						}
+						else{
+							delete term.value;
+						}
 
 						let eventData = {
 							sxeventData:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
-								value: changedVal
+								term: term
 							}
 						};
 
@@ -1581,13 +1721,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
 			let mandatory = false;
 			let value = term.value ? term.value : '';
-			let minValue = term.minValue ? term.minValue : '';
-			let minBoundary = term.minBoundary ? term.minBoundary : false;
-			let maxValue = term.maxValue ? term.maxValue : '';
-			let maxBoundary = term.maxBoundary ? term.maxBoundary : false;
-			let unit = term.unit ? term.unit : '';
-			let uncertainty = term.uncertainty ? term.uncertainty : false;
-			let uncertaintyValue = term.uncertaintyValue ? term.uncertaintyValue : '';
 
 			let $searchKeywordSection = $('<div class="lfr-ddm-field-group field-wrapper">');
 			
@@ -1597,10 +1730,79 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $controlSection = $('<div class="form-group">');
 			$searchKeywordSection.append( $controlSection );
 
+			if( term.hasOwnProperty('minValue') && term.minValue !== null ){
+				$controlSection.append($('<span>'+term.minValue+'</span>'));
+
+				if( term.hasOwnProperty('minBoundary') && term.minBoundary === true ){
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
+				}
+				else{
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&lt;</span>'));
+				}
+			}
+			
 			let $fromSpan = $('<span class="form-group input-text-wrapper display-inline-block" style="margin-right: 5px;">');
 			let $curlingSpan = $('<span class="hide" style="margin: 0px 5px;">~</span>');
 			let $toSpan = $('<span class="form-group input-text-wrapper hide" style="margin:0px 5px;">');
-			let $rangeCheckbox = $('<input type="checkbox" style="margin-left:5px;">');
+
+			$controlSection.append( $fromSpan )
+					.append( $curlingSpan )
+					.append( $toSpan );
+			
+			if( term.hasOwnProperty('maxValue') && term.maxValue !== null ){
+				if( term.hasOwnProperty('maxBoundary') && term.maxBoundary === true ){
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
+				}
+				else{
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&lt;</span>'));
+				}
+				
+				$controlSection.append($('<span>'+term.maxValue+'</span>'));
+				
+			}
+			
+			if( term.hasOwnProperty('unit') && term.unit !== null ){
+				$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">'+term.unit+'</span>'));
+			}
+
+			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
+				controlName+'_rangeSearch',
+				controlName+'_rangeSearch',
+				Liferay.Language.get( 'range-search' ),
+				false,
+				'rangeSearch',
+				false
+			);
+			$rangeCheckbox.change(function(event){
+				event.stopPropagation();
+
+				term.rangeSearch = $(this).find('input').prop('checked');
+
+				if( term.rangeSearch === true ){
+					$curlingSpan.addClass('display-inline-block');
+					$toSpan.addClass('display-inline-block');
+					$curlingSpan.removeClass('hide');
+					$toSpan.removeClass('hide');
+					console.log('term.searchValues: ', term.hasOwnProperty('searchValues'), term.searchValues);
+					term.fromSearchValue = term.hasOwnProperty('searchValues') ? term.searchValues[0] : undefined;
+					delete term.searchValues;
+				}
+				else{
+					$curlingSpan.addClass('hide');
+					$toSpan.addClass('hide');
+					$curlingSpan.removeClass('display-inline-block');
+					$toSpan.removeClass('display-inline-block');
+					term.searchValues = term.hasOwnProperty('fromSearchValue') ? [term.fromSearchValue] : undefined;
+					console.log( 'term.searchValues: ', term.searchValues );
+					delete fromSearchValue; 
+					if( term.hasOwnProperty('toSearchValue') ){
+						delete term.toSearchValue;
+						$toInputTag.val('');
+					}
+				}
+			});
+
+			$controlSection.append( $rangeCheckbox );
 			
 			let $fromInputTag = $('<input type="text">');
 			$fromInputTag.prop({
@@ -1614,25 +1816,48 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			$fromInputTag.change(function(event){
 				event.stopPropagation();
-				console.log( 'From Numeric Search Value: ' + $(this).val() );
-				term.setFromSearchValue( $(this).val() );
-				
-				let rangeSearch = $rangeCheckbox.prop('checked');
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: rangeSearch,
-						fromValue: term.getFromSearchValue(),
-						toValue: rangeSearch ? $toSpan.find('input').val() : term.getFromSearchValue()
+				event.preventDefault();
+
+				let previousValue;
+				let valueChanged = true;
+				if( term.rangeSearch === true ){
+					previousValue = term.hasOwnProperty('fromSearchValue') ? term.fromSearchValue : '';
+					if( term.setFromSearchValue( Number($(this).val()) ) === false ){
+						$(this).val( previousValue );
+						valueChanged = false;
 					}
-				};
-				
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_FROM_NUMERIC_CHANGED,
-					eventData
-				);
+				}
+				else{
+					let newValues;
+					if( $(this).val() ){
+						newValues = Util.getTokenArray($(this).val(), ' ').map( value => Number(value) );
+					}
+					else{
+						newValues = [];
+					}
+					console.log('newValues: ', newValues);
+					previousValue = term.searchValues;
+					if( term.setSearchValues( newValues ) === false ){
+						$(this).val( previousValue ? previousValue.join(' ') : '' );
+						term.searchValues = previousValue; 
+						valueChanged = false;
+					} 
+				}
+
+				if( valueChanged === true ){
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_FROM_NUMERIC_CHANGED,
+						eventData
+					);
+				}
 			});
 				
 			let $toInputTag = $('<input type="text">');
@@ -1649,58 +1874,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$toInputTag.change(function(event){
 				event.stopPropagation();
-				term.setToSearchValue( $(this).val() );
+				event.preventDefault();
 
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						rangeSearch: true,
-						fromValue: term.getFromSearchValue(),
-						toValue: term.getToSearchValue()
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_TO_NUMERIC_CHANGED,
-					eventData
-				);
-			});
-
-			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
-				controlName+'_rangeSearch',
-				controlName+'_rangeSearch',
-				Liferay.Language.get( 'range-search' ),
-				false,
-				'rangeSearch',
-				false
-			);
-			$rangeCheckbox.change(function(event){
-				event.stopPropagation();
-
-				term.rangeSearch = $(this).find('input').prop('checked');
-				console.log( 'term.rangeSearch: ' + $(this).find('input').prop('checked') );
-
-				if( term.rangeSearch === true ){
-					$curlingSpan.addClass('display-inline-block');
-					$toSpan.addClass('display-inline-block');
-					$curlingSpan.removeClass('hide');
-					$toSpan.removeClass('hide');
+				if( term.setToSearchValue( $(this).val() ) === false ){
+					$(this).val( term.toSearchValue );
 				}
 				else{
-					$curlingSpan.addClass('hide');
-					$toSpan.addClass('hide');
-					$curlingSpan.removeClass('display-inline-block');
-					$toSpan.removeClass('display-inline-block');
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+	
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_TO_NUMERIC_CHANGED,
+						eventData
+					);
 				}
+
 			});
 
-			$searchKeywordSection.append( $fromSpan )
-				 .append( $curlingSpan )
-				 .append( $toSpan )
-				 .append( $rangeCheckbox );
-
+			
 			return $searchKeywordSection;
 		},
 		$getFormNumericSection: function(
@@ -1952,6 +2148,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			controlIds.forEach((controlId)=>{
 				$('#'+NAMESPACE+controlId).prop('disabled', disable);
 			})
+		},
+		showError: function( type=SXConstants.ERROR, title, msg, buttonOptions){
+			let options = {
+				title: title,
+				content: msg,
+				type: 'orange',
+				typeAnimated: true,
+				draggable: true,
+				buttons:{
+					ok: buttonOptions.ok
+				}
+			};
+
+			if( type === SXConstants.CONFIRM ){
+				options.buttons.cancel = buttonOptions.cancel;
+			}
+
+			$.confirm(options);
 		}
 	};
 	
@@ -1974,8 +2188,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		SD_SEARCH_FROM_DATE_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
 		SD_SEARCH_TO_DATE_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
-		SD_SEARCH_FROM_NUMERIC_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
-		SD_SEARCH_TO_NUMERIC_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
+		SD_SEARCH_FROM_NUMERIC_CHANGED: 'SD_SEARCH_FROM_NUMERIC_CHANGED',
+		SD_SEARCH_TO_NUMERIC_CHANGED: 'SD_SEARCH_TO_NUMERIC_CHANGED',
 		SD_SEARCH_KEYWORD_REMOVE_ALL: 'SD_SEARCH_KEYWORD_REMOVE_ALL',
 		SD_SEARCH_KEYWORD_ADDED: 'SD_SEARCH_KEYWORD_ADDED',
 		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED',
@@ -2005,7 +2219,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		SINGLE: false,
 		MULTIPLE: true,
-		ARRAY: true
+		ARRAY: true,
+
+		ERROR: 0,
+		WARNING: 1,
+		CONFIRM: 2
 	};
 	
 	class LocalizedObject {
@@ -3202,12 +3420,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  Otherwise null.
 		 */
 		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
-			if( this.searchable === false || !this.searchKeywords ){
+			if( this.searchable === false || 
+				!(this.hasOwnProperty('searchKeywords') && this.searchKeywords) ){
 				return null;
 			}
 
 			let searchField = new SearchField( this.termName, searchOperator );
-			searchField.addKeywords( this.searchKeywords);
+			searchField.type = TermTypes.STRING;
+			searchField.setKeywords( this.searchKeywords);
 
 			return searchField;
 		}
@@ -3449,100 +3669,224 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.fromSearchValue;
 		}
 
-		setToSearchValue( keyword ){
-			if( !this.searchKeywords ){
-				return null;
-			}
-
-			let remainedKeywords = this.searchKeywords.filter(
-				word => keyword !== word
-			);
-
-			this.searchKeywords = remainedKeywords;
-
-			return this.searchKeywords;
-		}
-		
 		getToSearchValue(){
 			return this.toSearchValue;
 		}
 
-		getSearchQuery( operator ){
-			if( !this.fromSearchValue && !this.toSearchValue ){
-				return '';
+		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
+			if( !this.searchable || 
+				!(this.hasOwnProperty( 'fromSearchValue' ) || 
+					this.hasOwnProperty('searchValues')) ){
+				return null;
 			}
 
+			let searchField = new SearchField( this.termName, searchOperator );
+		
+			searchField.type = TermTypes.NUMERIC;
+
 			if( this.rangeSearch ){
-				return {
-					gte: this.fromSearchValue ? this.fromSearchValue : '',
-					lte: this.toSearchValue ? this.toSearchValue : ''
+				searchField.range = {
+					gte: this.hasOwnProperty('fromSearchValue') ? this.fromSearchValue : '',
+					lte: this.hasOwnProperty('toSearchValue') ? this.toSearchValue : ''
 				}
 			}
 			else{
-				return this.fromSearchValue ? this.fromSearchValue : '';
+				searchField.setKeywords( this.searchValues );
 			}
+
+			return searchField;
 		}
 
-		setFromSearchValue( value ){
-			if( this.minValue ){
-				if( !this.hasOwnProperty( this.minBoundary ) && this.minBoundary !== true ){
+		minmaxValidation( value ){
+			let minValidation = true;
+
+			if( this.hasOwnProperty('minValue') ){
+				let errorMsg;
+				if( this.hasOwnProperty( 'minBoundary' ) && this.minBoundary === true ){
 					if( value < this.minValue  ){
-						// show error dialog
-						return;
+						minValidation = false;
+						errorMsg = Liferay.Language.get('keyword-must-larger-than-or-equal-to-the-minimum-value') +
+									'<br>Minimum Value: ' + this.minValue;
 					}
 				}
 				else{
 					if( value <= this.minValue ){
-						// show error dialog
-						return;
+						minValidation = false;
+						errorMsg = Liferay.Language.get('keyword-must-larger-than-the-minimum-value') +
+									'<br>Minimum Value: ' + this.minValue;
 					}
+				}
+
+				if( minValidation === false ){
+					FormUIUtil.showError(
+						SXConstants.ERROR,
+						Liferay.Language.get('search-out-of-range-error'),
+						errorMsg,
+						{
+							ok: {
+								text: 'OK',
+								btnClass: 'btn-blue'
+							}
+						}
+					);
+					return false;
 				}
 			}
 
-			if( this.maxValue ){
-				if( this.maxBoundary === true ){
-					if( value > this.maxValue  ){
-						// show error dialog
-						return;
+			let maxValidation = true;
+			if( this.hasOwnProperty('maxValue') ){
+				let errorMsg;
+				if( this.hasOwnProperty('maxBoundary') && this.maxBoundary === true ){
+					if( value > this.maxValue ){
+						maxValidation = false;
+						errorMsg = Liferay.Language.get('keyword-must-less-than-or-equal-to-the-maximum-value') +
+										'<br>Maximum Value: ' + this.maxValue;
 					}
 				}
 				else{
 					if( value >= this.maxValue ){
-						// show error dialog
-						return;
+						maxValidation = false;
+						errorMsg = Liferay.Language.get('keyword-must-less-than-the-maximum-value') +
+										'<br>Maximum Value: ' + this.maxValue;
 					}
+				}
+
+				if( maxValidation === false ){
+					FormUIUtil.showError(
+						SXConstants.ERROR,
+						Liferay.Language.get('search-out-of-range-error'),
+						errorMsg,
+						{
+							ok: {
+								text: 'OK',
+								btnClass: 'btn-blue'
+							}
+						}
+					);
+					return false;
 				}
 			}
 
-			this.fromSearchValue = value;
-
-			return this.fromSearchValue;
+			return true;
 		}
 
-		setToSearchValue( value ){
-			if( this.maxValue ){
-				if( this.maxBoundary === true ){
-					if( value > this.maxValue  ){
-						// show error dialog
-						return;
+		setSearchValues( values ){
+			let properValues = values.filter( value => {
+				if( this.hasOwnProperty('minValue') ){
+					if( this.minValue > value ){
+						FormUIUtil.showError(
+							SXConstants.ERROR,
+							Liferay.Language.get('search-out-of-range-error'),
+							Liferay.Language.get('keyword-must-lager-than-or-equal-to-the-minimum-value') + 
+											'<br>Minimum Value: ' + this.minValue,
+							{
+								ok: {
+									text: 'OK',
+									btnClass: 'btn-blue'
+								}
+							}
+						);
+
+						return SXConstants.FILTER_SKIP;
 					}
 				}
-				else{
-					if( value >= this.maxValue ){
-						// show error dialog
-						return;
+
+				if( this.hasOwnProperty('maxValue') ){
+					if( this.maxValue < value ){
+						FormUIUtil.showError(
+							SXConstants.ERROR,
+							Liferay.Language.get('search-out-of-range-error'),
+							Liferay.Language.get('keyword-must-less-than-or-equal-to-the-maximum-value') + 
+											'<br>Maximum Value: ' + this.maxValue,
+							{
+								ok: {
+									text: 'OK',
+									btnClass: 'btn-blue'
+								}
+							}
+						);
+
+						return SXConstants.FILTER_SKIP;
 					}
+				}
+
+				return SXConstants.FILTER_ADD;
+			});
+
+			console.log('properValues: ', properValues );
+
+			if( properValues.length === values.length ){
+				this.searchValues = properValues;
+
+				return true;
+			}
+			else{
+				return false;
+			}
+		}
+
+		setFromSearchValue( fromValue ){
+			let minValidation = true;
+			let maxValidation = true;
+
+			// Validate if the search value is larger than or equal to minimum value
+			if( this.minmaxValidation( fromValue ) === false ){
+				return false;
+			}
+
+			// Validate if the search value is less than or equal to upper value of range
+			if( this.rangeSearch === true ){
+				if( this.hasOwnProperty('toSearchValue') && this.toSearchValue < fromValue ){
+					FormUIUtil.showError(
+						SXConstants.ERROR,
+						Liferay.Language.get('search-out-of-range-error'),
+						Liferay.Language.get('keyword-must-less-than-or-equal-to-the-upper-range-value') + 
+										'<br>Upper Range: ' + this.toSearchValue,
+						{
+							ok: {
+								text: 'OK',
+								btnClass: 'btn-blue'
+							}
+						}
+					);
+
+					return false;
 				}
 			}
 
-			if( this.fromSearchValue > this.toSearchValue ){
-				// show error dialog
-				return;
+			this.fromSearchValue = fromValue;
+
+			return true;
+		}
+
+		setToSearchValue( toValue ){
+			let minValidation = true;
+			let maxValidation = true;
+
+			// Validate if the search value is larger than or equal to minimum value
+			if( this.minmaxValidation( toValue ) === false ){
+				return false;
 			}
 
-			this.toSearchValue = value;
+			if( this.hasOwnProperty('fromSearchValue') && this.fromSearchValue > toValue ){
+				FormUIUtil.showError(
+					SXConstants.ERROR,
+					Liferay.Language.get('search-out-of-range-error'),
+					Liferay.Language.get('keyword-must-larger-than-or-equal-to-the-lower-range-value') +'<br>Lower Range: '+ this.fromSearchValue,
+					{
+						ok: {
+							text: 'OK',
+							btnClass: 'btn-blue'
+						}
+					}
+				);
 
-			return this.toSearchValue;
+				return false;
+			}
+
+			this.toSearchValue = toValue;
+
+			return true;
 		}
 
 		getMinValueFormValue ( save ){
@@ -4010,17 +4354,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		emptySearchKeywords(){
-			this.searchKeywords = new Array();
+			delete this.searchKeywords;
 		}
 
-		getSearchQuery( operator ){
-			if( this.searchKeywords === undefined ){
-				return '';
+		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
+			if( this.searchable === false || 
+				!(this.hasOwnProperty('searchKeywords') && this.searchKeywords) ){
+				return null;
 			}
 
-			console.log( 'search keyword: ', this.searchKeywords);
+			let searchField = new SearchField( this.termName, searchOperator );
+			searchField.type = TermTypes.STRING;
 
-			return this.searchKeywords.join(' ' + operator + ' ');
+			searchField.setKeywords( this.searchKeywords);
+
+			return searchField;
 		}
 
 		refreshOptionPreview( column ){
@@ -4450,23 +4798,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return 1;
 		}
 
-		getSearchQuery(){
-			if( !(this.hasOwnProperty('fromSearchDate') || this.hasOwnProperty('toSearchDate')) ){
+		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
+			if( this.searchable === false || 
+				!(this.hasOwnProperty('fromSearchDate') || this.hasOwnProperty('searchDates')) ){
 				return null;
 			}
 
-			let searchField = new SearchField(this.termName, '');
-			let query = new Object();
+			let searchField = new SearchField(this.termName, searchOperator);
+			searchField.type = TermTypes.DATE;
 
-			if( this.hasOwnProperty('fromSearchDate') ){
-				query.gte = this.fromSearchDate;
+			if( this.rangeSearch === true ){
+				searchField.range = {
+					gte: this.hasOwnProperty('fromSearchDate') ? this.fromSearchDate : null,
+					lte: this.hasOwnProperty('toSearchDate') ? this.toSearchDate : null
+				}
+			}
+			else{
+				searchField.setKeywords( this.searchDates );
 			}
 
-			if( this.hasOwnProperty('toSearchDate') ){
-				query.lte = this.toSearchDate;
-			}
-
-			
+			return searchField;
 		}
 
 		getEnableTimeFormValue(save=true){
@@ -4526,21 +4877,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			FormUIUtil.setFormValue( 'endYear', this.endYear ? this.endYear : '' );
 		}
 
-		toDateTimeString(){
-			let date = new Date( Number( this.value ) );
+		toDateTimeString(value=this.value){
+			let date = new Date( Number( value ) );
 			let year = date.getFullYear();
 			let month = (date.getMonth()+1);
 			let day = date.getDate();
 			let hour = date.getHours().toLocaleString(undefined, {minimumIntegerDigits:2});
 			let minuite = date.getMinutes().toLocaleString(undefined, {minimumIntegerDigits:2});
-			let dateAry = [year, month, day];
-			let timeAry = [hour, minuite];
+			let dateAry = [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')];
+			let timeAry = [String(hour).padStart(2, '0'), String(minuite).padStart(2, '0')];
 			return dateAry.join('. ') + '. ' + timeAry.join(':');
 		}
 
-		toDateString(){
-			let date = new Date( Number( this.value ) );
-			let dateAry = [date.getFullYear(), date.getMonth()+1, date.getDate()];
+		toDateString( value=this.value){
+			let date = new Date( Number( value ) );
+			let dateAry = [date.getFullYear(), String(date.getMonth()+1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')];
 
 			return dateAry.join('. ') + '.';
 		}
@@ -4621,15 +4972,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  Otherwise null.
 		 */
 		getSearchQuery( searchOperator=Term.DEFAULT_SEARCH_OPERATOR ){
-			if( !this.searchKeywords ){
+			if( this.searchable === false || 
+				!(this.hasOwnProperty('searchKeywords') && this.searchKeywords) ){
 				return '';
 			}
 
 			let searchField = new SearchField( this.termName, searchOperator );
-			searchField.addKeywords( this.searchKeywords);
+			searchField.type = TermTypes.STRING;
+			searchField.setKeywords( this.searchKeywords );
 
 			return searchField;
-
 		}
 
 		setAllFormValues(){
@@ -4968,10 +5320,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		getSearchQuery(){
-			let searchFiled = new SearchField( this.termName, '' );
-			searchField.addKeywords( this.searchKeywords );
+			if( this.hasOwnProperty('searchKeywords') && this.searchKeywords ){
+				let searchField = new SearchField( this.termName, '' );
+				searchField.type = TermTypes.STRING;
+				searchField.setKeywords( this.searchKeywords );
+				return searchField;
+			}
 
-			return searchField;
+			return null;
 		}
 
 		getTrueOption(){
@@ -6080,8 +6436,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
-			console.log( 'searchQuery: ', query );
+			console.log( 'searchQuery: ', JSON.stringify(query, null, 4) );
 			return query;
+		}
+
+		getSearchQueryString(){
+			return JSON.stringify(this.getSearchQuery());
 		}
 
 		getDownloadableTerms( downloadable=true ){

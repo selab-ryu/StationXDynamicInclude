@@ -1202,8 +1202,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node;
 
-			console.log('Term.select render: ', term );
-
 			if( forWhat === SXConstants.FOR_SEARCH ){
 				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, false, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
@@ -1247,13 +1245,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
 				let $node = $('<div class="form-group input-text-wrapper">')
-								.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage) );
+								.append( this.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage) );
 
 				$node.unbind('change').change(function(event){
 					event.stopPropagation();
 					event.preventDefault();
 	
-					term.value = $node.find('select').val();
+					term.value = [$node.find('select').val()];
 	
 					let eventData = {
 						sxeventData:{
@@ -1280,7 +1278,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
 					options.forEach((option, index)=>{
-							let selected = (value === option.value);
+							let selected = (value[0] === option.value);
 							$panelBody.append( this.$getRadioButtonTag( 
 														controlName+'_'+(index+1),
 														controlName, 
@@ -1295,7 +1293,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						console.log('Panel body changed......');
 
 						let changedVal = $(this).find('input[type="radio"]:checked').val();
-						term.value = changedVal;
+						term.value = [changedVal];
 
 						let eventData = {
 							sxeventData:{
@@ -2951,7 +2949,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
 			if( this.mandatory )	json.mandatory = this.mandatory;
-			if( this.value || (typeof this.value) === 'number' )	json.value = this.value;
+			if( this.value )	json.value = this.value;
 			if( this.valueMode )	json.valueMode = this.valueMode;
 			if( this.order )	json.order = this.order;
 			if( this.dirty )	json.dirty = this.dirty;
@@ -2982,7 +2980,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'downloadable':
 					case 'mandatory':
 					case 'value':
-					case 'valueMode':
 					case 'active':
 					case 'order':
 					case 'state':
@@ -4554,7 +4551,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		parse( json ){
 			let unparsed = super.parse( json );
 			let unvalid = new Object();
-
+			
 			let self = this;
 			Object.keys( unparsed ).forEach((key)=>{
 				switch(key){
@@ -4566,7 +4563,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						if( typeof json.options === 'string' ){
 							json.options = JSON.parse( json.options );
 						}
-	
+						
 						self.options = new Array();
 						json.options.forEach(option => self.addOption(option));
 						break;
@@ -4575,14 +4572,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						console.log('Unvalid term attribute: '+key, json[key]);
 				}
 			});
+			
+			this.value = json.value ? JSON.parse(json.value) : [];
 		}
-		
+					
 		toJSON(){
 			let json = super.toJSON();
 			
 			json.displayStyle = this.displayStyle;
 			json.options = this.options.map(option=>option.toJSON());
 			
+			console.log('List toJSON: ', json, this);
 			return json;
 		}
 	}

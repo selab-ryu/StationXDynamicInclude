@@ -1191,18 +1191,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			return $checkbox;
 		},
-		$getFileUploadNode: function( controlName, controlValueId, value ){
-			let $node = $('<div>');
-			let $inputTag = this.$getFileInputTag( controlName );
-			$node.append( $inputTag );
-			let $value = $('<div id="'+controlValueId+'">');
-			$value.text(value);
-			$node.append( $value );
+		$getFileUploadNode: function( fileTerm, controlName, files ){
+			let $node = $('<div class="file-uploader-container">');
+			this.$getFileInputTag( controlName ).appendTo($node);
+
+			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">').appendTo($node);
+
+			if( files ){
+				let fileNames = Object.keys( files );
+				fileNames.forEach( fileName => {
+					let file = files[fileName];
+					$fileListTable.append( FormUIUtil.$getFileListTableRow( fileTerm, file.parentFolderId, file.fileId, file.name, file.size, file.type, file.downloadURL ) );
+				});
+
+				$fileListTable.show();
+			}
 
 			return $node;
 		},
 		$getFileInputTag: function( controlName ){
-			let $input = $( '<input type="file" class="field lfr-input-text form-control" aria-required="true" size="80">' );
+			let $input = $( '<input type="file" class="field lfr-input-text form-control" aria-required="true" size="80" multiple>' );
 
 			$input.prop({
 				id: controlName,
@@ -1285,7 +1293,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								.append( $panelGroup );
 			}
 			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
-				console.log( 'Term Value: ', term, value );
 				let $node = $('<div class="form-group input-text-wrapper">')
 								.append( this.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage) );
 
@@ -1403,7 +1410,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let label = term.getLocalizedDisplayName();
 			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
 			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value;
+			let value;
+			if( term.hasOwnProperty('value') ){
+				value = term.value;
+			}
+			
 			let displayStyle = (forWhat === SXConstants.FOR_SEARCH ) ? SXConstants.DISPLAY_STYLE_RADIO : term.displayStyle;
 			let options = term.options;
 
@@ -2023,37 +2034,43 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $list;
 		},
-		$getFormFileUploadSection: function(
-			term,
-			forWhat ){
-			let controlName = NAMESPACE + term.termName;
-			let controlValueId = NAMESPACE + term.termName + '_value';
-
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value ? term.value : '';
-
-			let $uploadSection = $('<div class="form-group input-text-wrapper">');
+		$getFileListTableRow( fileTerm, parentFolderId, fileId, name, size, type, downloadURL ){
+			let $tr = $('<tr id="'+name+'">');
+			$('<td class="file-id" style="width:10%;">').appendTo($tr).text(fileId);
+			$('<td class="file-name" style="width:40%;">').appendTo($tr).text(name);
+			$('<td class="file-size" style="width:10%;">').appendTo($tr).text(size);
+			$('<td class="file-type" style="width:10%;">').appendTo($tr).text(type);
+			let $actionTd = $('<td class="action" style="width:10%;">').appendTo($tr);
 			
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			$uploadSection.append( $label );
+							
+			let $downloadSpan =$(
+				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('download') + '" style="margin: 0 2px;">' +
+					'<a href="' + downloadURL +'">' +
+						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
+							'<path class="lexicon-icon-outline" d="M15.608,6.262h-2.338v0.935h2.338c0.516,0,0.934,0.418,0.934,0.935v8.879c0,0.517-0.418,0.935-0.934,0.935H4.392c-0.516,0-0.935-0.418-0.935-0.935V8.131c0-0.516,0.419-0.935,0.935-0.935h2.336V6.262H4.392c-1.032,0-1.869,0.837-1.869,1.869v8.879c0,1.031,0.837,1.869,1.869,1.869h11.216c1.031,0,1.869-0.838,1.869-1.869V8.131C17.478,7.099,16.64,6.262,15.608,6.262z M9.513,11.973c0.017,0.082,0.047,0.162,0.109,0.226c0.104,0.106,0.243,0.143,0.378,0.126c0.135,0.017,0.274-0.02,0.377-0.126c0.064-0.065,0.097-0.147,0.115-0.231l1.708-1.751c0.178-0.183,0.178-0.479,0-0.662c-0.178-0.182-0.467-0.182-0.645,0l-1.101,1.129V1.588c0-0.258-0.204-0.467-0.456-0.467c-0.252,0-0.456,0.209-0.456,0.467v9.094L8.443,9.553c-0.178-0.182-0.467-0.182-0.645,0c-0.178,0.184-0.178,0.479,0,0.662L9.513,11.973z"></path>'+
+//							'<path class="lexicon-icon-outline" d="M256 0c-141.37 0-256 114.6-256 256 0 141.37 114.629 256 256 256s256-114.63 256-256c0-141.4-114.63-256-256-256zM269.605 360.769c-4.974 4.827-10.913 7.226-17.876 7.226s-12.873-2.428-17.73-7.226c-4.857-4.827-7.285-10.708-7.285-17.613 0-6.933 2.428-12.844 7.285-17.788 4.857-4.915 10.767-7.402 17.73-7.402s12.932 2.457 17.876 7.402c4.945 4.945 7.431 10.854 7.431 17.788 0 6.905-2.457 12.786-7.431 17.613zM321.038 232.506c-5.705 8.923-13.283 16.735-22.791 23.464l-12.99 9.128c-5.5 3.979-9.714 8.455-12.668 13.37-2.955 4.945-4.447 10.649-4.447 17.145v1.901h-34.202c-0.439-2.106-0.731-4.184-0.936-6.291s-0.321-4.301-0.321-6.612c0-8.397 1.901-16.413 5.705-24.079s10.24-14.834 19.309-21.563l15.185-11.322c9.070-6.7 13.605-15.009 13.605-24.869 0-3.57-0.644-7.080-1.901-10.533s-3.219-6.495-5.851-9.128c-2.633-2.633-5.969-4.71-9.977-6.291s-8.66-2.369-13.927-2.369c-5.705 0-10.561 1.054-14.571 3.16s-7.343 4.769-9.977 8.017c-2.633 3.247-4.594 7.022-5.851 11.322s-1.901 8.66-1.901 13.049c0 4.213 0.41 7.548 1.258 10.065l-39.877-1.58c-0.644-2.311-1.054-4.652-1.258-7.080-0.205-2.399-0.321-4.769-0.321-7.080 0-8.397 1.58-16.619 4.74-24.693s7.812-15.214 13.927-21.416c6.114-6.173 13.663-11.176 22.645-14.951s19.368-5.676 31.188-5.676c12.229 0 22.996 1.785 32.3 5.355 9.274 3.57 17.087 8.25 23.435 14.014 6.319 5.764 11.089 12.434 14.248 19.982s4.74 15.331 4.74 23.289c0.058 12.581-2.809 23.347-8.514 32.27z"></path>' +
+						'</svg>' +
+					'</a>' +
+				'</span>').appendTo( $actionTd );
+			let $deleteBtn = $(
+				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('delete') + '" style="margin: 0 2px;">' +
+					'<span>' +
+						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
+							'<path class="lexicon-icon-outline" d="M7.083,8.25H5.917v7h1.167V8.25z M18.75,3h-5.834V1.25c0-0.323-0.262-0.583-0.582-0.583H7.667c-0.322,0-0.583,0.261-0.583,0.583V3H1.25C0.928,3,0.667,3.261,0.667,3.583c0,0.323,0.261,0.583,0.583,0.583h1.167v14c0,0.644,0.522,1.166,1.167,1.166h12.833c0.645,0,1.168-0.522,1.168-1.166v-14h1.166c0.322,0,0.584-0.261,0.584-0.583C19.334,3.261,19.072,3,18.75,3z M8.25,1.833h3.5V3h-3.5V1.833z M16.416,17.584c0,0.322-0.262,0.583-0.582,0.583H4.167c-0.322,0-0.583-0.261-0.583-0.583V4.167h12.833V17.584z M14.084,8.25h-1.168v7h1.168V8.25z M10.583,7.083H9.417v8.167h1.167V7.083z"></path>' +
+						'</svg>' +
+					'</span>' +
+				'</span>').appendTo( $actionTd );
 
-			let $uploadNode = this.$getFileUploadNode(controlName, controlValueId, value);
-			
-			$uploadNode.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
+			$deleteBtn.click(function(event){
+				$tr.remove();
 
-				let fileName = $('#'+controlName)[0].files.length ? $('#'+controlName)[0].files[0].name : "";
-				term.value = fileName;
+				fileTerm.removeFile( parentFolderId, fileId, name );
 
 				let eventData = {
 					sxeventData:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
-						term: term,
-						value: $(this).val()  
+						term: fileTerm
 					}
 				};
 
@@ -2063,7 +2080,64 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				);
 			});
 
+			return $tr;
+		},
+		$getFormFileUploadSection: function(
+			term,
+			forWhat ){
+			let controlName = NAMESPACE + term.termName;
+			let controlValueId = NAMESPACE + term.termName + '_value';
+
+			let label = term.getLocalizedDisplayName();
+			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
+			let mandatory = term.mandatory ? term.mandatory : false;
+			let files;
+			if( term.hasOwnProperty('value') ){
+				files = term.value;
+			}
+
+			let $uploadSection = $('<div class="form-group input-text-wrapper">');
+			
+			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
+			$uploadSection.append( $label );
+
+			let $uploadNode = this.$getFileUploadNode( term, controlName, files);
 			$uploadSection.append( $uploadNode );
+			
+			$uploadNode.change(function(event){
+				event.stopPropagation();
+				event.preventDefault();
+
+				let files = $('#'+controlName)[0].files;
+			
+				if( files.length > 0 ){
+					if( !term.value ){
+						term.value = new Object();
+					}
+
+					let $fileListTable = $uploadNode.find('table');
+					$fileListTable.show();
+					
+					for( let i=0; i<files.length; i++){
+						let xFile = new Object();
+					
+						term.addFile( undefined, undefined, files[i]);
+					};
+				}
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
+			});
 
 			let $row;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
@@ -3376,7 +3450,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.termName ) 	this.termName = '';
 			if( !this.termVersion ) this.termVersion = Term.DEFAULT_TERM_VERSION;
 			if( !this.tooltip ) 	this.tooltip = null;
-			if( !this.value ) 		this.value = '';
+			if( !this.hasOwnProperty('value') ) 		this.value = '';
 			
 			// These are special properties for term manipulation
 			if( !this.valueMode )	this.valueMode = Term.DEFAULT_VALUE_MODE;
@@ -5039,12 +5113,101 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
 
+			this.searchable = false;
 			this.setAllFormValues();
 		}
 		
 		initAllAttributes(){
 			super.initAllAttributes( 'File' ); 
 			this.$rendered = null;
+		}
+
+		addFile( parantFolderId, fileId, file ){
+			if( !this.hasOwnProperty('value') ){
+				this.value = new Object();
+			}
+
+			let $fileListTable = this.$rendered.find('table');
+			if( this.value.hasOwnProperty(file.name) ){
+				console.log('File already selected: ' + file.name );
+			}
+			else{
+				FormUIUtil.$getFileListTableRow( this, undefined, undefined, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
+			}
+
+			let newFile = new Object();
+			newFile.name = file.name;
+			newFile.size = file.size;
+			newFile.type = file.type;
+		
+			if( file instanceof File ){
+				newFile.file = file;
+			
+				this.value[newFile.name] = newFile;
+
+				let dt = new DataTransfer();
+				let files = Object.keys( this.value );
+				for( let i=0; i<files.length; i++){
+					if( this.value[files[i]].file ){
+						dt.items.add( this.value[files[i]].file );
+					}
+				}
+	
+				let input = this.$rendered.find('input')[0];
+				input.files = dt.files;
+			}
+			else{
+				newFile.parantFolderId = file.parantFolderId,
+				newFile.fileId = fileId;
+				this.value[newFile.name] = newFile;
+			};
+
+		}
+
+		removeFile( parentFolderId, fileId, fileName ){
+			if( !this.value ){
+				return;
+			}
+
+			if( fileId === undefined ){
+				delete this.value[fileName];
+
+				let input = this.$rendered.find('input')[0];
+				let files = input.files;
+				let dt = new DataTransfer();
+				for( let i=0; i<files.length; i++ ){
+					let file = files[i];
+					if( file.name !== fileName ){
+						dt.items.add( file );
+					}
+				}
+				
+				input.files = dt.files;
+			}
+			else{
+				let params = new Object();
+				params[NAMESPACE+'fileId'] = fileId;
+				let value = this.value;
+				let deleteFileURL = this.deleteFileURL;
+				$.ajax({
+					url: deleteFileURL,
+					method: 'post',
+					data: params,
+					dataType: 'text',
+					success: function( result ){
+						alert( result );
+						delete value[fileName];
+					},
+					error: function( data, e ){
+						console.log(data);
+						console.log('AJAX ERROR-->' + e);
+					}
+				});
+			}
+
+			if( Object.keys( this.value ).length === 0 ){
+				delete this.value;
+			}
 		}
 
 		/**
@@ -5085,7 +5248,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		getFormValue( save=true ){
-			let value = $('#'+NAMESPACE+this.termName).val();
+			let files = $('#'+NAMESPACE+this.termName)[0].files;
+
+			let value = new Object();
+			for( let i=0; i<files.length; i++ ){
+				let file = files[i];
+
+				value[file.name] = {
+					name: file.name,
+					size: file.size,
+					type: file.type,
+					file: file
+				};
+			}
+
 			if( save ){
 				this.value = value;
 			}
@@ -5098,9 +5274,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.value = value;
 			}
 
-			this.value ? 
-				$('#'+NAMESPACE+this.termName).val( this.value ) :
-				$('#'+NAMESPACE+this.termName).val( '' );
+			let $fileListTable = this.$rendered.find('table');
+			$fileListTable.empty();
+
+			let fileNames = Object.keys(value);
+			for( let i=0; i<fileNames.length; i++ ){
+				let file = value[fileNames[i]];
+				FormUIUtil.$getFileListTableRow( this, file.parentFolderId, file.field, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
+			}
 		}
 
 		$render( forWhat ){
@@ -5108,7 +5289,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( this.searchable && forWhat === SXConstants.FOR_SEARCH ){
 				this.placeHolder = new LocalizedObject();
 				this.placeHolder.addText( CURRENT_LANGUAGE, Liferay.Language.get('file-name-for-search') );
 				
@@ -5123,20 +5304,72 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+		getJsonValue(){
+			if( !this.value ){
+				return undefined;
+			}
+
+			let json = new Object();
+			let fileNames = Object.keys(this.value);
+			fileNames.forEach( fileName => {
+				let file = this.value[fileName];
+				json[fileName] = {
+					parentFolderId: file.parentFolderId,
+					fileId: file.fileId,
+					name: file.name,
+					size: file.size,
+					type: file.type
+				};
+			});
+
+			return json;
+		}
+
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
 			let unvalid = new Object();
 			
 			let self = this;
 			Object.keys( unparsed ).forEach( (key, index) => {
-				unvalid[key] = unparsed[key];
+				switch( key ){
+					case 'deleteFileURL':
+						self.deleteFileURL = jsonObj.deleteFileURL;
+						break;
+					default:
+						unvalid[key] = unparsed[key];
+				}
 			});
 
 			return unvalid;
 		}
 
 		toJSON(){
-			return super.toJSON();
+			let json = super.toJSON();
+			
+			let jsonValue = new Object();
+			if( this.value ){
+				let files = Object.keys(this.value);
+				for( let i=0; i<files.length; i++ ){
+					let fileName = files[i];
+					jsonValue[fileName] = {
+						parentFolderId: this.value[fileName].parentFolderId,
+						fileId: this.value[fileName].fileId,
+						name: this.value[fileName].name,
+						type: this.value[fileName].type,
+						size: this.value[fileName].size
+					};
+				}
+			}
+			
+			if( Object.keys(jsonValue).length > 0 ){
+				json.value = jsonValue;
+			}
+			else{
+				delete json.value;
+			}
+			console.log('File json: ', JSON.stringify(json) );
+
+			return json;
 		}
 	}
 
@@ -5389,7 +5622,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.options ){
 				this.options = new Array();
 				// for true
-				this.options.push( new ListOption( {'en_US':'Yes'}, true, true, false, [] ) );
+				this.options.push( new ListOption( {'en_US':'Yes'}, true, false, false, [] ) );
 	
 				// for false
 				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
@@ -6560,7 +6793,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.terms.every( (term) => {
 				if( !term.isGroupTerm() ){
-					fileContent[term.termName] = term.value;
+					if( term.value || term.value === 0 ){
+						if( term.termType === 'File' ){
+							let termValue = term.getJsonValue();
+							if( Object.keys(termValue).length > 0 ){
+								fileContent[term.termName] = termValue;
+							}
+						}
+						else{
+							fileContent[term.termName] = term.value;
+						}
+					}
 				}
 				
 				return SXConstants.CONTINUE_EVERY;

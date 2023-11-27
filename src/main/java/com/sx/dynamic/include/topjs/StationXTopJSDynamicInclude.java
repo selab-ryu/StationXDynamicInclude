@@ -39,11 +39,16 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/jquery/dateTimePicker/jquery.datetimepicker.min.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/lodash.js\"></script>";
 		
+		/*
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/fancy-file-uploader/jquery.ui.widget.js\"></script>";
-		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/fancy-file-uploader/fancy_fileupload.css\"\">";
+		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/fancy-file-uploader/fancy_fileupload.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/fancy-file-uploader/jquery.fileupload.js\"></script>";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/fancy-file-uploader/jquery.iframe-transport.js\"></script>";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/fancy-file-uploader/jquery.fancy-fileupload.js\"></script>";
+		*/
+		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/dynamic-popup-menu/popmenu.css\">";
+		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/dynamic-popup-menu/popmenu.js\"></script>";
+		
 		
 		printWriter.println(content);
 		

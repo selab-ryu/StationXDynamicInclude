@@ -1566,7 +1566,95 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 			return $node;
 		},
+		popupMemu: function( $container, options, event ){
+
+			let opts = {
+				x : $container.offset().left,
+				y : $container.offset().top,
+				items : {},
+				callback : null
+			};
+			
+			if (typeof options === 'object') {
+				$.extend(opts, options);
+			} else {
+				alert("Needs options...")
+				return false;
+			}
+			
+			let menu_items = '';
+			
+			for (let item in opts.items) {
+				
+				let name = '';
+				if($.type(opts.items[item].name) === "string") {
+					name = opts.items[item].name + " ";
+				}
+				let icon = '';
+				if($.type(opts.items[item].icon) === "string") {
+					icon = opts.items[item].icon + " ";
+				}
+				let divid = '';
+				if(opts.items[item].divid === true) {
+					divid = "<hr>";
+				} 
+				
+				menu_items += "<li id='" + item + "' name='"+ name +"''>" + icon + opts.items[item].name + "</li>" + divid;
+			}
+			
+			menu_items = "<div role='popmenu-layer'><ul role='popmenu'>" + menu_items + "</ul></div>";
+			
+			$container.append($(menu_items));
+			console.log('popupMenu: ', $container, options, event );
+			
+			console.log( $container.find("[role='popmenu']").css({'left' : opts.x, 'top' : opts.y }) );
+			
+			$container.find("[role='popmenu']>li").on("click",function(e){
+				
+				if($.type(opts.callback) === "function") {
+					var id = $(this).prop('id');
+					this.id = id;
+					opts.callback(this);
+				} else {
+					alert("callback function " + $(this).prop('id')+ " is not presented.");
+				}
+				$(this).parent().hide();
+				$container.find("[role='popmenu-layer']").remove();
+			});
+			
+			/*
+			$container.find("[role='popmenu']").focus();
+		
+			$container.find("[role='popmenu']>li").hover(function() {
+				$(this).addClass('popmenu-hover');
+			}, function() {
+				$(this).removeClass('popmenu-hover');
+			});
+			$container.find(".popmenu-layer").mousedown(function(event) {
+				$container.find("[role='popmenu']").hide();
+				$container.find("[role='popmenu-layer']").remove();
+			});
+			$(window).blur(function(event) {
+				$container.find("[role='popmenu']").hide();
+				$container.find("[role='popmenu-layer']").remove();
+			});
+			
+			$(window).mousedown(function(event){
+				$container.find("[role='popmenu']").hide();
+				$container.find("[role='popmenu-layer']").remove();
+			})
+			
+			$container.find("[role='popmenu']").mousedown(function(event){
+				event.stopPropagation();
+			})
+			$(window).resize(function(event) {
+				$container.find("[role='popmenu']").hide();
+				$container.find("[role='popmenu-layer']").remove();
+			});
+			*/
+		},
 		$getPreviewRemoveButtonNode: function( term, iconClass ){
+			/*
 			let $button = $( '<button type="button" class="btn btn-default">' +
 								'<i class="' + iconClass + '" />' +
 							 '</button>' );
@@ -1590,6 +1678,64 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			return $button;
+		},
+		$getPreviewActionButtonNode: function( term, iconClass ){
+*/
+			let $actionBtn = $(
+					'<div class="dropdown dropdown-action show" style="width:fit-content;">' +
+						'<button aria-expanded="true" aria-haspopup="true" class="dropdown-toggle btn btn-unstyled" data-onclick="toggle" data-onkeydown="null" ref="triggerButton" title="Actions" type="button">' +
+							'<svg class="lexicon-icon lexicon-icon-ellipsis-v" focusable="false" role="presentation" viewBox="0 0 512 512">' +
+								'<path class="lexicon-icon-outline ellipsis-v-dot-2" d="M319 255.5c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
+								'<path class="lexicon-icon-outline ellipsis-v-dot-3" d="M319 448c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
+								'<path class="lexicon-icon-outline ellipsis-v-dot-1" d="M319 64c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
+							'</svg>' +
+						'</button>' + 
+					'</div>' );
+
+			$actionBtn.click( function(event){
+				//event.stopPropagation();
+
+				popmenu( $actionBtn, {
+					items: {
+						copy: {
+							name: 'Copy'
+						},
+						delete: {
+							name: 'Delete'
+						}
+					},
+					callback: function( item ){
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term
+							}
+						};
+		
+						let message;
+
+						if( $(item).prop('id') === 'copy'){
+							message = SXIcecapEvents.DATATYPE_PREVIEW_COPY_TERM;
+						}
+						else if( $(item).prop('id') === 'delete' ){
+							message = SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM;
+						}
+
+							Liferay.fire(
+								message,
+								eventData
+							);
+					},
+					x:event.pageX,
+					y:event.pageY,
+					position: 'left'
+				});
+
+				return false;
+			});
+
+			return $actionBtn;
 		},
 		$getPreviewRowSection: function( term, $inputSection ){
 			let trRowClass = NAMESPACE + term.termName;
@@ -1905,7 +2051,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					else{
 						newValues = [];
 					}
-					console.log('newValues: ', newValues);
 					previousValue = term.searchValues;
 					if( term.setSearchValues( newValues ) === false ){
 						$(this).val( previousValue ? previousValue.join(' ') : '' );
@@ -2306,6 +2451,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		DATATYPE_PREVIEW_TERM_DELETED: 'DATATYPE_PREVIEW_TERM_DELETED',
 		DATATYPE_PREVIEW_REMOVE_TERM: 'DATATYPE_PREVIEW_REMOVE_TERM',
 		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELTE_TERM',
+		DATATYPE_PREVIEW_COPY_TERM: 'DATATYPE_PREVIEW_COPY_TERM',
 		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
 		DATATYPE_ACTIVE_TERM_CHANGED: 'DATATYPE_ACTIVE_TERM_CHANGED',
@@ -6054,14 +6200,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		copyTerm( term ){
+		copyTerm( term, parentTermId ){
 			let copied = Object.assign( this.createTerm(term.termType), term );
+		
+			copied.termName = term.termName + '_copied';
+			copied.termVersion = '1.0.0';
+			if( parentTermId ) copied.groupTermId = parentTermId;
+			delete copied.$rendered;
+			copied.order = 0;
+			
+			this.addTerm( copied, 0, SXConstants.FOR_PREVIEW, true, true );
 
-			copied.termName = '';
-			// this.selectedTerm = null;
-
-			console.log( 'Copied Term: ', copied );
-
+			let self = this;
+			if( term.isGroupTerm() ){
+				let groupMembers = this.getGroupMembers( term.getTermId() );
+				
+				console.log( 'groupMembers: ', groupMembers );
+				groupMembers.forEach( member => {
+					self.copyTerm( member, copied.getTermId() );
+				});
+			}
+			
 			return copied;
 		}
 		
@@ -6501,7 +6660,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  	preview: boolean - preview or not
 		 ********************************************************************/
 		addTerm( term, baseOrder=0, forWhat=SXConstants.FOR_NOTHING, highlight=false, validate=true ){
-			if( validate && term.validate() === false ){
+			if( validate && term.validate() === false ) {
 				return false;
 			}
 			

@@ -262,7 +262,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 DEFINITION : 'definition',
 		 DEFAULT_LANGUAGE_ID : 'defaultLanguageId',
 		 DEFAULT_LOCALE : 'defaultLocale',
-		 DEPENDENT_TERMS : 'dependentTerms',
 		 DIMENSION_X : 'dimensionX',
 		 DIMENSION_Y : 'dimensionY',
 		 DISABLED : 'disabled',
@@ -358,7 +357,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			DEFINITION : 'definition',
 			DEFAULT_LANGUAGE_ID : 'defaultLanguageId',
 			DEFAULT_LOCALE : 'defaultLocale',
-			DEPENDENT_TERMS : 'dependentTerms',
 			DIMENSION_X : 'dimensionX',
 			DIMENSION_Y : 'dimensionY',
 			DISABLED : 'disabled',
@@ -2582,7 +2580,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( optionLabelMap, optionValue, selected, disabled, activeTerms ){
 			this.value = optionValue;
 			this.labelMap = optionLabelMap;
-			this.activeTerms = activeTerms;
+			if( activeTerms ){
+				this.activeTerms = activeTerms;
+			}
+
 			this.selected = selected;
 			this.disabled = disabled;
 			this.$rendered = null;
@@ -2780,6 +2781,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toJSON(){
+			console.log( 'toJSON called...' );
 			let json = new Object();
 
 			json.value = this.value;
@@ -2787,7 +2789,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.selected ){
 				json.selected = true;
 			}
-			if( !Util.isEmptyArray( this.activeTerms ) ){
+			if( this.hasOwnProperty('activeTerms') && !Util.isEmptyArray( this.activeTerms ) ){
 				json.activeTerms = this.activeTerms;
 			}
 
@@ -3232,10 +3234,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
 			if( this.mandatory )	json.mandatory = this.mandatory;
-			if( this.value )	json.value = this.value;
+			if( this.hasOwnProperty( 'value' ) )	json.value = this.value;
 			if( this.valueMode )	json.valueMode = this.valueMode;
 			if( this.order )	json.order = this.order;
 			if( this.dirty )	json.dirty = this.dirty;
+			if( this.masterTerm )	json.masterTerm = this.masterTerm;
 			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
 			
 			json.status = this.status;
@@ -3267,6 +3270,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'order':
 					case 'state':
 					case 'status':
+					case 'masterTerm':
 						self[key] = json[key];
 						break;
 					case 'groupTermId':
@@ -4460,7 +4464,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		highlightOptionPreview(){
-			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('.sx-form-item-group') );
+			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('tr') );
 			rows.forEach((row, index) => { 
 				$(row).removeClass( 'highlight-border' );
 				if( this.highlightedOption && this.highlightedOption === this.options[index] ){
@@ -4492,8 +4496,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				optionLabelMap = this.getOptionLabelFormValue();
 				optionValue = this.getOptionValueFormValue();
 				selected = this.getOptionSelectedFormValue();
-				activeTerms = new Array();
-
 				if( !optionLabelMap || 
 					Object.keys(optionLabelMap).length === 0 ||
 					!optionValue ){
@@ -4506,7 +4508,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.clearSelectedOption();
 			}
 
-			let newOption = new ListOption( optionLabelMap, optionValue, selected, false, new Array() );
+			let newOption = new ListOption( optionLabelMap, optionValue, selected, false, activeTerms );
 
 			this.options.push(newOption);
 
@@ -4525,22 +4527,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		getHighlightedOption(){
 			return this.highlightedOption;
-		}
-
-		updateDependentTerms(){
-			if( !this.options )	return;
-			this.dependentTerms = new Array();
-
-			this.options.forEach((option)=>{
-				if( option.activeTerms ){
-					option.activeTerms.forEach((activeTerm)=>{
-						if( !this.dependentTerms.includes( activeTerm ) ){
-							this.dependentTerms.push(activeTerm);
-						}
-					});
-				}
-			});
-			this.setDirty( true );
 		}
 
 		clearSelectedOption(){
@@ -4617,16 +4603,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getOptionActiveTerms( optionValue ){
 			let option = this.getOption(optionValue);
 			return option.activeTerms;
-		}
-
-		setActiveTerms( terms ){
-			
-			if( !this.highlightedOption ){
-				return;
-			}
-
-			this.highlightedOption.activeTerms = terms;
-			this.updateDependentTerms();
 		}
 
 		removeActiveTerm( term ){
@@ -4719,8 +4695,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$render( forWhat ){
-			this.updateDependentTerms();
-			
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
@@ -4737,7 +4711,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( !this.options )			this.options = new Array();
 			if( !this.displayStyle )	this.displayStyle = 'select';
-			if( !this.dependentTerms )	this.dependentTerms = new Array();
 
 			ListTerm.$OPTION_TABLE.empty();
 			ListTerm.$OPTION_ACTIVE_TERMS.empty();
@@ -4864,9 +4837,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			Object.keys( unparsed ).forEach((key)=>{
 				switch(key){
 					case 'displayStyle':
-					case 'dependentTerms':
-						self[key] = json[key];
-						break;
 					case 'options':
 						if( typeof json.options === 'string' ){
 							json.options = JSON.parse( json.options );
@@ -5772,22 +5742,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 				// for false
 				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
-				this.dependentTerms = null;
 			}
-		}
-
-		updateDependentTerms(){
-			this.dependentTerms = new Array();
-
-			this.options.forEach((option)=>{
-				if( option.activeTerms ){
-					option.activeTerms.forEach((activeTerm)=>{
-						if( !this.dependentTerms.includes( activeTerm ) ){
-							this.dependentTerms.push(activeTerm);
-						}
-					});
-				}
-			});
 		}
 
 		setSearchKeywords( keywords ){
@@ -5814,8 +5769,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$render( forWhat ){
-			this.updateDependentTerms();
-			
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
@@ -6215,7 +6168,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( term.isGroupTerm() ){
 				let groupMembers = this.getGroupMembers( term.getTermId() );
 				
-				console.log( 'groupMembers: ', groupMembers );
 				groupMembers.forEach( member => {
 					self.copyTerm( member, copied.getTermId() );
 				});
@@ -6591,23 +6543,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return null;
 			}
 
-			targetTerm.updateDependentTerms();
+			let availableTerms = this.getGroupMembers( targetTerm.getGroupId() );
+									 
+			console.log( 'available Terms: ', availableTerms );
 
 			let $activeTermsSelector = $('<div>');
-			this.terms.forEach((term, index)=>{
+			availableTerms.forEach((term, index)=>{
 				if( term === targetTerm ){
 					return;
 				}
 
-				let selected = targetOption.activeTerms ? targetOption.activeTerms.includes(term) : false;
+				let selected = targetOption.hasOwnProperty('activeTerms') ? targetOption.activeTerms.includes(term.termName) : false;
 				let disabled = false;
 
-				// Check the term is already specified as an active term from other options.
+				// Check the term is already specified as an active term from other options or other terms.
 				// On that case, the checkbox for the term should be disabled.
+				if( term.hasOwnProperty('masterTerm') &&
+					term.masterTerm !== targetTerm.termName ){
+					disabled = true;
+				}
+				
 				targetTerm.options.every((option)=>{
 					if( option !== targetOption && 
 						option.activeTerms && 
-						option.activeTerms.includes( term ) ){
+						option.activeTerms.includes( term.termName ) ){
 						disabled = true;
 
 						return SXConstants.STOP_EVERY;
@@ -6635,7 +6594,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					{
 						text: 'Confirm', 
 						click: function(){
-							targetOption.activeTerms = FormUIUtil.getFormCheckedArray('activeTermsSelector').map(termName=>self.getTerm);
+							targetOption.activeTerms.forEach( termName => {
+								let term = self.getTermByName( termName );
+								delete term.masterTerm;
+							});
+							delete targetOption.activeTerms;
+
+							let selectedTerms = FormUIUtil.getFormCheckedArray('activeTermsSelector');
+							if( selectedTerms.length > 0 ){
+								targetOption.activeTerms = selectedTerms;
+								targetOption.activeTerms.forEach( termName => {
+									let term = self.getTermByName( termName );
+									term.masterTerm = targetTerm.termName;
+								});
+							}
+
 							$(this).dialog('destroy');
 						}
 					},
@@ -6649,6 +6622,46 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
+		hideTerm( termName ){
+			this.getTermByName( termName ).$rendered.hide();
+		}
+
+		showTerm( termName ){
+			this.getTermByName( termName ).$rendered.show();
+		}
+
+		getAllSlaveTerms( masterTermName ){
+			return this.terms.filter( term => term.masterTerm === masterTermName );
+		}
+
+		activateSlaveTerms( listTerm ){
+			let options = listTerm.options;
+			let values = listTerm.value;
+
+			let dataStructure = this;
+
+			let allSlavesActivated = false;
+			options.forEach( option => {
+				if( values.includes( option.value ) ){
+					if( option.hasOwnProperty('activeTerms') && option.activeTerms.length > 0){
+						let activeTermNames = option.activeTerms;
+						activeTermNames.forEach( termName => dataStructure.showTerm( termName ) );
+					}
+					else{
+						let slaveTerms = dataStructure.getAllSlaveTerms( listTerm.termName );
+						slaveTerms.forEach( term => term.$rendered.show() );
+
+						allSlavesActivated = true;
+					}
+				}
+				else if( !allSlavesActivated ){
+					if( option.hasOwnProperty('activeTerms') ){
+						let activeTermNames = option.activeTerms;
+						activeTermNames.forEach( termName => dataStructure.hideTerm( termName ) );
+					}
+				}
+			});
+		}
 		
 		/*******************************************************************
 		 * Add a term to the data structure. If preview is true, 
@@ -7050,23 +7063,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * APIs for Preview panel
 		 ********************************************************************/
 
-		activateDependentTerms( termId, optionValue, forWhat ){
-			let term = this.getTerm( termId );
-
-			let activeTerms = term.getOptionActiveTerms( optionValue );
-
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				term.dependentTerms.forEach((dependTerm)=>{
-					if( activeTerms.includes(dependTerm) ){
-						$('.sx-form-item-group.'+NAMESPACE+termName).removeClass('hide');
-					}
-					else{
-						$('.sx-form-item-group.'+NAMESPACE+termName).addClass('hide');
-					}
+		activateDependentTerms( listTerm, optionValues, forWhat ){
+			if( forWhat === SXConstants.FOR_PREVIEW || forWhat === SXConstants.FOR_EDITOR ){
+				optionValues.forEach( optionValue => {
+					let activeTerms = listTerm.getOptionActiveTerms( optionValue );
+					let deactivateOptions = listTerm.filter( option => option.value !== optionValue );
+					
+					let dataStructure = this;
+					deactivateOptions.forEach( option => {
+						let deactivateTerms = option.activeTerms;
+						deactivateTerms.forEach( termName => {
+							let term = dataStructure.getTermByName( termName );
+							term.$rendered.hide();
+						});
+					})
+					
+					activeTerms.forEach( termName => {
+						let term = dataStructure.getTermByName( termName );
+						term.$rendered.show();
+					});
 				});
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				// render for editor
 			}
 			else{
 				// render for PDF

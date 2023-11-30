@@ -1299,7 +1299,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					event.preventDefault();
 	
 					term.value = [$node.find('select').val()];
-	
+
 					let eventData = {
 						sxeventData:{
 							sourcePortlet: NAMESPACE,
@@ -1315,7 +1315,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						eventData
 					);
 				});
-	
+
 				return $node;
 	
 			}
@@ -2993,7 +2993,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.termId = 0;
 			this.termType = termType;
 
-			this.$rendered = null;
 			this.dirty = false;
 		}
 
@@ -3039,6 +3038,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return validationPassed;
 		}
 
+		activate( active=true ){
+			this.active = active;
+			if( active ){
+				this.$rendered.show();
+			}
+			else{
+				this.$rendered.hide();
+				delete this.value;
+			}
+		}
 		
 		getTermId(){
 			if( !(Util.isEmptyString( this.termName ) || Util.isEmptyString( this.termVersion )) ){
@@ -3109,8 +3118,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		emptyRender(){
 			if( this.$rendered ){
-				this.$rendered.remove();
-				this.$rendered = null;
+				this.$rendered.empty();
+				delete this.$rendered;
 			}
 		}
 
@@ -4596,13 +4605,42 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getOption( optionValue ){
-			return this.options.filter((option)=>option.value===optionValue)[0];
+		hasSlaves(){
+			let hasSlaves = false;
+			this.options.every( option => {
+				if( option.hasOwnProperty('activeTerms') ){
+					hasSlaves = true;
+
+					return SXConstants.STOP_EVERY;
+				}
+
+				return SXConstants.CONTINUE_EVERY;
+			});
+
+			return hasSlaves;
 		}
 
-		getOptionActiveTerms( optionValue ){
-			let option = this.getOption(optionValue);
-			return option.activeTerms;
+		getOptions( optionValues, included=true ){
+			if( included ){
+				return this.options.filter(option=> optionValues.includes(option.value));
+			}
+			else{
+				return this.options.filter(option=> !optionValues.includes(option.value));
+			}
+		}
+
+		getActiveTermNames( active=true ){
+			let values = this.hasOwnProperty('value') ? this.value : new Array();
+
+			let options = this.getOptions( values, active );
+			let termNames = new Array();
+			options.forEach( option => {
+				if( option.hasOwnProperty('activeTerms') ){
+					termNames = termNames.concat( option.activeTerms );
+				}
+			});
+
+			return termNames;
 		}
 
 		removeActiveTerm( term ){
@@ -6622,12 +6660,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		hideTerm( termName ){
-			this.getTermByName( termName ).$rendered.hide();
-		}
-
-		showTerm( termName ){
-			this.getTermByName( termName ).$rendered.show();
+		activateTerm( termName, active=true ){
+			this.getTermByName( termName ).activate( active );
 		}
 
 		getAllSlaveTerms( masterTermName ){
@@ -6645,19 +6679,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( values.includes( option.value ) ){
 					if( option.hasOwnProperty('activeTerms') && option.activeTerms.length > 0){
 						let activeTermNames = option.activeTerms;
-						activeTermNames.forEach( termName => dataStructure.showTerm( termName ) );
+						activeTermNames.forEach( termName => dataStructure.activateTerm( termName, true ) );
 					}
 					else{
-						let slaveTerms = dataStructure.getAllSlaveTerms( listTerm.termName );
-						slaveTerms.forEach( term => term.$rendered.show() );
-
-						allSlavesActivated = true;
+						if( this.forWhat === SXConstants.FOR_PREVIEW ){
+							let slaveTerms = dataStructure.getAllSlaveTerms( listTerm.termName );
+							slaveTerms.forEach( term => term.$rendered.show() );
+							
+							allSlavesActivated = true;
+						}
 					}
 				}
 				else if( !allSlavesActivated ){
 					if( option.hasOwnProperty('activeTerms') ){
 						let activeTermNames = option.activeTerms;
-						activeTermNames.forEach( termName => dataStructure.hideTerm( termName ) );
+						activeTermNames.forEach( termName => dataStructure.activateTerm( termName, false ) );
 					}
 				}
 			});
@@ -7063,32 +7099,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * APIs for Preview panel
 		 ********************************************************************/
 
-		activateDependentTerms( listTerm, optionValues, forWhat ){
-			if( forWhat === SXConstants.FOR_PREVIEW || forWhat === SXConstants.FOR_EDITOR ){
-				optionValues.forEach( optionValue => {
-					let activeTerms = listTerm.getOptionActiveTerms( optionValue );
-					let deactivateOptions = listTerm.filter( option => option.value !== optionValue );
-					
-					let dataStructure = this;
-					deactivateOptions.forEach( option => {
-						let deactivateTerms = option.activeTerms;
-						deactivateTerms.forEach( termName => {
-							let term = dataStructure.getTermByName( termName );
-							term.$rendered.hide();
-						});
-					})
-					
-					activeTerms.forEach( termName => {
-						let term = dataStructure.getTermByName( termName );
-						term.$rendered.show();
-					});
-				});
-			}
-			else{
-				// render for PDF
-			}
-		}
-
 		highlightTerm( term, exclusive=true ){
 			if( exclusive === true ){
 				this.clearHighlight();
@@ -7214,9 +7224,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			//render from top level terms
 			let self = this;
-			topLevelTerms.forEach((term)=>{
+			topLevelTerms.forEach(term=>{
 				self.renderTerm(term, forWhat);
 			});
+
+			if( forWhat === SXConstants.FOR_EDITOR ){
+				this.terms.forEach(term=>{
+					if( term.termType === 'List' ){
+						if( term.hasSlaves() ){
+							let activeTermNames = term.getActiveTermNames( true );
+							let inactiveTermNames = term.getActiveTermNames( false );
+							
+							activeTermNames.forEach( termName => self.activateTerm( termName, true ) );
+							inactiveTermNames.forEach( termName => self.activateTerm( termName, false ) );
+						}
+					}
+				});
+			}
 		}
 
 		$setCanvas( forWhat, $canvas ){

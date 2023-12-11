@@ -753,7 +753,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				name: controlName,
 				value: value ? value : '',
 				placeholder: placeHolder ? placeHolder : ''
-			}); 
+			});
+
+			if( term.disabled ){
+				$input.prop('disabled', true );
+			}
 
 			$input.change(function(event){
 				event.stopPropagation();
@@ -1138,7 +1142,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $tag;
 		},
-		$getSelectTag: function( controlName, options, value, label, mandatory, helpMessage ){
+		$getSelectTag: function( controlName, options, value, label, mandatory, helpMessage, disabled=false ){
 			let $label = this.$getLabelNode(controlName, label, mandatory, helpMessage);
 			let $select = $( '<select class="form-control" id="' + controlName + '" name="' + controlName + '">' );
 
@@ -1155,14 +1159,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			});
 
+			$select.prop('disabled', disabled );
+
 			return $('<div class="form-group input-text-wrapper">')
 									.append( $label )
 									.append( $select );
 
 		},
-		$getRadioButtonTag: function (controlId, controlName, option, selected ){
+		$getRadioButtonTag: function (controlId, controlName, option, selected, disabled=false ){
 			let $radio = option.$render( SXConstants.DISPLAY_STYLE_RADIO, controlId, controlName );
-			$radio.find('input[type="radio"]').prop('checked', selected);
+			$radio.find('input[type="radio"]').prop({
+				checked: selected,
+				disabled: disabled
+			});
 
 			return $radio;
 		},
@@ -1191,7 +1200,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getFileUploadNode: function( fileTerm, controlName, files ){
 			let $node = $('<div class="file-uploader-container">');
-			this.$getFileInputTag( controlName ).appendTo($node);
+			this.$getFileInputTag( controlName, fileTerm.disabled ).appendTo($node);
 
 			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">').appendTo($node);
 
@@ -1207,12 +1216,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $node;
 		},
-		$getFileInputTag: function( controlName ){
+		$getFileInputTag: function( controlName, disabled=false ){
 			let $input = $( '<input type="file" class="field lfr-input-text form-control" aria-required="true" size="80" multiple>' );
 
 			$input.prop({
 				id: controlName,
-				name: controlName
+				name: controlName,
+				disabled: disabled
 			});
 
 			return $input;
@@ -1246,6 +1256,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = term.value;
 			let displayStyle = term.displayStyle;
 			let options = term.options;
+			let disabled = term.disabled;
 
 			let $node;
 
@@ -1292,7 +1303,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
 				let $node = $('<div class="form-group input-text-wrapper">')
-								.append( this.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage) );
+								.append( this.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage, disabled) );
 
 				$node.unbind('change').change(function(event){
 					event.stopPropagation();
@@ -1330,7 +1341,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 														controlName+'_'+(index+1),
 														controlName, 
 														option,
-														selected ) );
+														selected,
+														disabled ) );
 					});
 
 					$panelBody.unbind('change').change(function(event){
@@ -1365,7 +1377,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 														option.labelMap[CURRENT_LANGUAGE],
 														option.selected || value.includes(option.value),
 														option.value,
-														false ) );
+														disabled ) );
 					});
 						
 					$panelBody.unbind('change').change(function(event){
@@ -1408,6 +1420,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let label = term.getLocalizedDisplayName();
 			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
 			let mandatory = term.mandatory ? term.mandatory : false;
+			let disabled = term.disabled;
 			let value;
 			if( term.hasOwnProperty('value') ){
 				value = term.value;
@@ -1421,7 +1434,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
 
 				$node = $('<div class="form-group input-text-wrapper">')
-							.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage) );
+							.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled) );
 
 				$node.change(function(event){
 					event.stopPropagation();
@@ -1456,7 +1469,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										controlName+'_'+(index+1),
 										controlName, 
 										option,
-										selected );
+										selected,
+										disabled );
 					$panelBody.append( $radioTag );
 
 					$radioTag.bind('click', function(event){
@@ -1651,6 +1665,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 			*/
 		},
+		$getActionButton(){
+			return $(
+				'<div class="dropdown dropdown-action show" style="width:fit-content;">' +
+					'<button aria-expanded="true" aria-haspopup="true" class="dropdown-toggle btn btn-unstyled" data-onclick="toggle" data-onkeydown="null" ref="triggerButton" title="Actions" type="button">' +
+						'<svg class="lexicon-icon lexicon-icon-ellipsis-v" focusable="false" role="presentation" viewBox="0 0 512 512">' +
+							'<path class="lexicon-icon-outline ellipsis-v-dot-2" d="M319 255.5c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
+							'<path class="lexicon-icon-outline ellipsis-v-dot-3" d="M319 448c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
+							'<path class="lexicon-icon-outline ellipsis-v-dot-1" d="M319 64c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
+						'</svg>' +
+					'</button>' + 
+				'</div>' );
+		},
 		$getPreviewRemoveButtonNode: function( term, iconClass ){
 			/*
 			let $button = $( '<button type="button" class="btn btn-default">' +
@@ -1679,21 +1705,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getPreviewActionButtonNode: function( term, iconClass ){
 */
-			let $actionBtn = $(
-					'<div class="dropdown dropdown-action show" style="width:fit-content;">' +
-						'<button aria-expanded="true" aria-haspopup="true" class="dropdown-toggle btn btn-unstyled" data-onclick="toggle" data-onkeydown="null" ref="triggerButton" title="Actions" type="button">' +
-							'<svg class="lexicon-icon lexicon-icon-ellipsis-v" focusable="false" role="presentation" viewBox="0 0 512 512">' +
-								'<path class="lexicon-icon-outline ellipsis-v-dot-2" d="M319 255.5c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
-								'<path class="lexicon-icon-outline ellipsis-v-dot-3" d="M319 448c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
-								'<path class="lexicon-icon-outline ellipsis-v-dot-1" d="M319 64c0 35.346-28.654 64-64 64s-64-28.654-64-64c0-35.346 28.654-64 64-64s64 28.654 64 64z"></path>' +
-							'</svg>' +
-						'</button>' + 
-					'</div>' );
+			let $actionBtn = this.$getActionButton();
 
 			$actionBtn.click( function(event){
 				//event.stopPropagation();
 
-				popmenu( $actionBtn, {
+				popmenu( $(this), {
 					items: {
 						copy: {
 							name: 'Copy'
@@ -2205,6 +2222,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'</span>').appendTo( $actionTd );
 
 			$deleteBtn.click(function(event){
+				if( fileTerm.disabled ){
+					return;
+				}
+
 				$tr.remove();
 
 				fileTerm.removeFile( parentFolderId, fileId, name );
@@ -2295,7 +2316,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $row;
 		},
-		$getAccordionForGroup: function( title, $body ){
+		$getAccordionForGroup: function( title, $body, disabled, extended=true ){
 			let $groupHead = $('<h3>').text(title);
 			let $groupBody = $('<div style="width:100%; padding:3px;">')
 								.append($body);
@@ -2305,12 +2326,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			$accordion.accordion({
 				collapsible: true,
-				active: true,
 				highStyle: 'content',
 				activate: function(event, ui){
 					ui.newPanel.css('height', 'auto');
 				}
 			});
+
+			if( disabled ){
+				$groupHead.css({background: '#c5c5c5', border:'none'});
+			}
+
+			if( extended ){
+				$accordion.accordion('option', 'active', false);
+				$accordion.accordion('option', 'active', 0);
+			}
+			else{
+				$accordion.accordion('option', 'active', false);
+			}
 
 			return $accordion;
 		},
@@ -2781,7 +2813,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toJSON(){
-			console.log( 'toJSON called...' );
 			let json = new Object();
 
 			json.value = this.value;
@@ -3075,6 +3106,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return (this.order && this.order > 0) ? true : false;
 		}
 
+		setDisable( disable=true ){
+			if( disable ){
+				this.disabled = disable;
+			}
+			else{
+				delete this.disabled;
+			}
+		}
+
 		setDirty( dirty ){
 			if( dirty ){
 				this.dirty = dirty;
@@ -3237,8 +3277,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.termVersion && this.termVersion !== Term.DEFAULT_TERM_VERSION )	json.termVersion = this.termVersion;
 			if( this.displayName && !this.displayName.isEmpty() ) json.displayName = this.displayName.getLocalizedMap();
 			if( this.definition && !this.definition.isEmpty() ) json.definition = this.definition.getLocalizedMap();
-			json.abstractKey = this.abstractKey ? this.abstractKey : false;
-			json.searchable = this.searchable ? this.searchable : false;
+			json.abstractKey = this.abstractKey ? true : false;
+			json.searchable = this.searchable ? true : false;
 			if( this.downloadable === false )	json.downloadable = this.downloadable;
 			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
@@ -3246,6 +3286,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.hasOwnProperty( 'value' ) )	json.value = this.value;
 			if( this.valueMode )	json.valueMode = this.valueMode;
 			if( this.order )	json.order = this.order;
+			if( this.disabled )	json.disabled = this.disabled;
 			if( this.dirty )	json.dirty = this.dirty;
 			if( this.masterTerm )	json.masterTerm = this.masterTerm;
 			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
@@ -3257,7 +3298,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		
 		parse( json ){
-			let unparsed = {};
+			let unparsed = new Object();
 			
 			let self = this;
 			Object.keys( json ).forEach(function(key, index){
@@ -3279,6 +3320,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'order':
 					case 'state':
 					case 'status':
+					case 'disabled':
 					case 'masterTerm':
 						self[key] = json[key];
 						break;
@@ -3442,11 +3484,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
+		getDisabledFormValue( save=true ){
+			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.DISABLED );
+			
+			let self = this;
+			if( save ){
+				this.disabled = value;
+				this.setDirty( true );
+			}
+
+			return value;
+		}
+		setDisabledFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, value );
+			}
+			else{
+				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, this.disabled );
+			}
+		}
+
 		getSearchableFormValue( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SEARCHABLE );
 			
 			if( save ){
-				this.searchable = true;
+				this.searchable = value;
 				this.setDirty( true );
 			}
 			
@@ -3456,7 +3518,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( value ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, value );
 			}
-			else if( this.searchable ){
+			else if( this.hasOwnProperty('searchable') ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, this.searchable );
 			}
 			else{
@@ -3580,11 +3642,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		
 
 		setAllFormValues(){
-			this.setAbstractKeyFormValue();
 			this.setDefinitionFormValue();
 			this.setDisplayNameFormValue();
 			this.setDownloadableFormValue();
 			this.setMandatoryFormValue();
+			this.setAbstractKeyFormValue();
+			this.setDisabledFormValue();
 			this.setSearchableFormValue();
 			this.setSynonymsFormValue();
 			this.setTermNameFormValue();
@@ -3602,7 +3665,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.displayName ) this.displayName = null;
 			if( !this.downloadable === false ) 	this.downloadable = Term.DEFAULT_DOWNLOADABLE;
 			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
-			if( !this.searchable ) 	this.searchable = Term.DEFAULT_SEARCHABLE;
+			if( !this.hasOwnProperty('searchable') ) 	this.searchable = Term.DEFAULT_SEARCHABLE;
 			if( !this.state )		this.state = Term.STATE_INIT;
 			if( !this.status )		this.status = Term.STATUS_DRAFT;
 			if( !this.synonyms ) 	this.synonyms = '';
@@ -4744,6 +4807,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+		disable( disable=true ){
+			this.disable = disable;
+			this.$rendered.find('select, input').prop('disabled', this.disable);
+		}
+
 		initAllAttributes(){
 			super.initAllAttributes( 'List' );
 
@@ -4898,7 +4966,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			json.displayStyle = this.displayStyle;
 			json.options = this.options.map(option=>option.toJSON());
 			
-			console.log('List toJSON: ', json, this);
 			return json;
 		}
 	}
@@ -5265,17 +5332,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( jsonObj ){
 			super( 'File' );
 
-			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
-
 			this.searchable = false;
+
+			jsonObj ? this.parse( jsonObj ) : super.initAllAttributes('File');
+
 			this.setAllFormValues();
 		}
 		
-		initAllAttributes(){
-			super.initAllAttributes( 'File' ); 
-			this.$rendered = null;
-		}
-
 		addFile( parantFolderId, fileId, file ){
 			if( !this.hasOwnProperty('value') ){
 				this.value = new Object();
@@ -5399,6 +5462,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setAllFormValues(){
 			super.setAllFormValues();
+
+			FormUIUtil.clearFormValue( 'value' );
 		}
 
 		getFormValue( save=true ){
@@ -5521,7 +5586,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{
 				delete json.value;
 			}
-			console.log('File json: ', JSON.stringify(json) );
 
 			return json;
 		}
@@ -5699,14 +5763,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $container = $('<div class="container-fluid">')
+			let $container = $('<div class="container-fluid">');
 			let $containerRow = $('<div class="row">').append($panel);
 			$container.append( $containerRow );
 
+			let disabled = this.disabled ? true : false;
+			let extended = this.extended ? true : false;
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				disabled = false;
+				extended = true; 
+			}
+
 			let $accordion = FormUIUtil.$getAccordionForGroup( 
 											this.displayName.getText(CURRENT_LANGUAGE),
-											$container);
-			
+											$container,
+											disabled,
+											extended );
+
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(this, $accordion);
 			}
@@ -5724,20 +5797,44 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered ? true : false;
 		}
 
+		disable( disable ){
+			this.$rendered.find('.ui-accordion-header').css('background', '#c5c5c5');
+		}
+
 		clearHighlightedChildren(){
 			this.$groupPanel.find('.sx-form-item-group.highlight').removeClass('highlight');
 		}
 
+		setAllFormValues(){
+			super.setAllFormValues();
+
+			FormUIUtil.setFormCheckboxValue('extended', this.extended);
+		}
 
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
-			if( !Util.isEmptyObject(unparsed) ){
-				console.log('Group Term has unparsed attributes: '+ this.termName, unparsed);
-			}
+
+			let self = this;
+			Object.keys( unparsed ).forEach( key => {
+				switch( key ){
+					case 'extended':
+						self[key] = unparsed[key];
+						FormUIUtil.setFormCheckboxValue( 'extended', self[key] );
+						break;
+					default:
+						console.log('Group Term has unparsed attributes: '+ self.termName, unparsed[key]);
+				}
+			});
 		}
 
 		toJSON(){
-			return super.toJSON();
+			let json = super.toJSON();
+
+			if( this.extended ){
+				json.extended = this.extended;
+			}
+
+			return json;
 		}
 	}
 
@@ -6718,7 +6815,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.terms ){
 				this.terms = new Array();
 			}
-			
+
 			this.terms.push( term );
 
 			if( forWhat !== SXConstants.FOR_NOTHING ){
@@ -6996,6 +7093,78 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.getDownloadableTerms( downloadable ).length;
 		}
 
+		isAllChildrenDisabled( groupTerm ){
+			let allDisabled = true;
+
+			this.getGroupMembers( groupTerm.getTermId() )
+				.every( member => {
+					if( !member.disabled ){
+						allDisabled = false;
+						return SXConstants.STOP_EVERY;
+					}
+
+					return SXConstants.CONTINUE_EVERY;
+				});
+
+			return allDisabled;
+		}
+
+		disableTerm( term, disable=true, forWhat=SXConstants.FOR_EDITOR, recursive=false ){
+			term.setDisable( disable );
+
+
+			if( term.isGroupTerm() ){
+				let members = this.getGroupMembers( term.getTermId() );
+				let self = this;
+				members.forEach( member => {
+					self.disableTerm( member, disable, forWhat, true );
+				});
+			}
+			else if( !recursive && term.isMemberOfGroup() ){
+				let parent = this.getTerm( term.getGroupId() );
+
+				if( disable ){
+					if( this.isAllChildrenDisabled( parent ) ){
+						parent.disabled = true;
+						console.log('all children disabled: ', parent );
+					}
+				}
+				else{
+					delete parent.disabled;
+					console.log('Not all children disabled: ', parent );
+				}
+
+				this.renderTerm( parent, forWhat, false, false);
+
+			}
+			
+			this.renderTerm( term, forWhat, false );
+			
+			if( term.isGroupTerm() ){
+				this.extendGroup( term );
+			}
+		}
+			
+		extendGroup( groupTerm, extended=true ){
+
+			if( extended ){
+				groupTerm.extended = extended;
+				groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
+				groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', 0);
+			}
+			else{
+				delete groupTerm.extended;
+				groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
+			}
+
+			/*
+			let members = this.getGroupMembers( groupTerm.getTermId() );
+			members.forEach( member => {
+				if( extended )	member.$rendered.find('.ui-accordion').accordion('option', 'active', 0);
+			});
+			*/
+		}
+
 		toFileContent(){
 			let fileContent = {};
 
@@ -7086,9 +7255,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			if( this.terms ){
-				json.terms = this.terms.map(term=>{
-					return term.toJSON();
-				});
+				console.log('data structure to json: ', JSON.stringify(this.terms, null, 4));
+				json.terms = this.terms.filter( term=> term !== null )
+										.map(term=>term.toJSON() );
 			}
 
 			return json;
@@ -7161,7 +7330,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {int} forWhat 
 		 * @param {boolean} highlight 
 		 */
-		renderTerm( term, forWhat=SXConstants.FOR_EDITOR, highlight=false ){
+		renderTerm( term, forWhat=SXConstants.FOR_EDITOR, highlight=false, deep=true ){
 			if( forWhat === SXConstants.FOR_SEARCH && !term.searchable ){
 				console.log( 'Not searchable term: ', term );
 				return;
@@ -7177,7 +7346,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$panel = this.$canvas;
 			}
 
-			let $row = this.$renderTerm( term, forWhat );
+			let $row = this.$renderTerm( term, forWhat, deep );
 
 			let rowCount = this.countPreviewRows( $panel );
 
@@ -7194,6 +7363,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( highlight === true ){
 				this.highlightTerm( term );
 			}
+
+			/*
+			if( term.isGroupTerm() && term.extended ){
+				this.extendGroup( term, term.extended );
+			}
+			*/
 		}
 
 		countPreviewRows( $panel ){
@@ -7217,7 +7392,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 */
 		render( forWhat=SXConstants.FOR_PREVIEW, $canvas ){
 			$canvas = this.$setCanvas( forWhat, $canvas );
-
+			
 			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
 			
 			$canvas.empty();
@@ -7227,6 +7402,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			topLevelTerms.forEach(term=>{
 				self.renderTerm(term, forWhat);
 			});
+			
+			/*
+			// Extend groups which are 'extended' attribute is true
+			this.terms.forEach(term=>{
+				if( term.isGroupTerm() ){
+					self.extendGroup( term, term.extended ? true : false );
+				}
+			});
+			*/
 
 			if( forWhat === SXConstants.FOR_EDITOR ){
 				this.terms.forEach(term=>{
@@ -7279,11 +7463,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		$renderTerm( term, forWhat=SXConstants.FOR_PREVIEW ){
+		$renderTerm( term, forWhat=SXConstants.FOR_PREVIEW, deep ){
 			if( term.isGroupTerm() ){
 				let termSets = this.devideTermsByGroup( term.getTermId() );
 
-				return term.$render( termSets.hits, termSets.others, forWhat );
+				return term.$render( termSets.hits, termSets.others, forWhat, deep );
 			}
 			else{
 				return term.$render(forWhat);

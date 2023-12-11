@@ -14,8 +14,6 @@ function popmenu($tag, options) {
 		position: 'offset'
 }
 	
-	console.log( 'Event: ', event);
-
     if (typeof options === 'object') {
         $.extend(opts, options);
     } else {
@@ -23,8 +21,6 @@ function popmenu($tag, options) {
     	return false;
     }
 	
-	console.log('Options: ', opts);
-
 	var menu_items = '';
 
 	for (var item in opts.items) {
@@ -47,7 +43,6 @@ function popmenu($tag, options) {
 	menu_items = $("<div role='popmenu-layer'><ul role='popmenu'>" + menu_items + "</ul></div>");
 
 	$("body").append(menu_items);
-	console.log('menu item width: ' + menu_items.find("[role='popmenu']").width());
 
 	let left = opts.x;
 	let top = opts.y;

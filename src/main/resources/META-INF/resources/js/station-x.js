@@ -5771,7 +5771,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let extended = this.extended ? true : false;
 			if( forWhat === SXConstants.FOR_SEARCH ){
 				disabled = false;
-				extended = true; 
+				extended = false; 
 			}
 
 			let $accordion = FormUIUtil.$getAccordionForGroup( 

@@ -48,6 +48,8 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		*/
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/dynamic-popup-menu/popmenu.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/dynamic-popup-menu/popmenu.js\"></script>";
+		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/simple-pagenation/simplePagination.css\">";
+		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/simple-pagenation/jquery.simplePagination.js\"></script>";
 		
 		
 		printWriter.println(content);

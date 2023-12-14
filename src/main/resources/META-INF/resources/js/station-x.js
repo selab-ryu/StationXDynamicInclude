@@ -922,7 +922,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						delete term.searchDate;
 					}
 					else{
-						term.searchDate = $fromInputTag.datetimepicker("getValue").getTime();
+						term.searchDate = [$fromInputTag.datetimepicker("getValue").getTime()];
 					}
 				};
 
@@ -1016,7 +1016,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$toSpan.removeClass('hide');
 
 					if( term.hasOwnProperty('searchDate') ){
-						term.fromSearchDate = term.searchDate;
+						term.fromSearchDate = term.searchDate[0];
 					}
 					delete term.searchDate;
 				}
@@ -1027,7 +1027,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$toSpan.removeClass('display-inline-block');
 
 					if( term.hasOwnProperty('fromSearchDate') ){
-						term.searchDate = term.fromSearchDate;
+						term.searchDate = [term.fromSearchDate];
 					}
 					delete term.fromSearchDate;
 					delete term.toSearchDate;
@@ -2505,7 +2505,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED: 'SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED',
 		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED',
 		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_REMOVED',
-		SD_SEARCH_KEYWORDS_CHANGED: 'SD_SEARCH_KEYWORDS_REMOVED'
+		SD_SEARCH_KEYWORDS_CHANGED: 'SD_SEARCH_KEYWORDS_REMOVED',
+		SD_SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED'
 	};
 
 	const SXConstants = {
@@ -4054,7 +4055,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		minmaxValidation( value ){
-			console.log( 'minmaxValidation input: ', value, !value );
 			if( !value ){
 				return true;
 			}
@@ -4173,8 +4173,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				return SXConstants.FILTER_ADD;
 			});
-
-			console.log('properValues: ', properValues );
 
 			if( properValues.length === values.length ){
 				if( properValues.length > 0 ){
@@ -5197,7 +5195,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			}
 			else{
-				searchField.setKeywords( this.searchDates );
+				searchField.setKeywords( this.searchDate );
 			}
 
 			return searchField;
@@ -8115,7 +8113,614 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 	}
-	
+
+	class SearchHistory{
+		constructor( fieldName, keywords, infieldResults, infieldOperator, fieldOperator ){
+			this.fieldName = fieldName;
+			this.keywords = keywords;
+			this.infieldResults = infieldResults;
+			this.infieldOperator = infieldOperator;
+			this.fieldOperator = fieldOperator;
+		}
+
+		update(
+			keywords, 
+			infieldResults,
+			infieldOperator,
+			fieldOperator ){
+				this.keywords = keywords;
+				this.infieldResults = infieldResults;
+				this.infieldOperator = infieldOperator;
+				this.fieldOperator = fieldOperator;
+		}
+
+		$render( order ){
+			let $row = $('<tr>');
+			
+			$row.append( $('<td>' + order + '</td>' ) );
+
+			$row.append( $('<td style="text-align:center;">'+fieldName+'</td>') );
+
+			if( keywords instanceof Array ){
+				$row.append( $('<td style="text-align:center;">'+keywords +'</td>') );
+			}
+			else{
+				$row.append( $('<td style="text-align:center;">'+
+									(keywords.from ? keywords.from:'') + 
+									' ~ ' + 
+									(keywords.to ? keywords.to:'') +'</td>') );
+			}
+
+			let infieldResultCount = this.infieldResults ? infieldResults.length : 0;
+			let $infieldResults = $('<td style="text-align:center;">'+infieldResultCount+'</td>' ).appendTo($row);
+
+			$infieldResults.click( function(event){
+				console.log('field results clicked');
+			});
+
+			if( this.orderResults ){
+				let $orderResults = $('<td style="text-align:center;">'+this.orderResults.length+'</td>').appendTo($row);
+				$orderResults.click( function(event){
+					console.log('order results clicked');
+				});
+			}
+
+			return $row;
+		}
+
+		setAccumulatedResults( results ){
+			this.orderResults = results;
+		}
+	}
+
+	class SearchData{
+		constructor( id, data, abstract, baseLinkURL){
+			this.id = id;
+			this.data = data;
+			this.abstract = abstract;
+			this.baseLinkURL = baseLinkURL;
+		}
+
+		$render( visibility ){
+			let $row = $('<div class="row" style="padding-top:3px; padding-bottom:3px;width:100%;">');
+			
+			let $col_1 = $('<div class="col-md-1 index-col" style:"text-align:right;">');
+			//$col_1.text( index );
+			$row.append( $col_1 );
+			
+			let $col_2 = $('<div class="col-md-10 abstract-col">');
+			let $href = $('<a>');
+			
+			
+			let renderUrl = Liferay.PortletURL.createURL(this.baseLinkURL);
+			renderUrl.setParameter("structuredDataId", this.id);
+			
+			$href.prop('target', '_blank' );
+			$href.prop('href', renderUrl.toString() );
+			$col_2.append( $href );
+			
+			
+			$href.text( this.abstract );
+			$row.append( $col_2 );
+			
+			let $col_3 = $('<div class="col-md-1 action-col">');
+			$col_3.append( FormUIUtil.$getActionButton() );
+			$row.append( $col_3 );
+			
+			$row = visibility ? $row.show() : $row.hide();
+
+			this.$rendered = $row;
+
+			return $row;
+		}
+
+		setRenderOrder( order ){
+			this.$rendered.find( '.index-col' ).text( order );
+		}
+
+		hide(){
+			this.$rendered.find( '.index-col' ).empty();
+			this.$rendered.hide();
+		}
+
+		show( index ){
+			this.setRenderOrder( index );
+
+			if( index % 2 ){
+				this.$rendered.css('background', '#fff');
+			}
+			else{
+				this.$rendered.css('background', '#eee');
+			}
+
+			this.$rendered.show();
+		}
+
+	}
+
+
+	class AdvancedSearch{
+		constructor( jsonDataStructure, jsonAbstractFields, structuredDataList, $querySection, $resultSection, $resultPagination, baseLinkURL ){
+			this.dataStructure = new DataStructure(jsonDataStructure);
+			this.baseLinkURL = baseLinkURL;
+			this.abstractFields = jsonAbstractFields;
+			this.$querySection = $querySection;
+			this.$resultSection = $resultSection;
+			this.$resultPagination = $resultPagination;
+			this.searchHistories = new Array();
+
+			this.dataStructure.$setCanvas(SXConstants.FOR_SEARCH, $querySection);
+			this.dataStructure.render( SXConstants.FOR_SEARCH, $querySection );
+			this.renderAllData( structuredDataList );
+		}
+
+		renderAllData( structuredDataList ){
+			this.dataList = new Array();
+			structuredDataList.forEach( structuredData => {
+				let searchData = new SearchData( 
+											structuredData.id, 
+											structuredData.data, 
+											this.getAbstract(structuredData.data), 
+											this.baseLinkURL );
+				
+				let $rendered = searchData.$render( false );
+				this.$resultSection.append( $rendered );
+				
+				this.dataList.push( searchData );
+			});
+		}
+
+		getAbstract( data ){
+			let abstractContent = '';
+			
+			this.abstractFields.forEach( field => {
+				if( data.hasOwnProperty( field ) ){
+					let term = this.dataStructure.getTermByName( field );
+					if( term.termType === 'Date' ){
+						if( term.enableTime ){
+							abstractContent += field + ':' + Util.toDateTimeString( data[field] ) + ' ';
+						}
+						else{
+							abstractContent += field + ':' + Util.toDateString( data[field] ) + ' ';
+						}
+					}
+					else{
+						abstractContent += field + ':' + data[field] + ' ';
+					}
+				}
+			});
+
+			return abstractContent;
+		}
+
+		countSearchHistories(){
+			return this.searchHistories.length;
+		}
+
+		findSearchHistory( fieldName ){
+			return this.searchHistories.find( searchHistory => searchHistory.fieldName === fieldName);
+		}
+
+		switchSearchHistories( index_1, index_2){
+			let sh_1 = this.searchHistories[index_1];
+			this.searchHistories[index_1] = this.searchHistories[index_2];
+			this.searchHistories[index_2] = sh_1;
+		}
+
+		removeSearchHistory( fieldName ){
+			this.searchHistories = this.searchHistories.filter( history => history.fieldName !== fieldName );
+		}
+
+		updateSearchHistory( fieldName, keywords, infieldResults, infieldOperator, fieldOperator ){
+			let searchHistory = this.findSearchHistory( fieldName );
+
+			if( keywords && ( Array.isArray(keywords) || keywords.from || keywords.to) ){
+				if( !searchHistory ){
+					searchHistory = new SearchHistory(
+										fieldName, 
+										keywords, 
+										infieldResults,
+										infieldOperator,
+										fieldOperator );
+
+					this.searchHistories.push( searchHistory );
+				}
+				else{
+					searchHistory.update(
+						keywords, 
+						infieldResults,
+						infieldOperator,
+						fieldOperator
+						);
+				}
+			}
+			else{
+				this.removeSearchHistory( fieldName );
+			}
+
+			return this.doFieldSearch( fieldOperator );
+		}
+
+		doOrSearchWithinField( fieldName, keywords ){
+			let results = this.dataList.filter( searchData => {
+				if( keywords ){
+					for( let keyword of keywords ){
+						if( searchData.data[fieldName] instanceof Array ){
+							let found = searchData.data[fieldName].find( element => element === keyword );
+							
+							if( found ){
+								return true;
+							}
+						}
+						else{
+							return searchData.data[fieldName] === keyword;
+						}
+					};
+				}
+				else{
+					return false;
+				}
+				
+				return false;
+			});
+
+			return results;
+		}
+
+		doAndSearchWithinField( fieldName, keywords ){
+		}
+
+		doAndFieldSearch(){
+			let finalResults;
+
+			this.searchHistories.forEach( (history, index) => {
+				let historyResults;
+
+				if( index === 0 ){
+					finalResults = history.infieldResults;
+					history.setAccumulatedResults( finalResults );
+				}
+				else{
+					finalResults = 
+							 history.infieldResults
+									.filter( infieldResult => finalResults.find( result => result === infieldResult ) );
+					history.setAccumulatedResults( finalResults );
+				}
+
+			});
+
+			return finalResults;
+		}
+
+		doOrFieldSearch(){
+
+		}
+
+		doFieldSearch( fieldOperator ){
+			if( fieldOperator === 'and' ){
+				return this.doAndFieldSearch();
+			}
+			else{
+				return this.doOrFieldSearch();
+			}
+
+		}
+
+		hideAllSearchResults(){
+			this.dataList.forEach( searchData => searchData.hide() );
+		}
+
+		displaySearchResults( results ){
+			this.hideAllSearchResults();
+			if( typeof this.$resultPagination.pagination === 'function'  ){
+				this.$resultPagination.pagination('destroy' );
+			}
+
+			if( !results ){
+				return;
+			}
+
+			results.forEach( (result, index) => result.show( index+1 ) );
+
+			this.$resultPagination.pagination({
+				items: results.length,
+				itemsOnPage: 20,
+				displayedPages: 3,
+				onPageClick: function( pageNumber, event){
+					let delta = this.itemsOnPage;	
+					
+					results.forEach( (result, index) => {
+						if( index >= delta * (pageNumber-1) && index < delta*pageNumber ){
+							result.show( index+1 );
+						}
+						else{
+							result.hide();
+						}
+					});
+				},
+				onInit: function(){
+					let delta = this.itemsOnPage;	
+					results.forEach( (result, index) => {
+						if( index < delta ){
+							result.show( index+1 );
+						}
+						else{
+							result.hide();
+						}
+					});
+				}
+			});
+		}
+
+		getSearchHistories(){
+			return this.searchHistories.map( (history, index) => {
+				return {
+					order: index + 1,
+					results: history.orderResults ? history.orderResults.map( result => result.id ) : [],
+					fieldName: history.fieldName
+				};
+			});
+		}
+
+		doKeywordSearch( fieldName, keywords, dataType, infieldOperator='or', fieldOperator='and' ){
+			let infieldResults;
+			if( infieldOperator === 'or'){
+				infieldResults = this.doOrSearchWithinField( fieldName, keywords );
+			}
+			else{
+				infieldResults = this.doAndSearchWithinField( fieldName, keywords );
+			}
+
+
+			let searchResults;
+			if( dataType === 'Date' ){
+				let dateKeywords;
+				if( keywords ){
+					dateKeywords = keywords.map( keyword => {
+						let date = new Date(keyword);
+
+						return date.getFullYear() + '/' + date.getMonth() + '/' + date.getDate();
+					});
+				}
+				else{
+					dateKeywords = undefined;
+				}
+
+				searchResults= this.updateSearchHistory( fieldName, dateKeywords, infieldResults, infieldOperator, fieldOperator );	
+			}
+			else{
+				searchResults= this.updateSearchHistory( fieldName, keywords, infieldResults, infieldOperator, fieldOperator );	
+			} 
+
+			Liferay.fire(
+				SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+				{}
+			);
+				
+			this.displaySearchResults( searchResults );
+			
+			let finalHistory = this.searchHistories[this.searchHistories.length-1];
+
+			return ( finalHistory && finalHistory.orderResults ) ? finalHistory.orderResults.length : null;
+		}
+
+		rangeSearch(fieldName, fromValue, toValue ){
+			let results = this.dataList.filter( searchData => {
+				if(  ( typeof(fromValue) !== "undefined" && fromValue !== null )  &&
+					  ( typeof(toValue) !== "undefined" && toValue !== null ) ){
+						return searchData.data[fieldName] >= fromValue && searchData.data[fieldName] <= toValue ;
+				}
+				else if(  ( typeof(fromValue) === "undefined" || fromValue === null )  &&
+							  ( typeof(toValue) !== "undefined" && toValue !== null ) ){
+						return searchData.data[fieldName] <= toValue ;
+				}
+				else if(  ( typeof(fromValue) !== "undefined" && fromValue !== null )  &&
+							  ( typeof(toValue) === "undefined" || toValue === null ) ){
+							return searchData.data[fieldName] >= fromValue ;
+				}
+							  
+				return false;
+			});
+			
+			return results;
+		}
+
+		doRangeSearch( fieldName, fromValue, toValue, dateType, infieldOperator='range', fieldOperator='and' ){
+			let rangeSearchResults = this.rangeSearch( fieldName, fromValue, toValue );
+
+			let searchResults;
+			if( dateType === 'Date' ){
+				let fromDate = fromValue ? new Date( fromValue ) : undefined;			
+				let toDate = toValue ? new Date( toValue ) : undefined;			
+				searchResults = this.updateSearchHistory( fieldName, 
+												{ 
+													from: fromDate? fromDate.getFullYear()+'/'+fromDate.getMonth()+'/'+fromDate.getDate() : '', 
+													to:toDate? toDate.getFullYear()+'/'+toDate.getMonth()+'/'+toDate.getDate() : ''
+												}, 
+												rangeSearchResults,
+												infieldOperator, 
+												fieldOperator );
+			}
+			else{
+				searchResults = this.updateSearchHistory( 
+											fieldName, 
+											{ from: fromValue, to:toValue}, 
+											rangeSearchResults,
+											infieldOperator,
+											fieldOperator );
+			}
+			
+			Liferay.fire(
+				SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+				{}
+			);
+
+			this.displaySearchResults( searchResults );
+			
+			let finalHistory = this.searchHistories[this.searchHistories.length-1];
+
+			return ( finalHistory && finalHistory.orderResults ) ? finalHistory.orderResults.length : null;
+		};
+
+		displaySearchDataDialog( title, searchDataArray ){
+			let self = this;
+			let $dialog = $('<div>');
+
+			let $table = $('<table style="width:100%;">').appendTo( $dialog );
+			let $pagination = $('<div class="pagination" style="margin-top:30px; width:100%; display:flex; justify-content:center;">').appendTo($dialog);
+
+			$pagination.pagination({
+					items: searchDataArray.length,
+					itemsOnPage: 10,
+					onPageClick: function( pageNumber, event){
+						let delta = this.itemsOnPage;	
+						let $items = $table.children();
+						
+						$items.each( (index, item) => {
+							if( index >= delta * (pageNumber-1) && index < delta*pageNumber ){
+								$(item).find('.index-col').text( index+1 );
+								$(item).show();
+							}
+							else{
+								$(item).hide();
+							}
+						});							
+					},
+					onInit: function(){
+						let delta = this.itemsOnPage;
+						searchDataArray.forEach( (searchData, index) => {
+							let clone = new SearchData( searchData.id, searchData.data, searchData.abstract, searchData.baseLinkURL);
+							clone.$rendered = searchData.$rendered.clone();
+							if( delta > index ){
+								clone.show( index+1 );
+							}
+							else{
+								clone.setRenderOrder( index + 1 );
+								clone.hide();
+							}
+							$table.append( clone.$rendered );
+						});
+					}
+			});
+
+			$dialog.dialog({
+				title: title,
+				width:800,
+				buttons:[{
+					text: Liferay.Language.get('ok'),
+					click: function( event ){
+						$(this).dialog('destroy');
+					}
+				}]
+			});
+
+		}
+
+		showSearchHistories(){
+			let self = this;
+			let $dialog = $('<div>');
+
+			let $table = $('<table style="width:100%;">').appendTo( $dialog );
+			$table.append( $('<thead style="background:#c5c5c5">'+
+								'<tr>'+
+									'<th style="text-align:center;width:10%;">'+Liferay.Language.get('order')+'</th>'+
+									'<th style="text-align:center;width:30%;">'+Liferay.Language.get('item')+'</th>'+
+									'<th style="text-align:center;width:30%;">'+Liferay.Language.get('keywords')+'</th>' +
+									'<th style="text-align:center;width:10%;">'+Liferay.Language.get('field-results')+'</th>' +
+									'<th style="text-align:center;width:10%;">'+Liferay.Language.get('accumulated-results')+'</th>' +
+									'<th style="text-align:center;width:10%;">'+Liferay.Language.get('actions')+'</th>' +
+								'</tr>'+
+							 '</thead>'));
+			
+			let $tbody = $('<tbody>').appendTo($table);
+
+			this.searchHistories.forEach( (history, index) => {
+				let $row = $('<tr>').appendTo($tbody);
+
+				$row.append( $( '<td style="text-align:center;">' + (index+1) +'</td>' +
+								'<td style="text-align:center;">' + history.fieldName +'</td>' ) );
+
+				if( history.keywords instanceof Array ){
+					$row.append( $( '<td style="text-align:center;">' + history.keywords+'</td>' ) );
+				}
+				else{
+					$row.append( $('<td style="text-align:center;">'+(history.keywords.from ? history.keywords.from:'') + 
+									' ~ ' + (history.keywords.to ? history.keywords.to:'') +'</td>'));
+				}
+
+				let $infieldResults = $('<td style="text-align:center;">' + history.infieldResults.length+'</td>').appendTo($row);
+				$infieldResults.click( function(event){
+					self.displaySearchDataDialog( history.fieldName, history.infieldResults );
+				});
+
+				let $orderResults = $('<td style="text-align:center;">' + history.orderResults.length+'</td>').appendTo($row);
+				$orderResults.click( function(event){
+					self.displaySearchDataDialog( history.fieldName, history.orderResults );
+				});
+
+				let $actions = $('<td style="text-align:center;">' ).appendTo($row);
+				if( index < this.searchHistories.length - 1 ){
+					let $moveDown = $('<span class="ui-icon ui-icon-circle-arrow-s"></span>').appendTo($actions);
+					$moveDown.click( function(event){
+						let nextIndex = index + 1;
+						let lastINdex = self.searchHistories.length - 1;
+						if( index < lastINdex ){
+							if( typeof $dialog.dialog === 'function' ){
+								$dialog.dialog('destroy');
+							}
+							
+							self.switchSearchHistories( index, nextIndex);
+							let searchResults = self.doFieldSearch( 'and' );
+							self.displaySearchResults( searchResults );
+							self.showSearchHistories();
+
+							Liferay.fire(
+								SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+								{}
+							);
+						}
+					});
+				}
+
+				if( index > 0 ){
+					let $moveUp = $('<span class="ui-icon ui-icon-circle-arrow-n"></span>').appendTo($actions);
+					$moveUp.click( function(event){
+						let prevIndex = index - 1;
+						if( index > 0 ){
+							if( typeof $dialog.dialog === 'function' ){
+								$dialog.dialog('destroy');
+							}
+							
+							self.switchSearchHistories( prevIndex, index );
+							let searchResults = self.doFieldSearch( 'and' );
+							self.displaySearchResults( searchResults );
+							self.showSearchHistories();
+
+							Liferay.fire(
+								SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+								{}
+							);
+						}
+					});
+				}
+			});
+
+			$tbody.find("tr").filter(":even").css('background', 'rgb(238,238,238)');
+		
+			$dialog.dialog({
+				title: Liferay.Language.get('query-history'),
+				width:800,
+				modal: true,
+				buttons:[{
+					text: Liferay.Language.get('ok'),
+					click: function(){
+						$(this).dialog('destroy');
+					}
+				}]
+			});
+		}
+	}
+
     return {
     	namespace: NAMESPACE,
     	defaultLanguage: DEFAULT_LANGUAGE,
@@ -8191,6 +8796,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		DateTerm: DateTerm,
 		FormUIUtil: FormUIUtil,
     	Util: Util,
+		AdvancedSearch:AdvancedSearch,
 		createVisualizer: function(){
 			return new StationX.Visualizer();
 		}

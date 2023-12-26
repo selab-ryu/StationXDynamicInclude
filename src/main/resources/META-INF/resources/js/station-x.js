@@ -1415,143 +1415,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $node;
 		},
-		$getBooleanFieldSetNode: function( term, forWhat ){
-			let controlName = NAMESPACE + term.termName;
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let disabled = term.disabled;
-			let value;
-			if( term.hasOwnProperty('value') ){
-				value = term.value;
-			}
-			
-			let displayStyle = (forWhat === SXConstants.FOR_SEARCH ) ? SXConstants.DISPLAY_STYLE_RADIO : term.displayStyle;
-			let options = term.options;
-
-			let $node;
-
-			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
-
-				$node = $('<div class="form-group input-text-wrapper">')
-							.append( this.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled) );
-
-				$node.change(function(event){
-					event.stopPropagation();
-					event.preventDefault();
-	
-					term.value = $node.find('select').val();
-	
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term,
-							controlName: controlName,
-							value: term.value
-						}
-					};
-	
-					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
-					);
-				});
-			}
-			else{ // Radio fieldset. Boolean terms don't provide checkbox display style. 
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
-				let $panelBody = $panelGroup.find('.panel-body');
-
-				options.forEach((option, index)=>{
-					let selected = ( forWhat === SXConstants.FOR_SEARCH ) ? false : (value === option.value);
-
-					let $radioTag = this.$getRadioButtonTag( 
-										controlName+'_'+(index+1),
-										controlName, 
-										option,
-										selected,
-										disabled );
-					$panelBody.append( $radioTag );
-
-					$radioTag.bind('click', function(event){
-						let wasChecked =  $(this).data('checked');
-						
-						if( wasChecked ){
-							$(this).find('input').prop('checked', false);
-							$(this).find('input').trigger('change');
-						}
-						else{
-							$(this).find('input').prop('checked', true);
-						}
-						$(this).data('checked', !wasChecked);
-					});
-				});
-					
-				if( forWhat === SXConstants.FOR_SEARCH ){
-					$panelBody.change(function(event){
-						event.stopPropagation();
-						event.preventDefault();
-
-						let $checkedRadio = $(this).find('input[type="radio"]:checked');
-						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
-
-						if( changedVal ){
-							term.searchKeywords = [changedVal];
-						}
-						else{
-							delete  term.searchKeywords;
-						}
-
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
-
-						Liferay.fire(
-							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
-							eventData
-						);
-					});
-				}
-				else{
-					$panelBody.change(function(event){
-						event.stopPropagation();
-						event.preventDefault();
-
-						let $checkedRadio = $(this).find('input[type="radio"]:checked');
-						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
-
-						if( changedVal ){
-							term.value = changedVal;
-						}
-						else{
-							delete term.value;
-						}
-
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
-
-						Liferay.fire(
-							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-							eventData
-						);
-					});
-				}
-
-				$node = $('<div class="card-horizontal main-content-card">')
-								.append( $panelGroup );
-			}
-
-			return $node;
-		},
 		$getTextInputNode: function( term ){
 			let controlName = NAMESPACE + term.termName;
 			let label = term.getLocalizedDisplayName();
@@ -2175,25 +2038,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $list;
 		},
-		$getFormBooleanSection: function(
-					term,
-					forWhat ){
-
-			let $fieldset = this.$getBooleanFieldSetNode( term, forWhat );
-			
-			let $list;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$list = this.$getPreviewRowSection(term, $fieldset);
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				$list = this.$getEditorRowSection(term, $fieldset);
-			}
-			else{
-				// rendering for PDF here
-			}
-
-			return $list;
-		},
 		$getFileListTableRow( fileTerm, parentFolderId, fileId, name, size, type, downloadURL ){
 			let $tr = $('<tr id="'+name+'">');
 			$('<td class="file-id" style="width:10%;">').appendTo($tr).text(fileId);
@@ -2346,13 +2190,81 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $accordion;
 		},
+		$getFormMatrixSection: function( matrixTerm, forWhat ){
+			let $matrixSection = $('<div class="form-group input-text-wrapper">');
+			
+			let $label = this.$getLabelNode( NAMESPACE+matrixTerm.termName, 
+											matrixTerm.getLocalizedDisplayName(),
+											matrixTerm.mandatory, 
+											matrixTerm.getLocalizedTooltip() ).appendTo($matrixSection);
+			let $table = $('<table>').appendTo( $matrixSection );
+			for( let r=0; r < matrixTerm.rows; r++ ){
+				let $tr = $('<tr style="line-height:1.8rem;">').appendTo( $table ) ;
+				if( r === 0 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9121;</span></td>') );
+				}
+				else if( r > 0 && r < matrixTerm.rows - 1 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9122;</span></td>') );
+				}
+				else{
+					$tr.append( $('<td><span style="font-size:1rem;">&#9123;</span></td>') );
+				}
+
+				for( let c=0; c<matrixTerm.columns; c++){
+					let $td = $('<td>').appendTo( $tr );
+					let $input = $('<input type="text" name="' + NAMESPACE + matrixTerm.termName+'_'+r+'_'+c+'" class="form-control" style="width:'+matrixTerm.columnWidth+'rem;height:1.5rem;padding:0;text-align:right;margin-left:3px; margin-right:3px;"/>').appendTo($td);
+
+					if( matrixTerm.value[r][c] ){
+						$input.val( matrixTerm.value[r][c] );
+					}
+					else{
+						$input.val( 0 );
+					}
+
+					if( matrixTerm.disabled ){
+						$input.prop('disabled', true);
+					}
+					else{
+						$input.change(function(event){
+							event.stopPropagation();
+							matrixTerm.value[r][c] = Number( $input.val() );
+
+							let eventData = {
+								sxeventData:{
+									sourcePortlet: NAMESPACE,
+									targetPortlet: NAMESPACE,
+									term: matrixTerm  
+								}
+							};
+			
+							Liferay.fire(
+								SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+								eventData
+							);
+						});
+					}
+				}
+
+				if( r === 0 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9124;</span></td>') );
+				}
+				else if( r > 0 && r < matrixTerm.rows - 1 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9125;</span></td>') );
+				}
+				else{
+					$tr.append( $('<td><span style="font-size:1rem;">&#9126;</span></td>') );
+				}
+			}
+
+			return $matrixSection;
+		},
 		$getTypeSpecificSection: function( termType ){
 			return $('#' + NAMESPACE +  termType.toLowerCase() + 'Attributes');
 		},
 		replaceVisibleTypeSpecificSection: function( termType ){
-			$('#'+NAMESPACE+'typeSpecificSection .type-specific-attrs.show').removeClass('show').addClass('hide');
+			$('#'+NAMESPACE+'typeSpecificSection .type-specific-attrs').hide();
 
-			FormUIUtil.$getTypeSpecificSection( termType ).removeClass('hide').addClass('show');
+			FormUIUtil.$getTypeSpecificSection( termType ).show();
 		},
 		getFormRadioValue: function( attrName ){
 			return $('input[name="'+NAMESPACE+attrName+'"]:checked').val();
@@ -3196,7 +3108,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		getLocalizedTooltip(){
 			if( !this.tooltip || this.tooltip.isEmpty() ){
-				return false;
+				return '';
 			}
 			else{
 				const tooltip = this.tooltip.getText(CURRENT_LANGUAGE);
@@ -3255,6 +3167,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		validate(){
 			let result = this.validateMandatoryFields();
 			if( result !== true ){
+				console.log( 'Non-proper term: ', this );
 				$.alert( result + ' should be not empty.' );
 				$('#'+NAMESPACE+result).focus();
 				
@@ -3271,28 +3184,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toJSON(){
-			let json = {};
+			let json = new Object();
 			
-			json.termType = this.termType;
-			if( this.termName )		json.termName = this.termName;	
-			if( this.termVersion && this.termVersion !== Term.DEFAULT_TERM_VERSION )	json.termVersion = this.termVersion;
-			if( this.displayName && !this.displayName.isEmpty() ) json.displayName = this.displayName.getLocalizedMap();
-			if( this.definition && !this.definition.isEmpty() ) json.definition = this.definition.getLocalizedMap();
-			json.abstractKey = this.abstractKey ? true : false;
-			json.searchable = this.searchable ? true : false;
-			if( this.downloadable === false )	json.downloadable = this.downloadable;
-			if( this.tooltip && !this.tooltip.isEmpty() ) json.tooltip = this.tooltip.getLocalizedMap();
-			if( this.synonyms && this.synonyms.length > 0 ) json.synonyms = this.synonyms;
-			if( this.mandatory )	json.mandatory = this.mandatory;
-			if( this.hasOwnProperty( 'value' ) )	json.value = this.value;
-			if( this.valueMode )	json.valueMode = this.valueMode;
-			if( this.order )	json.order = this.order;
-			if( this.disabled )	json.disabled = this.disabled;
-			if( this.dirty )	json.dirty = this.dirty;
-			if( this.masterTerm )	json.masterTerm = this.masterTerm;
-			if( this.isMemberOfGroup() )	json.groupTermId = this.groupTermId.toJSON();
+			if( this.hasOwnProperty('termType') ) 		json.termType = this.termType;
+			if( this.hasOwnProperty('termName') )		json.termName = this.termName;	
+			if( this.hasOwnProperty('termVersion') )	json.termVersion = this.termVersion;
+			if( this.hasOwnProperty('displayName') )	json.displayName = this.displayName.getLocalizedMap();
+			if( this.hasOwnProperty('definition') ) 	json.definition = this.definition.getLocalizedMap();
+			if( this.hasOwnProperty('abstractKey') )	json.abstractKey = this.abstractKey;
+			if( this.hasOwnProperty('searchable') )		json.searchable = this.searchable;
+			if( this.hasOwnProperty('downloadable') )	json.downloadable = this.downloadable;
+			if( this.hasOwnProperty('tooltip') ) 		json.tooltip = this.tooltip.getLocalizedMap();
+			if( this.hasOwnProperty('synonyms') ) 		json.synonyms = this.synonyms;
+			if( this.hasOwnProperty('mandatory') )		json.mandatory = this.mandatory;
+			if( this.hasOwnProperty('value') )			json.value = this.value;
+			if( this.hasOwnProperty('disabled') )		json.disabled = this.disabled;
+
+			if( this.hasOwnProperty('order') )			json.order = this.order;
+			if( this.hasOwnProperty('dirty') )			json.dirty = this.dirty;
+			if( this.hasOwnProperty('masterTerm') )		json.masterTerm = this.masterTerm;
+			if( this.isMemberOfGroup() )				json.groupTermId = this.groupTermId.toJSON();
 			
-			json.status = this.status;
 			json.state = this.state;
 			
 			return json;
@@ -3320,7 +3232,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'active':
 					case 'order':
 					case 'state':
-					case 'status':
 					case 'disabled':
 					case 'masterTerm':
 						self[key] = json[key];
@@ -3343,8 +3254,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
-			this.initAllAttributes();
-			
 			return unparsed;
 		}
 		
@@ -3363,12 +3272,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setTermTypeFormValue ( value ){
 			if( value ){
+				this.termType = value;
 				FormUIUtil.setFormValue( TermAttributes.TERM_TYPE, value );
 			}
-			else if( this.termType ){
+			else if( this.hasOwnProperty('termType') ){
 				FormUIUtil.setFormValue( TermAttributes.TERM_TYPE, this.termType );
 			}
 			else{
+				this.termType = TermTypes.STRING;
 				FormUIUtil.setFormValue( TermAttributes.TERM_TYPE, TermTypes.STRING );
 			}
 		}
@@ -3384,12 +3295,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setTermNameFormValue ( value ){
 			if( value ){
+				this.termName = value;
 				FormUIUtil.setFormValue( TermAttributes.TERM_NAME, value );
 			}
-			else if( this.termName ){
+			else if( this.hasOwnProperty('termName') ){
 				FormUIUtil.setFormValue( TermAttributes.TERM_NAME, this.termName );
 			}
 			else{
+				delete this.termName;
 				FormUIUtil.setFormValue( TermAttributes.TERM_NAME, '' );
 			}
 		}
@@ -3405,17 +3318,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setTermVersionFormValue ( value ){
 			if( value ){
+				this.termVersion = value;
 				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, value );
 			}
-			else if( this.termVersion ){
+			else if( this.hasOwnProperty('termVersion') ){
 				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, this.termVersion );
 			}
 			else{
+				this.termVersion = Term.DEFAULT_TERM_VERSION;
 				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, Term.DEFAULT_TERM_VERSION );
-			}
-
-			if( this.isRendered() ){
-
 			}
 		}
 		
@@ -3431,12 +3342,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setDisplayNameFormValue ( valueMap ){
 			if( valueMap ){ 
+				this.displayName = new LocalizedObject();
+				this.displayName.setLocalizedMap( valueMap );
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName', valueMap );
 			}
-			else if( this.displayName ){
+			else if( this.hasOwnProperty('displayName') ){
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.displayName.getLocalizedMap() );
 			}
 			else{
+				delete this.displayName;
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName' );
 			}
 		}
@@ -3453,12 +3367,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setDefinitionFormValue ( valueMap ){
 			if( valueMap ){
+				this.definition = new LocalizedObject();
+				this.definition.setLocalizedMap( valueMap );
 				FormUIUtil.setFormLocalizedValue( 'termDefinition', valueMap );
 			}
-			else if( this.definition ){
+			else if( this.hasOwnProperty('definition') ){
 				FormUIUtil.setFormLocalizedValue( 'termDefinition', this.definition.getLocalizedMap() );
 			}
 			else{
+				delete this.definition;
 				FormUIUtil.setFormLocalizedValue( 'termDefinition' );
 			}
 		}
@@ -3474,13 +3391,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return value;
 		}
 		setAbstractKeyFormValue ( value ){
-			if( value ){
+			if( typeof value === 'boolean' ){
+				this.abstractKey = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, value );
 			}
-			else if( this.abstractKey ){
+			else if( this.hasOwnProperty('abstractKey') ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, this.abstractKey );
 			}
 			else{
+				this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, Term.DEFAULT_ABSTRACT_KEY );
 			}
 		}
@@ -3497,11 +3416,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return value;
 		}
 		setDisabledFormValue ( value ){
-			if( value ){
+			if( typeof value === 'boolean' ){
+				this.disabled = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, value );
 			}
-			else{
+			else if( this.hasOwnProperty('disabled') ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, this.disabled );
+			}
+			else{
+				this.disabled = false;
+				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, false );
 			}
 		}
 
@@ -3516,13 +3440,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return value;
 		}
 		setSearchableFormValue ( value ){
-			if( value ){
+			if( typeof value === 'boolean' ){
+				this.searchable = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, value );
 			}
 			else if( this.hasOwnProperty('searchable') ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, this.searchable );
 			}
 			else{
+				this.searchable = Term.DEFAULT_SEARCHABLE;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, Term.DEFAULT_SEARCHABLE );
 			}
 		}
@@ -3538,13 +3464,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return value;
 		}
 		setDownloadableFormValue ( value ){
-			if( value ){
+			if( typeof value === 'boolean' ){
+				this.downloadable = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, value );
 			}
-			else if( this.downloadable === false ){
+			else if( this.hasOwnProperty('downloadable') ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, this.downloadable );
 			}
 			else{
+				this.downloadable = Term.DEFAULT_DOWNLOADABLE;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, Term.DEFAULT_DOWNLOADABLE );
 			}
 		}
@@ -3567,12 +3495,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setTooltipFormValue ( valueMap ){
 			if( valueMap ){
+				this.tooltip = new LocalizedObject();
+				this.tooltip.setLocalizedMap( valueMap );
 				FormUIUtil.setFormLocalizedValue( 'termTooltip', valueMap );
 			}
-			else if( this.tooltip ){
+			else if( this.hasOwnProperty('tooltip') ){
 				FormUIUtil.setFormLocalizedValue( 'termTooltip', this.tooltip.getLocalizedMap() );
 			}
 			else{
+				delete this.tooltip;
 				FormUIUtil.setFormLocalizedValue( 'termTooltip' );
 			}
 		}
@@ -3588,12 +3519,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setSynonymsFormValue ( value ){
 			if( value ){
+				this.synonyms = value;
 				FormUIUtil.setFormValue( TermAttributes.SYNONYMS, value );
 			}
-			else if( this.synonyms ){
+			else if( this.hasOwnProperty('synonyms') ){
 				FormUIUtil.setFormValue( TermAttributes.SYNONYMS, this.synonyms );
 			}
 			else{
+				delete this.synonyms;
 				FormUIUtil.clearFormValue( TermAttributes.SYNONYMS );
 			}
 		}
@@ -3609,13 +3542,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return value;
 		}
 		setMandatoryFormValue ( value ){
-			if( value ){
+			if( typeof value === 'boolean' ){
+				this.mandatory = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, value );
 			}
-			else if( this.mandatory ){
+			else if( this.hasOwnProperty('mandatory') ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, this.mandatory );
 			}
 			else{
+				this.mandatory = Term.DEFAULT_MANDATORY;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, Term.DEFAULT_MANDATORY );
 			}
 		}
@@ -3630,13 +3565,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return value;
 		}
 		setValueFormValue ( value ){
-			if( value || value === 0 ){
+			if( value !== null && typeof value === 'undefined' && value !== '' ){
+				this.value = value;
 				FormUIUtil.setFormValue( TermAttributes.VALUE, value );
 			}
-			else if( this.value || this.value === 0 ){
+			else if( this.hasOwnProperty('value') ){
 				FormUIUtil.setFormValue( TermAttributes.VALUE, this.value );
 			}
 			else{
+				delete this.value;
 				FormUIUtil.clearFormValue( TermAttributes.VALUE );
 			}
 		}
@@ -3655,7 +3592,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setTermTypeFormValue();
 			this.setTermVersionFormValue();
 			this.setTooltipFormValue();
-			this.setValueFormValue();
 		}
 
 		initAllAttributes(){
@@ -3668,7 +3604,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
 			if( !this.hasOwnProperty('searchable') ) 	this.searchable = Term.DEFAULT_SEARCHABLE;
 			if( !this.state )		this.state = Term.STATE_INIT;
-			if( !this.status )		this.status = Term.STATUS_DRAFT;
 			if( !this.synonyms ) 	this.synonyms = '';
 			if( !this.termName ) 	this.termName = '';
 			if( !this.termVersion ) this.termVersion = Term.DEFAULT_TERM_VERSION;
@@ -3708,7 +3643,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( jsonObj ){
 			super( 'String' );
 
-			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+			if( jsonObj ) this.parse( jsonObj );
 
 			this.setAllFormValues();
 		}
@@ -4001,7 +3936,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( jsonObj ){
 			super('Numeric');
 
-			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+			if( jsonObj )	this.parse( jsonObj );
 			
 			this.setAllFormValues();
 		}
@@ -4528,7 +4463,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( jsonObj ){
 			super('List');
 
-			jsonObj ? this.parse(jsonObj) : this.initAllAttributes();
+			if( jsonObj ) this.parse(jsonObj);
 
 			this.setAllFormValues();
 		}
@@ -4831,13 +4766,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setDisplayStyleFormValue ( value ){
 			if( value ){
+				this.displayStyle = value;
 				FormUIUtil.setFormRadioValue( 'listDisplayStyle', value );
 			}
-			else if( this.displayStyle ){
+			else if( this.hasOwnProperty('displayStyle') ){
 				FormUIUtil.setFormRadioValue( 'listDisplayStyle', this.displayStyle );
 			}
 			else{
-				FormUIUtil.setFormRadioValue( 'listDisplayStyle' );
+				this.displayStyle = SXConstants.DISPLAY_STYLE_SELECT;
+				FormUIUtil.setFormRadioValue( 'listDisplayStyle', SXConstants.DISPLAY_STYLE_SELECT );
 			}
 		}
 
@@ -4912,7 +4849,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setAllFormValues(){
 			super.setAllFormValues();
-			
+
+			this.setDisplayStyleFormValue();
 			this.renderOptions();
 			this.initOptionFormValues();
 		}
@@ -4941,6 +4879,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			Object.keys( unparsed ).forEach((key)=>{
 				switch(key){
 					case 'displayStyle':
+						self.displayStyle = unparsed[key];
+						break;
 					case 'options':
 						if( typeof json.options === 'string' ){
 							json.options = JSON.parse( json.options );
@@ -4968,57 +4908,740 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 	
-	/* 5. EMailTerm */
+	/* 4. EMailTerm */
 	class EMailTerm  extends Term{
-		constructor(){
+		static SERVER_LIST = [
+			'naver.com',
+			'daum.net',
+			'gmail.com',
+			'nate.com',
+			'msn.com'
+		];
+
+		constructor( jsonObj ){
+			super( 'EMail' );
+
+			if( jsonObj ){
+				this.parse( jsonObj );
+			}
+		}
+
+		$emailFormSection( forWhat ){
+			let $section = $('<div class="form-group input-text-wrapper"></div>');
+			let controlId = NAMESPACE+this.termName;
+			let mandatory = this.mandatory;
+
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				mandatory = false;
+			}
+
+			let $label = FormUIUtil.$getLabelNode( 
+				controlId + '_id',
+				this.getLocalizedDisplayName(),
+				mandatory,
+				this.getLocalizedTooltip() ).appendTo($section);
 			
+			let self = this;
+			if( forWhat === SXConstants.FOR_EDITOR ||
+				forWhat === SXConstants.FOR_PREVIEW ){
+				let $inputSection = $('<div>').appendTo( $section );
+				let $inputEmailId = $('<input class="form-control" ' + 
+											'id="' + controlId + '_emailId" ' +
+											'name="' + controlId + '_emailId" ' +
+											'aria-required="' + mandatory + '" ' +
+											'style="width:45%;display:inline-block;"' +
+											'/>' ).appendTo( $inputSection );
+				if( this.disabled ){
+					$inputEmailId.prop('disabled', true);
+				}
+
+				if( this.hasOwnProperty('value') ){
+					$inputEmailId.val( this.value[0] );
+				}
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: this  
+					}
+				};
+
+				$inputEmailId.change( function(event){
+					event.stopPropagation();
+
+					let emailId = $(this).val();
+
+					if( emailId ){
+						if( !self.value )	self.value = new Array();
+						self.value[0] = emailId;
+					}
+					else{
+						delete self.value[0];
+					}
+
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
+
+				$('<span style="max-width:10%;display:inline-block;">@</span>').appendTo( $inputSection );
+
+				let $inputServers = $('<input class="form-control" ' + 
+								'id="' + controlId + '_serverName" ' +
+								'name="' + controlId + '_serverName" ' +
+								'list="' + NAMESPACE + 'servers" ' +
+								'aria-required="' + mandatory + '" ' +
+								'style="width:45%;display:inline-block;"' +
+								'/>' ).appendTo( $inputSection );
+
+				let $servers = $('<datalist id="' + NAMESPACE + 'servers">').appendTo( $inputSection );
+
+				EMailTerm.SERVER_LIST.forEach( server => {
+					$('<option value="' + server + '">').appendTo( $servers );
+				});
+
+				if( this.disabled ){
+					$inputServers.prop('disabled', true);
+				}
+
+				if( this.hasOwnProperty('value') ){
+					$inputServers.val( this.value[1] );
+				}
+
+				$inputServers.change( function(event){
+					event.stopPropagation();
+
+					let serverName = $(this).val();
+
+					if( serverName ){
+						if( !self.value )	self.value = new Array();
+						self.value[1] = serverName;
+					}
+					else{
+						delete self.value[1];
+					}
+
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
+			}
+			else{
+				let $input = $('<input  class="form-control" ' + 
+										'id="' + controlId + '" ' +
+										'name="' + controlId + '" ' +
+										'placeHolder="' + Liferay.Language.get('keywords-for-search') + '" ' +
+										'aria-required="' + mandatory + '" ' +
+										'/>' ).appendTo( $section );
+
+				$input.change( function(event){
+					event.stopPropagation();
+
+					let searchKeywords = $(this).val();
+					
+					if( searchKeywords ){
+						self.searchKeywords = [searchKeywords];
+					}
+					else{
+						delete self.searchKeywords;
+					}
+					
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: self
+						}
+					};
+
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, 
+						eventData );
+				});
+			}
+
+			return $section;
+		}
+
+		$render( forWhat ){
+			let $emailSection = this.$emailFormSection( forWhat );
+
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			let $row;
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $emailSection );
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getEditorRowSection( this, $emailSection );
+			}
+
+			return this.$rendered;
+		}
+
+		parse( jsonObj ){
+			let unparsed = super.parse( jsonObj );
+
+			if( jsonObj.value ){
+				this.value = jsonObj.value.split('@');
+			}
+		}
+
+		toJSON(){
+			let json = super.toJSON();
+
+			if( this.value && this.value[0] && this.value[1] ){
+				json.value = this.value.join('@');
+			}
+
+			return json;
 		}
 	}
 	
-	/* 6. AddressTerm */
+	/* 5. AddressTerm */
 	class AddressTerm extends Term{
-		constructor(){
+		constructor( jsonObj ){
+			super( 'Address' );
+
+			if( jsonObj ){
+				this.parse( jsonObj );
+			}
+
+			this.setAllFormValues();
+		}
+
+		$getAddressSection( forWhat ){
+			let $section = $('<div class="form-group input-text-wrapper"></div>');
+			let controlId = NAMESPACE+this.termName;
+			let mandatory = this.mandatory;
+
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				mandatory = false;
+			}
+
+			let $label = FormUIUtil.$getLabelNode( 
+				controlId + '_id',
+				this.getLocalizedDisplayName(),
+				mandatory,
+				this.getLocalizedTooltip() ).appendTo($section);
 			
+			let self = this;
+			if( forWhat === SXConstants.FOR_EDITOR ||
+				forWhat === SXConstants.FOR_PREVIEW ){
+				let $inputSection = $('<div>').appendTo( $section );
+				let $inputZipcode = $('<input class="form-control" ' + 
+											'id="' + controlId + '_zipcode" ' +
+											'name="' + controlId + '_zipcode" ' +
+											'aria-required="' + mandatory + '" ' +
+											'style="width:45%;display:inline-block;" ' +
+											'disabled '+
+											'/>' ).appendTo( $inputSection );
+
+				if( this.hasOwnProperty('value') && this.value[0] ){
+					$inputZipcode.val( this.value[0] );
+				}
+
+				let $searchZipcodeBtn = $('<button id="' + NAMESPACE + 'searchZipcode" class="btn btn-default">' + 
+												Liferay.Language.get('search-zipcode') + 
+										  '</button>' ).appendTo($inputSection);
+				
+				let $resetBtn = $('<button class="btn btn-default" style="margin-left:5px;">' +
+									Liferay.Language.get('reset') +
+								  '</button>').appendTo($inputSection);
+
+				let $address = $('<input class="form-control" ' + 
+										'id="' + controlId + '_address" ' +
+										'name="' + controlId + '_address" ' +
+										'disabled '+
+										'/>' ).appendTo( $inputSection );
+				if( this.hasOwnProperty('value') && this.value[1] ){
+					$address.val( this.value[1] );
+				}
+
+
+				let $detailAddr = $('<input class="form-control" ' + 
+											'id="' + controlId + '_detailAddr" ' +
+											'name="' + controlId + '_detailAddr" ' +
+											'aria-required="true" ' +
+											'disabled '+
+											'/>' ).appendTo( $inputSection );
+				if( this.hasOwnProperty('value') && this.value[2] ){
+					$detailAddr.val( this.value[2] );
+					$detailAddr.prop('disabled', false);
+				}
+
+				$detailAddr.on('focusout', (event) => {
+					if( !$detailAddr.val() ){
+						alert( 'Detail Address should be provided...');
+					}
+				});
+							
+				$resetBtn.click( (event) => {
+					delete self.value;
+					self.setAddressValue();
+
+					$detailAddr.trigger('change');
+				});
+
+				$searchZipcodeBtn.click( function(){
+					new daum.Postcode({
+						width: 500,
+						height: 600,
+						oncomplete: function(data) {
+							self.value = new Array(4);
+							$inputZipcode.val( data.zonecode );
+							self.value[0] = data.zonecode;
+
+							let address;
+
+							if( data.userSelectionType === 'R'){
+								address = CURRENT_LANGUAGE === 'ko_KR' ? data.address : data.addressEnglish.replaceAll(',', ' ');
+							}
+							else{
+								address = CURRENT_LANGUAGE === 'ko_KR' ? data.roadAddres : data.roadAddressEnglish.replaceAll(',', ' ');
+							}
+
+							$address.val( address );
+							self.value[1] = address;
+							
+							$detailAddr.prop('disabled', false).focus();
+						}
+					}).open({
+						left: (window.screen.width / 2) - (500 / 2),
+						top: (window.screen.height / 2) - (600 / 2)
+					});
+				});
+
+				$detailAddr.change( function(event){
+					if( self.value ){
+						self.value[2] = $(this).val().replaceAll(',', ' ');
+					}
+
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: self  
+						}
+					};
+	
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
+			}
+
+			return $section;
+		}
+
+		$render( forWhat ){
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			let $addrSection;
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$addrSection = this.$getAddressSection( forWhat );
+				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $addrSection ) ;
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$addrSection = this.$getAddressSection( forWhat );
+				this.$rendered = FormUIUtil.$getEditorRowSection( this, $addrSection );
+			}
+			else{
+				$addrSection = FormUIUtil.$getFormStringSection( this, forWhat );
+				this.$rendered = FormUIUtil.$getEditorRowSection( this, $addrSection );
+			}
+
+			return this.$rendered;
+		}
+
+		setAddressValue( value ){
+			if( typeof value === 'string' ){
+				this.value = value.split(', ');
+			}
+			else if( value instanceof Array ){
+				this.value = value;
+			}
+			else{
+				delete this.value;
+			}
+		}
+
+		parse( jsonObj ){
+			super.parse( jsonObj );
+
+			this.setAddressValue( jsonObj.value );
+		}
+
+		toJSON(){
+			let json = super.toJSON();
+
+			if( json.value instanceof Array ){
+				json.value = json.value.join(', ');
+			}
+			
+			return json;
 		}
 	}
 
-	/* 7. ArrayTerm */
-	class ArrayTerm extends Term{
-		constructor(){
-			
-		}
-	}
-	
-	/* 8. MatrixTerm */
+	/* 6. MatrixTerm */
 	class MatrixTerm extends Term{
-		constructor(){
+		static DEFAULT_ROWS = 3;
+		static DEFAULT_COLUMNS = 3;
+		static DEFAULT_COLUMN_WIDTH = 2;
+
+		constructor( jsonObj ){
+			super( 'Matrix' );
 			
+			if( jsonObj ){
+				this.parse( jsonObj );
+				this.setRowsFormValue();
+				this.setColumnsFormValue();
+				this.setColumnWidthFormValue();
+			}
+			else{
+				this.setRowsFormValue( MatrixTerm.DEFAULT_ROWS );
+				this.setColumnsFormValue( MatrixTerm.DEFAULT_COLUMNS );
+				this.setColumnWidthFormValue( MatrixTerm.DEFAULT_COLUMN_WIDTH );
+			}
+		}
+
+		$render( forWhat ){
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			this.value = new Array();
+/*
+			for( let r=0; r<this.rows; r++){
+				this.value.push( new Array() );
+				for( let c=0; c<this.columns; c++ ){
+					this.value[r].push( new Array() );
+				}
+			}
+*/
+			for( let r=0; r<this.rows; r++){
+				this.value[r] = new Array();
+			}
+
+			let $matrixSection = FormUIUtil.$getFormMatrixSection( this, forWhat );
+
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $matrixSection ) ;
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				this.$rendered = FormUIUtil.$getEditorRowSection( this, $matrixSection );
+			}
+
+			return this.$rendered;
+		}
+
+		setRowsFormValue( value ){
+			if( value ){
+				this.rows = value;
+				FormUIUtil.setFormValue( 'rows', value );
+			}
+			else if( this.hasOwnProperty('rows') ){
+				FormUIUtil.setFormValue( 'rows', this.rows );
+			}
+			else{
+				delete this.rows;
+				FormUIUtil.setFormValue( 'rows' );
+			}
+		}
+
+		getRowsFormValue( save=true ){
+			if( save ){
+				this.rows = FormUIUtil.getFormValue( 'rows' );
+				this.dirty = true;
+			}
+			else{
+				return FormUIUtil.getFormValue( 'rows' );
+			}
+		}
+
+		setColumnsFormValue( value ){
+			if( value ){
+				this.columns = value;
+				FormUIUtil.setFormValue( 'columns', value );
+			}
+			else if( this.hasOwnProperty('columns') ){
+				FormUIUtil.setFormValue( 'columns', this.columns );
+			}
+			else{
+				delete this.columns;
+				FormUIUtil.setFormValue( 'columns', '');
+			}
+		}
+
+		getColumnsFormValue( save=true ){
+			if( save ){
+				this.columns = FormUIUtil.getFormValue( 'columns' );
+				this.dirty = true;
+			}
+			else{
+				return FormUIUtil.getFormValue( 'columns' );
+			}
+		}
+
+		setColumnWidthFormValue( value ){
+			if( value ){
+				this.columnWidth = value;
+				FormUIUtil.setFormValue( 'columnWidth', value );
+			}
+			else if( this.hasOwnProperty('columnWidth') ){
+				FormUIUtil.setFormValue( 'columnWidth', this.columnWidth );
+			}
+			else{
+				delete this.columnWidth;
+				FormUIUtil.setFormValue( 'columnWidth', '' );
+			}
+		}
+
+		getColumnWidthFormValue( save=true ){
+			if( save ){
+				this.columnWidth = FormUIUtil.getFormValue( 'columnWidth' );
+				this.dirty = true;
+			}
+			else{
+				return FormUIUtil.getFormValue( 'columnWidth' );
+			}
+		}
+
+		parse( jsonObj ){
+			let unparsed = super.parse( jsonObj );
+
+			let self = this
+			Object.keys(unparsed).forEach( key => {
+				switch( key ){
+					case 'rows':
+					case 'columns':
+					case 'columnWidth':
+						self[key] = unparsed[key];
+						break;
+					default:
+						console.log( 'Un-recognizable attribute: ' + key );
+
+				}
+			});
+		}
+
+		toJSON(){
+			let json = super.toJSON();
+
+			json.rows = this.rows;
+			json.columns = this.columns;
+			json.columnWidth = this.columnWidth;
+
+			return json;
 		}
 	}
 	
-	/* 9. ObjectTerm */
-	class ObjectTerm extends Term{
-		constructor(){
-			
-		}
-	}
-	
-	/* 10. ObjectArrayTerm */
-	class ObjectArrayTerm extends Term{
-		constructor(){
-			
-		}
-	}
-
-
-	/* 11. PhoneTerm */
+	/* 7. PhoneTerm */
 	class PhoneTerm extends Term{
-		constructor(){
+		constructor( jsonObj ){
+			super( "Phone" );
+
+			if( jsonObj )	this.parse( jsonObj );
+
+			super.setAllFormValues();
+		}
+
+		checkDigit( $control, val ){
+
+			if( !Number.isInteger( Number(val) ) ){
+				FormUIUtil.showError( 
+							SXConstants.ERROR, 
+							'digit-error', 
+							'only-0-9-digit-allowed', 
+							{
+								ok: {
+									text: 'OK',
+									btnClass: 'btn-blue'
+								}
+							} );
+				$control.focus();
+
+				return false;
+			}
+
+			return true;
+		}
+
+		checkValue(){
+
+			if( this.value[0] && this.value[1] && this.value[2] )	return true;
 			
+			return false;
+		}
+
+		setValue( value, index ){
+			if( !this.value ){
+				this.value = new Array( 3 );
+			}
+
+			this.value[index] = value;
+
+			if( this.checkValue() ){
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: this
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
+			}
+		}
+
+		$getPhoneSection( forWhat ){
+			let helpMessage = '';
+			let self = this;
+			if( this.tooltip )	helpMessage = this.getLocalizedTooltip();
+
+			let $phoneSection = $('<div>');
+			
+			$phoneSection.append( 
+						FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage) );
+					
+			let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
+
+			let $mobileInput = $( '<input type="text" name="' + NAMESPACE + 'mobile" ' +
+											'id="' + NAMESPACE + 'mobile" ' +
+											'class="form-control" ' +
+											'maxLength="3" ' +
+											'style="width:4rem;display:inline-block;text-align:center;"/>' ).appendTo( $inputNode );
+			if( this.disabled ){
+				$mobileInput.prop( 'disabled', true );
+			}
+
+			if( self.value && self.value[0] ){
+				$mobileInput.val( self.value[0] );
+			}
+
+			$mobileInput.change( function(event){
+				event.stopPropagation();
+
+				let mobileNo = $(this).val();
+
+				if( !self.checkDigit( $(this), mobileNo ) ) return;
+
+				self.setValue( mobileNo, 0 );
+			} );
+
+			$('<span>)&nbsp;</span>').appendTo( $inputNode );
+
+			let $stationInput = $( '<input type="text" name="' + NAMESPACE + 'station" ' +
+											'id="' + NAMESPACE + 'station" ' +
+											'class="form-control" ' +
+											'maxLength="4" ' +
+											'style="width:5rem;display:inline-block;margin-left:3px;margin-right:5px;text-align:center;" />' ).appendTo( $inputNode );
+			if( this.disabled ){
+				$stationInput.prop( 'disabled', true );
+			}
+
+			if( self.value && self.value[1] ){
+				$stationInput.val( self.value[1] );
+			}
+								
+			$stationInput.change( function(event){
+				event.stopPropagation();
+
+				let stationNo = $(this).val();
+
+				if( !self.checkDigit( $(this), stationNo ) ) return;
+
+				self.setValue( stationNo, 1 );
+			} );
+
+			$('<span>-</span>').appendTo( $inputNode );
+
+			let $personalInput = $( '<input type="text" name="' + NAMESPACE + 'personal" ' +
+											'id="' + NAMESPACE + 'personal" ' +
+											'class="form-control" ' +
+											'maxLength="4" ' +
+											'style="width:5rem;display:inline-block;margin-left:5px;text-align:center;" />' ).appendTo( $inputNode );
+			if( this.disabled ){
+				$personalInput.prop( 'disabled', true );
+			}
+
+			if( self.value && self.value[2] ){
+				$personalInput.val( self.value[2] );
+			}
+								
+			$personalInput.change( function(event){
+				event.stopPropagation();
+
+				let personNo = $(this).val();
+
+				if( !self.checkDigit( $(this), personNo ) ) return;
+
+				self.setValue( personNo, 2 );
+			} );
+
+			return $phoneSection;
+		}
+		
+		$render( forWhat ){
+			if( this.$rendered ){
+				this.$rendered.remove();
+			}
+
+			let $phoneSection;
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$phoneSection = this.$getPhoneSection( forWhat );
+				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $phoneSection ) ;
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$phoneSection = this.$getPhoneSection( forWhat );
+				this.$rendered = FormUIUtil.$getEditorRowSection( this, $phoneSection );
+			}
+			else{
+				$phoneSection = FormUIUtil.$getFormStringSection( this, forWhat );
+				this.$rendered = FormUIUtil.$getEditorRowSection( this, $phoneSection );
+			}
+
+			return this.$rendered;
+		}
+
+		parse( jsonObj ){
+			super.parse( jsonObj );
+
+			if( typeof this.value === 'string' )	this.value = this.value.split( '-' );
+			
+			console.log( 'Phone Term: ', this, jsonObj );
+		}
+
+		toJSON(){
+			let json = super.toJSON();
+
+			console.log('phone json: ', json);
+			if( json.value instanceof Array ){
+				json.value = json.value.join('-');
+				console.log( 'phone value: ' + json.value );
+			}
+			else if( json.value ){
+				console.log('phone term: ', json.value);
+			}
+
+			return json;
 		}
 	}
 	
-	/* 12. DateTerm */
+	/* 8. DateTerm */
 	class DateTerm extends Term{
 		static $DEFAULT_ENABLE_TIME_FORM_CTRL = $('#'+NAMESPACE+'enableTime');
 		static $DEFAULT_START_YEAR_FORM_CTRL = $('#'+NAMESPACE+'startYear');
@@ -5038,8 +5661,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( jsonObj ) 	this.parse( jsonObj );
 			
-			this.initAllAttributes();
-
 			this.setAllFormValues();
 		}
 
@@ -5325,14 +5946,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 	
-	/* 13. FileTerm */
+	/* 9. FileTerm */
 	class FileTerm extends Term{
 		constructor( jsonObj ){
 			super( 'File' );
 
 			this.searchable = false;
 
-			jsonObj ? this.parse( jsonObj ) : super.initAllAttributes('File');
+			if( jsonObj )	this.parse( jsonObj );
 
 			this.setAllFormValues();
 		}
@@ -5588,76 +6209,344 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return json;
 		}
 	}
+	
+	/* 10. BooleanTerm */
+	class BooleanTerm extends Term {
+		static ID_DISPLAY_STYLE = 'booleanDisplayStyle';
+		static ID_TRUE_LABEL = 'booleanTrueLabel';
+		static ID_FALSE_LABEL = 'booleanFalseLabel';
+		static $DISPLAY_STYLE = $('#'+NAMESPACE+BooleanTerm.ID_DISPLAY_STYLE);
+		static $TRUE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_TRUE_LABEL);
+		static $FALSE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_FALSE_LABEL);
+		static $TRUE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanTrueActiveTerms');
+		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
+		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
 
-	/* 14. FileArrayTerm */
-	class FileArrayTerm extends Term{
+		static DEFAULT_DISPLAY_STYLE = SXConstants.DISPLAY_STYLE_SELECT;
+		static AVAILABLE_TERMS = null;
+
+		static OPTION_FOR_TRUE = 0;
+		static OPTION_FOR_FALSE = 1;
+
 		constructor( jsonObj ){
-			super( 'File' );
+			super('Boolean');
 
-			jsonObj ? this.parse( jsonObj ) : this.initAllAttributes();
+			if( jsonObj )	this.parse(jsonObj);
 
 			this.setAllFormValues();
 		}
 
 		initAllAttributes(){
+			super.initAllAttributes('Boolean');
 
+			if( !this.displayStyle )	this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
+			if( !this.options ){
+				this.options = new Array();
+				// for true
+				this.options.push( new ListOption( {'en_US':'Yes'}, true, false, false, [] ) );
+	
+				// for false
+				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
+			}
 		}
 
-		setAllFormValues(){
-
+		setSearchKeywords( keywords ){
+			this.searchKeywords = keywords.toString();
 		}
 
+		getSearchQuery(){
+			if( this.hasOwnProperty('searchKeywords') && this.searchKeywords ){
+				let searchField = new SearchField( this.termName, '' );
+				searchField.type = TermTypes.STRING;
+				searchField.setKeywords( this.searchKeywords );
+				return searchField;
+			}
+
+			return null;
+		}
+
+		getTrueOption(){
+			return this.options[BooleanTerm.OPTION_FOR_TRUE];
+		}
+
+		getFalseOption(){
+			return this.options[BooleanTerm.OPTION_FOR_FALSE]
+		}
+
+		$getBooleanFieldSetNode( forWhat ){
+			let controlName = NAMESPACE + this.termName;
+			let label = this.getLocalizedDisplayName();
+			let helpMessage = this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '';
+			let mandatory = this.mandatory ? this.mandatory : false;
+			let disabled = this.disabled;
+			let value;
+			if( this.hasOwnProperty('value') ){
+				value = this.value;
+			}
+			
+			let displayStyle = (forWhat === SXConstants.FOR_SEARCH ) ? SXConstants.DISPLAY_STYLE_RADIO : this.displayStyle;
+			let options = this.options;
+
+			let self = this;
+
+			let $node;
+
+			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+
+				$node = $('<div class="form-group input-text-wrapper">')
+							.append( FormUIUtil.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled) );
+
+				$node.change(function(event){
+					event.stopPropagation();
+					event.preventDefault();
+	
+					self.value = $node.find('select').val();
+	
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: self
+						}
+					};
+	
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
+			}
+			else{ // Radio fieldset. Boolean terms don't provide checkbox display style. 
+				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
+				let $panelBody = $panelGroup.find('.panel-body');
+
+				options.forEach((option, index)=>{
+					let selected = ( forWhat === SXConstants.FOR_SEARCH ) ? false : (value === option.value);
+
+					let $radioTag = FormUIUtil.$getRadioButtonTag( 
+										controlName+'_'+(index+1),
+										controlName, 
+										option,
+										selected,
+										disabled );
+					$panelBody.append( $radioTag );
+
+					$radioTag.bind('click', function(event){
+						let wasChecked =  $(this).data('checked');
+						
+						if( wasChecked ){
+							$(this).find('input').prop('checked', false);
+							$(this).find('input').trigger('change');
+						}
+						else{
+							$(this).find('input').prop('checked', true);
+						}
+						$(this).data('checked', !wasChecked);
+					});
+				});
+					
+				if( forWhat === SXConstants.FOR_SEARCH ){
+					$panelBody.change(function(event){
+						event.stopPropagation();
+						event.preventDefault();
+
+						let $checkedRadio = $(this).find('input[type="radio"]:checked');
+						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
+
+						if( changedVal ){
+							self.searchKeywords = [changedVal];
+						}
+						else{
+							delete  self.searchKeywords;
+						}
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: self
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+							eventData
+						);
+					});
+				}
+				else{
+					$panelBody.change(function(event){
+						event.stopPropagation();
+						event.preventDefault();
+
+						let $checkedRadio = $(this).find('input[type="radio"]:checked');
+						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
+
+						if( changedVal ){
+							self.value = changedVal;
+						}
+						else{
+							delete self.value;
+						}
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: self
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							eventData
+						);
+					});
+				}
+
+				$node = $('<div class="card-horizontal main-content-card">')
+								.append( $panelGroup );
+			}
+
+			return $node;
+		}
+		
 		$render( forWhat ){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
-			this.$rendered = FormUIUtil.$getFormFileSection(
-										this,
-										this.getLocalizedDisplayName(),
-										this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '',
-										this.mandatory ? this.mandatory : false,
-										this.value ? this.value : '',
-										forWhat );
+			let $fieldset = this.$getBooleanFieldSetNode( forWhat );
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				this.$rendered = FormUIUtil.$getPreviewRowSection(this, $fieldset);
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getEditorRowSection(this, $fieldset);
+			}
+			else{
+				// rendering for PDF here
+			}
 
 			return this.$rendered;
 		}
 
+		getDisplayStyleFormValue ( save ){
+			let value = FormUIUtil.getFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
+			if( save ){
+				this.displayStyle = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+		setDisplayStyleFormValue ( value ){
+			if( value ){
+				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE, value );
+			}
+			else if( this.displayStyle ){
+				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE, this.displayStyle );
+			}
+			else{
+				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
+			}
+		}
+
+		getTrueLabelFormValue (){
+			let trueOption = this.options[0];
+			trueOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL ));
+			this.setDirty( true );
+			return trueOption.getLabelMap();
+		}
+		setTrueLabelFormValue ( valueMap ){
+			let trueOption = this.options[0];
+
+			if( valueMap ){
+				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL, valueMap );
+			}
+			else{
+				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL, trueOption.getLabelMap() );
+			}
+		}
+
+		getFalseLabelFormValue (){
+			let falseOption = this.options[1];
+			falseOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL ));
+			this.setDirty( true );
+			return falseOption.getLabelMap();
+		}
+		setFalseLabelFormValue ( valueMap ){
+			let falseOption = this.options[1];
+
+			if( valueMap ){
+				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL, valueMap );
+			}
+			else{
+				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL, falseOption.getLabelMap() );
+			}
+		}
+
+		setAllFormValues(){
+			this.value = (this.value === true || this.value === 'true') ? true : false;
+			
+			super.setAllFormValues();
+			this.initOptionFormValues();
+		}
+
+		initOptionFormValues(){
+			this.setDisplayStyleFormValue();
+			this.setTrueLabelFormValue();
+			this.setFalseLabelFormValue();
+		}
+
+		toJSON(){
+			let json = super.toJSON();
+
+			json.displayStyle = this.displayStyle;
+			json.options = this.options.map(option=>option.toJSON());
+
+			return json;
+		}
+
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
-			let unvalid = new Object();
-			
+			let unvalid = new Array();
+
 			let self = this;
-			Object.keys( unparsed ).forEach( (key, index) => {
-				unvalid[key] = unparsed[key];
+			Object.keys(unparsed).forEach( key => {
+				switch(key){
+					case 'displayStyle':
+						self.displayStyle = jsonObj.displayStyle;
+						break;
+					case 'options':
+						self.options = new Array();
+						jsonObj.options.forEach( option => {
+							self.options.push( new ListOption(
+								option.labelMap,
+								option.value,
+								option.selected,
+								option.disabled,
+								option.activeTerms
+							));
+						});
+						break;
+					default:
+						unvalid[key] = jsonObj[key];
+						console.log('[BooleanTerm] Unvalid term attribute: '+key, jsonObj[key]);
+						break;
+				}
 			});
-
-			return unvalid;
 		}
 	}
 
-	/* 15. DataLinkTerm */
-	class DataLinkTerm extends Term{
+	/* 11. IntergerTerm */
+	class IntegerTerm extends NumericTerm{
 		constructor(){
-			
+			super();
 		}
 	}
 
-	/* 16. DataLinkArrayTerm */
-	class DataLinkArrayTerm extends Term{
-		constructor(){
-			
-		}
-	}
-
-	/* 17. CommentTerm */
-	class CommentTerm extends Term{
-		constructor(){
-			
-		}
-	}
-
-	/* 18. GroupTerm */
+	/* 12. GroupTerm */
 	class GroupTerm extends Term{
 		static $BTN_CHOOSE_GROUP_TERMS = $('#'+NAMESPACE+'btnChooseGroupTerms');
 
@@ -5828,204 +6717,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = super.toJSON();
 
-			if( this.extended ){
+			if( this.hasOwnProperty('extended') ){
 				json.extended = this.extended;
 			}
 
 			return json;
-		}
-	}
-
-
-
-	/* 19. BooleanTerm */
-	class BooleanTerm extends Term {
-		static ID_DISPLAY_STYLE = 'booleanDisplayStyle';
-		static ID_TRUE_LABEL = 'booleanTrueLabel';
-		static ID_FALSE_LABEL = 'booleanFalseLabel';
-		static $DISPLAY_STYLE = $('#'+NAMESPACE+BooleanTerm.ID_DISPLAY_STYLE);
-		static $TRUE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_TRUE_LABEL);
-		static $FALSE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_FALSE_LABEL);
-		static $TRUE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanTrueActiveTerms');
-		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
-		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
-
-		static DEFAULT_DISPLAY_STYLE = SXConstants.DISPLAY_STYLE_SELECT;
-		static AVAILABLE_TERMS = null;
-
-		static OPTION_FOR_TRUE = 0;
-		static OPTION_FOR_FALSE = 1;
-
-		constructor( jsonObj ){
-			super('Boolean');
-
-			jsonObj ? this.parse(jsonObj) : this.initAllAttributes();
-
-			this.setAllFormValues();
-		}
-
-		initAllAttributes(){
-			super.initAllAttributes('Boolean');
-
-			if( !this.displayStyle )	this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
-			if( !this.options ){
-				this.options = new Array();
-				// for true
-				this.options.push( new ListOption( {'en_US':'Yes'}, true, false, false, [] ) );
-	
-				// for false
-				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
-			}
-		}
-
-		setSearchKeywords( keywords ){
-			this.searchKeywords = keywords.toString();
-		}
-
-		getSearchQuery(){
-			if( this.hasOwnProperty('searchKeywords') && this.searchKeywords ){
-				let searchField = new SearchField( this.termName, '' );
-				searchField.type = TermTypes.STRING;
-				searchField.setKeywords( this.searchKeywords );
-				return searchField;
-			}
-
-			return null;
-		}
-
-		getTrueOption(){
-			return this.options[BooleanTerm.OPTION_FOR_TRUE];
-		}
-
-		getFalseOption(){
-			return this.options[BooleanTerm.OPTION_FOR_FALSE]
-		}
-
-		$render( forWhat ){
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-
-			this.$rendered = FormUIUtil.$getFormBooleanSection(
-									this,
-									forWhat );
-
-			return this.$rendered;
-		}
-
-
-		getDisplayStyleFormValue ( save ){
-			let value = FormUIUtil.getFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
-			if( save ){
-				this.displayStyle = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setDisplayStyleFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE, value );
-			}
-			else if( this.displayStyle ){
-				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE, this.displayStyle );
-			}
-			else{
-				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
-			}
-		}
-
-		getTrueLabelFormValue (){
-			let trueOption = this.options[0];
-			trueOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL ));
-			this.setDirty( true );
-			return trueOption.getLabelMap();
-		}
-		setTrueLabelFormValue ( valueMap ){
-			let trueOption = this.options[0];
-
-			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL, valueMap );
-			}
-			else{
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL, trueOption.getLabelMap() );
-			}
-		}
-
-		getFalseLabelFormValue (){
-			let falseOption = this.options[1];
-			falseOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL ));
-			this.setDirty( true );
-			return falseOption.getLabelMap();
-		}
-		setFalseLabelFormValue ( valueMap ){
-			let falseOption = this.options[1];
-
-			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL, valueMap );
-			}
-			else{
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL, falseOption.getLabelMap() );
-			}
-		}
-
-		setAllFormValues(){
-			this.value = (this.value === true || this.value === 'true') ? true : false;
-			
-			super.setAllFormValues();
-			this.initOptionFormValues();
-		}
-
-		initOptionFormValues(){
-			this.setDisplayStyleFormValue();
-			this.setTrueLabelFormValue();
-			this.setFalseLabelFormValue();
-		}
-
-		toJSON(){
-			let json = super.toJSON();
-
-			json.displayStyle = this.displayStyle;
-			json.options = this.options.map(option=>option.toJSON());
-
-			return json;
-		}
-
-		parse( jsonObj ){
-			let unparsed = super.parse( jsonObj );
-			let unvalid = new Array();
-
-			let self = this;
-			Object.keys(unparsed).forEach( key => {
-				switch(key){
-					case 'displayStyle':
-						self.displayStyle = jsonObj.displayStyle;
-						break;
-					case 'options':
-						self.options = new Array();
-						jsonObj.options.forEach( option => {
-							self.options.push( new ListOption(
-								option.labelMap,
-								option.value,
-								option.selected,
-								option.disabled,
-								option.activeTerms
-							));
-						});
-						break;
-					default:
-						unvalid[key] = jsonObj[key];
-						console.log('[BooleanTerm] Unvalid term attribute: '+key, jsonObj[key]);
-						break;
-				}
-			});
-		}
-	}
-	
-	/* 20. IntergerTerm */
-	class IntegerTerm extends NumericTerm{
-		constructor(){
-			super();
 		}
 	}
 
@@ -6253,8 +6949,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return new ListTerm();
 			case 'Boolean':
 				return new BooleanTerm();
-			case 'Array':
-				return new ArrayTerm();
 			case 'EMail':
 				return new EMailTerm();
 			case 'Date':
@@ -6265,20 +6959,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return new PhoneTerm();
 			case 'Matrix':
 				return new MatrixTerm();
-			case 'Object':
-				return new ObjectTerm();
-			case 'ObjectArray':
-				return new ObjectArrayTerm();
 			case 'File':
 				return new FileTerm();
-			case 'FileArray':
-				return new FileArrayTerm();
-			case 'DataLink':
-				return new FileTerm();
-			case 'DataLinkArray':
-				return new DataLinkArrayTerm();
-			case 'Comment':
-				return new CommentTerm();
 			case 'Group':
 				return new GroupTerm();
 			default:
@@ -6410,7 +7092,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			if( !groupTermId ){
-				groupTermId = this.getTermId();
+				groupTermId = this.getTopLevelTermId();
 			}
 
 			let members = this.terms.filter( term => {
@@ -7141,6 +7823,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( term.isGroupTerm() ){
 				this.extendGroup( term );
 			}
+
+			this.highlightTerm( term );
 		}
 			
 		extendGroup( groupTerm, extended=true ){
@@ -7174,6 +7858,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							if( Object.keys(termValue).length > 0 ){
 								fileContent[term.termName] = termValue;
 							}
+						}
+						else if( term.termType === 'EMail' ){
+							fileContent[term.termName] = term.value.join('@');
 						}
 						else{
 							fileContent[term.termName] = term.value;
@@ -7253,7 +7940,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			if( this.terms ){
-				console.log('data structure to json: ', JSON.stringify(this.terms, null, 4));
 				json.terms = this.terms.filter( term=> term !== null )
 										.map(term=>term.toJSON() );
 			}
@@ -8341,12 +9027,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.doFieldSearch( fieldOperator );
 		}
 
-		doOrSearchWithinField( fieldName, keywords ){
+		doOrSearchWithinField( fieldName, keywords, partialMatch ){
 			let results = this.dataList.filter( searchData => {
 				if( keywords ){
 					for( let keyword of keywords ){
 						if( searchData.data[fieldName] instanceof Array ){
-							let found = searchData.data[fieldName].find( element => element === keyword );
+							let found = partialMatch ? 
+											searchData.data[fieldName].find( element => element.match(keyword) ) : 
+											searchData.data[fieldName].find( element => element === keyword );
 							
 							if( found ){
 								return true;
@@ -8464,11 +9152,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		doKeywordSearch( fieldName, keywords, dataType, infieldOperator='or', fieldOperator='and' ){
 			let infieldResults;
+			let partialMatch = false;
+			if( dataType === 'Phone' || dataType === 'EMail' )	partialMatch = true;
 			if( infieldOperator === 'or'){
-				infieldResults = this.doOrSearchWithinField( fieldName, keywords );
+				infieldResults = this.doOrSearchWithinField( fieldName, keywords, partialMatch );
 			}
 			else{
-				infieldResults = this.doAndSearchWithinField( fieldName, keywords );
+				infieldResults = this.doAndSearchWithinField( fieldName, keywords, partialMatch );
 			}
 
 
@@ -8759,28 +9449,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	    			return new EMailTerm();
 	    		case TermTypes.ADDRESS:
 	    			return new AddressTerm();
-	    		case TermTypes.ARRAY:
-	    			return new ArrayTerm();
 	    		case TermTypes.MATRIX:
 	    			return new MatrixTerm();
-	    		case TermTypes.OBJECT:
-	    			return new ObjectTerm();
-	    		case TermTypes.OBJECT_ARRAY:
-	    			return new ObjectArrayTerm();
 	    		case TermTypes.PHONE:
 	    			return new PhoneTerm();
 	    		case TermTypes.DATE:
 	    			return new DateTerm();
 	    		case TermTypes.FILE:
 	    			return new FileTerm();
-	    		case TermTypes.FILE_ARRAY:
-	    			return new FileArrayTerm();
-	    		case TermTypes.DATA_LINK:
-	    			return new DataLinkTerm();
-	    		case TermTypes.DATA_LINK_ARRAY:
-	    			return new DataLinkArrayTerm();
-	    		case TermTypes.COMMENT:
-	    			return new CommentTerm();
 	    		case TermTypes.GROUP:
 	    			return new GroupTerm();
 	    		default:
@@ -8794,6 +9470,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		GroupTerm: GroupTerm,
 		FileTerm: FileTerm,
 		DateTerm: DateTerm,
+		MatrixTerm: MatrixTerm,
 		FormUIUtil: FormUIUtil,
     	Util: Util,
 		AdvancedSearch:AdvancedSearch,

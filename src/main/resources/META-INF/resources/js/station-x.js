@@ -2214,11 +2214,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					let $td = $('<td>').appendTo( $tr );
 					let $input = $('<input type="text" name="' + NAMESPACE + matrixTerm.termName+'_'+r+'_'+c+'" class="form-control" style="width:'+matrixTerm.columnWidth+'rem;height:1.5rem;padding:0;text-align:right;margin-left:3px; margin-right:3px;"/>').appendTo($td);
 
-					if( matrixTerm.value[r][c] ){
+					if( typeof matrixTerm.value[r][c] === 'number' ){
 						$input.val( matrixTerm.value[r][c] );
-					}
-					else{
-						$input.val( 0 );
 					}
 
 					if( matrixTerm.disabled ){
@@ -5314,22 +5311,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
+		isEmptyValue(){
+			if( !(this.value instanceof Array) )	return true;
+
+			for( let r=0; r<this.rows; r++ ){
+				for( let c=0; c<this.columns; c++ ){
+					if( typeof this.value[r][c] !== 'number' ){
+						return true;
+					}
+				}
+			}
+
+			return false;
+		}
+
 		$render( forWhat ){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
-			this.value = new Array();
-/*
-			for( let r=0; r<this.rows; r++){
-				this.value.push( new Array() );
-				for( let c=0; c<this.columns; c++ ){
-					this.value[r].push( new Array() );
+			if( this.isEmptyValue() ){
+				this.value = new Array( this.rows );
+				
+				for( let r=0; r<this.rows; r++){
+					this.value[r] = new Array(this.columns);
 				}
-			}
-*/
-			for( let r=0; r<this.rows; r++){
-				this.value[r] = new Array();
 			}
 
 			let $matrixSection = FormUIUtil.$getFormMatrixSection( this, forWhat );
@@ -5344,52 +5350,88 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+		setRows( rows ){
+			if( typeof rows === 'string' ){
+				this.rows = Number( rows );
+			}
+			else if( typeof rows === 'number' ){
+				this.rows = rows;
+			}
+			else if( typeof rows === 'undefined' ){
+				delete this.rows;
+			}
+			else{
+				return false;
+			}
+
+			return true;
+		}
+
+		setColumns( columns ){
+			if( typeof columns === 'string' ){
+				this.columns = Number( columns );
+			}
+			else if( typeof columns === 'number' ){
+				this.columns = columns;
+			}
+			else if( typeof rows === 'undefined' ){
+				delete this.rows;
+			}
+			else{
+				return false;
+			}
+
+			return true;
+		}
+
+
 		setRowsFormValue( value ){
 			if( value ){
-				this.rows = value;
+				this.setRows( value );
 				FormUIUtil.setFormValue( 'rows', value );
 			}
 			else if( this.hasOwnProperty('rows') ){
 				FormUIUtil.setFormValue( 'rows', this.rows );
 			}
 			else{
-				delete this.rows;
+				this.setRows();
 				FormUIUtil.setFormValue( 'rows' );
 			}
 		}
 
 		getRowsFormValue( save=true ){
+			let value = Number( FormUIUtil.getFormValue( 'rows' ) );
 			if( save ){
-				this.rows = FormUIUtil.getFormValue( 'rows' );
+				this.setRows( value );
 				this.dirty = true;
 			}
-			else{
-				return FormUIUtil.getFormValue( 'rows' );
-			}
+			
+			return value;
 		}
 
 		setColumnsFormValue( value ){
 			if( value ){
-				this.columns = value;
+				this.setColumns( value );
 				FormUIUtil.setFormValue( 'columns', value );
 			}
 			else if( this.hasOwnProperty('columns') ){
 				FormUIUtil.setFormValue( 'columns', this.columns );
 			}
 			else{
-				delete this.columns;
-				FormUIUtil.setFormValue( 'columns', '');
+				this.setColumns();
+				FormUIUtil.setFormValue( 'columns' );
 			}
 		}
 
 		getColumnsFormValue( save=true ){
+			let value = Number( FormUIUtil.getFormValue( 'columns' ) );
+
 			if( save ){
-				this.columns = FormUIUtil.getFormValue( 'columns' );
+				this.setColumns( value );
 				this.dirty = true;
 			}
-			else{
-				return FormUIUtil.getFormValue( 'columns' );
-			}
+			
+			return value;
 		}
 
 		setColumnWidthFormValue( value ){
@@ -5417,13 +5459,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		parse( jsonObj ){
+			console.log( 'for parse: ', jsonObj );
 			let unparsed = super.parse( jsonObj );
 
-			let self = this
+			let self = this;
 			Object.keys(unparsed).forEach( key => {
 				switch( key ){
 					case 'rows':
+						self.setRows( unparsed[key] );
+						break;
 					case 'columns':
+						self.setColumns( unparsed[key] );
+						break;
 					case 'columnWidth':
 						self[key] = unparsed[key];
 						break;
@@ -5432,6 +5479,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				}
 			});
+
+			console.log( 'After parse: ', this);
 		}
 
 		toJSON(){
@@ -5440,6 +5489,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			json.rows = this.rows;
 			json.columns = this.columns;
 			json.columnWidth = this.columnWidth;
+
+			console.log('mATRIX JSON: ', json );
 
 			return json;
 		}
@@ -5621,20 +5672,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			super.parse( jsonObj );
 
 			if( typeof this.value === 'string' )	this.value = this.value.split( '-' );
-			
-			console.log( 'Phone Term: ', this, jsonObj );
 		}
 
 		toJSON(){
 			let json = super.toJSON();
 
-			console.log('phone json: ', json);
-			if( json.value instanceof Array ){
-				json.value = json.value.join('-');
-				console.log( 'phone value: ' + json.value );
-			}
-			else if( json.value ){
-				console.log('phone term: ', json.value);
+			if( this.hasOwnProperty('value') ){
+				json.value = this.value.join('-');
 			}
 
 			return json;

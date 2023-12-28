@@ -436,10 +436,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		sameWith( anotherId ) {
-			if( anotherId.isEmpty() && this.isEmpty() ){
+			if( Util.isEmptyObject(anotherId) && this.isEmpty() ){
 				return true;
 			}
-			else if( anotherId.isEmpty() && this.isNotEmpty() ){
+			else if( Util.isEmptyObject(anotherId) && this.isNotEmpty() ){
 				return false;
 			}
 			else if( anotherId.name === this.name && anotherId.version === this.version ){
@@ -3184,9 +3184,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = new Object();
 			
-			if( this.hasOwnProperty('termType') ) 		json.termType = this.termType;
-			if( this.hasOwnProperty('termName') )		json.termName = this.termName;	
-			if( this.hasOwnProperty('termVersion') )	json.termVersion = this.termVersion;
+			json.termType = this.termType;
+			json.termName = this.termName;	
+			json.termVersion = this.termVersion;
 			if( this.hasOwnProperty('displayName') )	json.displayName = this.displayName.getLocalizedMap();
 			if( this.hasOwnProperty('definition') ) 	json.definition = this.definition.getLocalizedMap();
 			if( this.hasOwnProperty('abstractKey') )	json.abstractKey = this.abstractKey;
@@ -3252,7 +3252,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
-			if( !json.termVersion )	this.termVersion = Term.DEFAULT_TERM_VERSION;
+			if( this.hasOwnProperty('termVersion') )	this.termVersion = Term.DEFAULT_TERM_VERSION;
+			if( this.hasOwnProperty('state') )	this.state = SXConstants.STATE_ACTIVE;
 
 			return unparsed;
 		}
@@ -3303,7 +3304,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else{
 				delete this.termName;
-				FormUIUtil.setFormValue( TermAttributes.TERM_NAME, '' );
+				FormUIUtil.setFormValue( TermAttributes.TERM_NAME );
 			}
 		}
 		
@@ -3333,8 +3334,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getDisplayNameFormValue ( save=true ){
 			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDisplayName' );
 			if( save ){
-				this.displayName = new LocalizedObject();
-				this.displayName.setLocalizedMap( valueMap );
+				this.displayName = new LocalizedObject( valueMap );
 				this.setDirty( true );
 			}
 			
@@ -3342,12 +3342,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setDisplayNameFormValue ( valueMap ){
 			if( valueMap ){ 
-				this.displayName = new LocalizedObject();
-				this.displayName.setLocalizedMap( valueMap );
+				this.displayName = new LocalizedObject(valueMap);
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName', valueMap );
 			}
 			else if( this.hasOwnProperty('displayName') ){
-				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.displayName.getLocalizedMap() );
+				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.getLocalizedDisplayName() );
 			}
 			else{
 				delete this.displayName;

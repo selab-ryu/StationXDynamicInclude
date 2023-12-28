@@ -1718,6 +1718,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unit = term.unit ? term.unit : '';
 			let uncertainty = term.uncertainty ? term.uncertainty : false;
 			let uncertaintyValue = term.uncertaintyValue ? term.uncertaintyValue : '';
+			let placeHolder = term.placeHolder ? term.placeHolder.getText(CURRENT_LANGUAGE) : '';
 
 			let $node = $('<div class="form-group input-text-wrapper">');
 			
@@ -1748,7 +1749,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				valueRate = 90;
 			}
 			
-			let $textInput = this.$getTextInputTag( term, controlName, term.placeHolder.getText(DEFAULT_LANGUAGE), value );
+			let $textInput = this.$getTextInputTag( term, controlName, placeHolder, value );
 			let $inputcol = $('<div style="display:inline-block; min-width:30%;width:-webkit-fill-available;">').append($textInput);
 			$controlSection.append( $inputcol );
 			
@@ -7979,7 +7980,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				json.commentString = this.commentString;
 			}
 
-			if( !this.tooltip.isEmpty() ){
+			if( this.tooltip && !this.tooltip.isEmpty() ){
 				json.tooltip = this.tooltip.getLocalizedMap();
 			}
 

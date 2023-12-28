@@ -4721,9 +4721,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $panel = ListTerm.$OPTION_TABLE;
 			$panel.empty();
 
-			this.options.forEach((option)=>{
-				$panel.append( option.$renderPreview() );
-			});
+			if( this.options ){
+				this.options.forEach((option)=>{
+					$panel.append( option.$renderPreview() );
+				});
+			}
 		}
 
 		$render( forWhat ){
@@ -6278,12 +6280,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( jsonObj )	this.parse(jsonObj);
 
-			this.setAllFormValues();
-		}
-
-		initAllAttributes(){
-			super.initAllAttributes('Boolean');
-
 			if( !this.displayStyle )	this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
 			if( !this.options ){
 				this.options = new Array();
@@ -6293,6 +6289,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				// for false
 				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
 			}
+
+			this.setAllFormValues();
 		}
 
 		setSearchKeywords( keywords ){

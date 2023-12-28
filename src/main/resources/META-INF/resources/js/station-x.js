@@ -3252,6 +3252,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
+			if( !json.termVersion )	this.termVersion = Term.DEFAULT_TERM_VERSION;
+
 			return unparsed;
 		}
 		

@@ -6,9 +6,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 	
 	let Util = {
-		isEmptyArray: function(ary){
-			return !ary || ary.length === 0;
-		},
 		isEmptyObject: function(obj){
 			if( !obj )	return true;
 			let keys = Object.keys(obj);
@@ -32,7 +29,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return empty;
 		},
 		isEmptyString: function(str){
-			return !str || str === '';
+			return (typeof str === 'string') && str === '';
 		},
 		isNotNull: function(obj){
 			return obj !== null;
@@ -111,7 +108,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let timeAry = [String(hour).padStart(2, '0'), String(minuite).padStart(2, '0')];
 			return dateAry.join('. ') + '. ' + timeAry.join(':');
 		},
-		toDateString( value ){
+		toDateString: function( value ){
 			if( !value ){
 				return '';
 			}
@@ -120,6 +117,33 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let dateAry = [date.getFullYear(), String(date.getMonth()+1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')];
 
 			return dateAry.join('. ') + '.';
+		},
+		isNonEmptyArray: function( array ){
+			if( Array.isArray(array) && array.length  ){
+				for( let index=0; index < array.length; index++ ){
+                    let element = array[index];
+                    
+					if( !Array.isArray(element) && (!!element || element === 0) )	return true;
+					else if( Array.isArray(element) ){
+						if( this.isNonEmptyArray( element ) ) return true;
+					}
+				}
+                
+                return false;
+			}
+			else{
+				return false;
+			}
+		},
+		isSafeNumber: function( value ){
+			return Number(value) === value;
+		},
+		toSafeNumber: function( value ){
+			if( this.isSafeNumber( value ) )	return value;
+
+			if( typeof value !== 'string' || Util.isEmptyString(value) )		return NaN;
+
+			return Number( value );
 		}
 	};
 	
@@ -732,6 +756,38 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $label;
 		},
+		$getTextInput: function( id, name, type, placeHolder, required, disabled, value, eventFuncs ){
+			let $input;
+			
+			if( type === 'text'){
+				$input = $( '<input type="text">' );
+			}
+			else{
+				$input = $( '<textarea>' );
+			}
+
+			if( required ){
+				$input.prop( 'aria-required', true );
+			}
+
+			$input.prop({
+				class: 'field form-control',
+				id: id,
+				name: name,
+				value: value,
+				placeholder: placeHolder
+			});
+
+			if( disabled ){
+				$input.prop('disabled', true );
+			}
+
+			Object.keys( eventFuncs ).forEach( event => {
+				$input.on( event, eventFuncs[event] );
+			});
+
+			return $input;
+		},
 		$getTextInputTag: function( term ){
 			let controlName = NAMESPACE + term.termName;
 			let inputType = term.multipleLine ? 'textarea' : 'text';
@@ -1175,12 +1231,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $radio;
 		},
-		$getCheckboxTag: function( controlId, controlName, label, checked, value, disabled ){
-			
+		$getCheckboxTag: function( controlId, controlName, label, checked, value, disabled, eventFuncs ){
+			let $checkbox = $( '<div class="checkbox" style="display:inline-block;margin-left:10px;margin-right:20px;">' );
 			let $label = $( '<label>' )
-							.prop( 'for', controlId );
+							.prop( 'for', controlId ).appendTo( $checkbox );
 			
-			let $input = $( '<input type="checkbox" style="margin-right:10px;">');
+			let $input = $( '<input type="checkbox" style="margin-right:10px;">').appendTo( $label );
 			$input.prop({
 				class: "field",
 				id: controlId,
@@ -1189,13 +1245,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				checked: checked,
 				disabled: disabled
 			});
-			
-			$label.append( $input )
-				  .append( label );
 
-			let $checkbox = $( '<div class="checkbox" style="display:inline-block;margin-left:10px;margin-right:20px;">' )
-								.append( $label );
+			Object.keys( eventFuncs ).forEach( event => {
+				$input.on( event, eventFuncs[event] );
+			});
 			
+			$label.append( label );
+
 			return $checkbox;
 		},
 		$getFileUploadNode: function( fileTerm, controlName, files ){
@@ -1528,8 +1584,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 			*/
 		},
-		$getActionButton(){
-			return $(
+		$getActionButton( popupMenu ){
+			let $actionBtn = $(
 				'<div class="dropdown dropdown-action show" style="width:fit-content;">' +
 					'<button aria-expanded="true" aria-haspopup="true" class="dropdown-toggle btn btn-unstyled" data-onclick="toggle" data-onkeydown="null" ref="triggerButton" title="Actions" type="button">' +
 						'<svg class="lexicon-icon lexicon-icon-ellipsis-v" focusable="false" role="presentation" viewBox="0 0 512 512">' +
@@ -1539,117 +1595,47 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						'</svg>' +
 					'</button>' + 
 				'</div>' );
-		},
-		$getPreviewRemoveButtonNode: function( term, iconClass ){
-			/*
-			let $button = $( '<button type="button" class="btn btn-default">' +
-								'<i class="' + iconClass + '" />' +
-							 '</button>' );
-							 
-			$button.click(function(event){
-				event.stopPropagation();
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM,
-					eventData
-				);
-				
-			});
-
-			return $button;
-		},
-		$getPreviewActionButtonNode: function( term, iconClass ){
-*/
-			let $actionBtn = this.$getActionButton();
 
 			$actionBtn.click( function(event){
-				//event.stopPropagation();
+				popupMenu.x = $(this).offset().left;
+				popupMenu.y = $(this).offset().top;
 
-				popmenu( $(this), {
-					items: {
-						copy: {
-							name: 'Copy'
-						},
-						delete: {
-							name: 'Delete'
-						}
-					},
-					callback: function( item ){
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
-		
-						let message;
-
-						if( $(item).prop('id') === 'copy'){
-							message = SXIcecapEvents.DATATYPE_PREVIEW_COPY_TERM;
-						}
-						else if( $(item).prop('id') === 'delete' ){
-							message = SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM;
-						}
-
-							Liferay.fire(
-								message,
-								eventData
-							);
-					},
-					x:event.pageX,
-					y:event.pageY,
-					position: 'left'
-				});
-
-				return false;
+				popmenu( $(this), popupMenu );
 			});
 
 			return $actionBtn;
 		},
-		$getPreviewRowSection: function( term, $inputSection ){
-			let trRowClass = NAMESPACE + term.termName;
+		$getPreviewRemoveButtonNode: function( popupMenu ){
+			let $actionBtn = this.$getActionButton( popupMenu );
 
+			$actionBtn.click( function(event){
+				popmenu( $(this), popupMenu );
+			});
+
+			return $actionBtn;
+		},
+		$getPreviewRowSection: function( $inputSection, popupMenus, rowClickFunc ){
 			let $inputTd = $('<span style="width:90%;float:left; padding-right:5px;">').append( $inputSection );
 
+
 			let $buttonTd = $('<span style="float:right; width:10%;text-align:center;">')
-								.append( this.$getPreviewRemoveButtonNode( term, 'icon-remove' ) );
+								.append( this.$getPreviewRemoveButtonNode( popupMenus ) );
 
 			let $previewRow = $('<span class="sx-form-item-group" style="display:flex; width:100%; padding: 3px; margin:2px; align-items:center; justify-content:center;">')
-									.addClass( trRowClass )
 									.append( $inputTd )
 									.append( $buttonTd );
-			
-			$previewRow.click( function( event ){
-				event.stopPropagation();
-				
-				const eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-				
-				Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
-			});
+
+			$previewRow.click( rowClickFunc );
 
 			return $previewRow;
 		},
-		$getEditorRowSection: function( term, $inputSection ){
+		$getEditorRowSection: function( $inputSection ){
 			return $('<span style="width:100%; border:none;">').append( $inputSection );
 		},
-		$getSearchRowSection: function( term, $inputSection ){
+		$getSearchRowSection: function( $inputSection ){
 			return $inputSection;
 		},
+
 		$getFormStringSection: function( 
 					term, 
 					forWhat ){
@@ -1675,491 +1661,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			return $String;
-		},
-		$getFormDateSection: function(
-					term,
-					forWhat	){
-			let $dateInput = null;
-			
-			if(forWhat === SXConstants.FOR_SEARCH){
-				$dateInput = this.$getDateSearchSection( term );
-			}
-			else if( forWhat === SXConstants.FOR_PREVIEW || forWhat === SXConstants.FOR_EDITOR ){
-				$dateInput = this.$getDateInputNode( term );
-			}
-			else{
-				// for PDF
-			}
-
-			let $section;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$section = this.$getPreviewRowSection( term, $dateInput );
-			}
-			else if(forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH){
-				$section = this.$getEditorRowSection( term, $dateInput );
-			}
-			else{
-				//PDF printing here
-			}
-
-			return $section;
-		},
-		$getEditorNumericNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value ? term.value : '';
-			let minValue = term.minValue ? term.minValue : '';
-			let minBoundary = term.minBoundary ? term.minBoundary : false;
-			let maxValue = term.maxValue ? term.maxValue : '';
-			let maxBoundary = term.maxBoundary ? term.maxBoundary : false;
-			let unit = term.unit ? term.unit : '';
-			let uncertainty = term.uncertainty ? term.uncertainty : false;
-			let uncertaintyValue = term.uncertaintyValue ? term.uncertaintyValue : '';
-			let placeHolder = term.placeHolder ? term.placeHolder.getText(CURRENT_LANGUAGE) : '';
-
-			let $node = $('<div class="form-group input-text-wrapper">');
-			
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			$node.append( $label );
-			
-			let $controlSection = $('<div style="display:flex; align-items:center;justify-content: center; width:100%; margin:0; padding:0;">');
-			$node.append( $controlSection );
-
-			let valueRate = 100;
-			if( minValue ){
-				let $minValueCol = $('<div style="display:inline-block;min-width:8%;text-align:center;width:fit-content;"><strong>' +
-				minValue +
-				'</strong></div>');
-				$controlSection.append( $minValueCol );
-				valueRate = 95;
-				
-				let minBoundaryText = '&lt;';
-				if( minBoundary ){
-					minBoundaryText = '&le;';
-				}
-
-				let $minBoundaryCol = '<div style="display:inline-block;width:3%;text-align:center;margin-right:5px;"><strong>' +
-				minBoundaryText +
-				'</strong></div>';
-				$controlSection.append( $minBoundaryCol );
-
-				valueRate = 90;
-			}
-			
-			let $textInput = this.$getTextInputTag( term, controlName, placeHolder, value );
-			let $inputcol = $('<div style="display:inline-block; min-width:30%;width:-webkit-fill-available;">').append($textInput);
-			$controlSection.append( $inputcol );
-			
-			if( uncertainty ){
-				let $uncertaintyOp = $('<div style="display:inline-block;width:3%;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>');
-				$controlSection.append( $uncertaintyOp );
-
-				let $uncertaintyInput = this.$getTextInputTag( 'text', term, controlName+'_uncertainty', '', uncertaintyValue );
-				let $inputcol = $('<div style="display:inline-block; min-width:20%;width:fit-content;">').append($uncertaintyInput);
-				$controlSection.append( $inputcol );
-			}
-
-			if( unit ){
-				let $unit = $('<div style="display:inline-block;min-width:7%;width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
-								unit +
-							'</div>');
-				$controlSection.append( $unit );
-			}
-
-			if( maxValue ){
-				
-				let maxBoundaryText = '&lt;';
-				if( maxBoundary ){
-					maxBoundaryText = '&le;';
-				}
-				
-				let $maxBoundaryCol = '<div style="display:inline-block;width:3%;text-align:center;margin:0 2px 0 2px;"><strong>' +
-				maxBoundaryText +
-				'</strong></div>';
-
-				let $maxValueCol = $('<div style="display:inline-block;min-width:8%;width:fit-content;text-align:center;"><strong>' +
-				maxValue +
-				'</strong></div>');
-				
-				$controlSection.append( $maxBoundaryCol );
-				$controlSection.append( $maxValueCol );
-			}
-
-			return $node;
-		},
-		$getSearchNumericNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = false;
-			let value = term.value ? term.value : '';
-
-			let $searchKeywordSection = $('<div class="lfr-ddm-field-group field-wrapper">');
-			
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			$searchKeywordSection.append( $label );
-			
-			let $controlSection = $('<div class="form-group">');
-			$searchKeywordSection.append( $controlSection );
-
-			if( term.hasOwnProperty('minValue') && term.minValue !== null ){
-				$controlSection.append($('<span>'+term.minValue+'</span>'));
-
-				if( term.hasOwnProperty('minBoundary') && term.minBoundary === true ){
-					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
-				}
-				else{
-					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&lt;</span>'));
-				}
-			}
-			
-			let $fromSpan = $('<span class="form-group input-text-wrapper display-inline-block" style="margin-right: 5px;">');
-			let $curlingSpan = $('<span class="hide" style="margin: 0px 5px;">~</span>');
-			let $toSpan = $('<span class="form-group input-text-wrapper hide" style="margin:0px 5px;">');
-
-			$controlSection.append( $fromSpan )
-					.append( $curlingSpan )
-					.append( $toSpan );
-			
-			if( term.hasOwnProperty('maxValue') && term.maxValue !== null ){
-				if( term.hasOwnProperty('maxBoundary') && term.maxBoundary === true ){
-					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
-				}
-				else{
-					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&lt;</span>'));
-				}
-				
-				$controlSection.append($('<span>'+term.maxValue+'</span>'));
-				
-			}
-			
-			if( term.hasOwnProperty('unit') && term.unit !== null ){
-				$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">'+term.unit+'</span>'));
-			}
-
-			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
-				controlName+'_rangeSearch',
-				controlName+'_rangeSearch',
-				Liferay.Language.get( 'range-search' ),
-				false,
-				'rangeSearch',
-				false
-			);
-			$rangeCheckbox.change(function(event){
-				event.stopPropagation();
-
-				term.rangeSearch = $(this).find('input').prop('checked');
-				if( term.rangeSearch === false ){
-					delete term.rangeSearch;
-				}
-
-				if( term.rangeSearch === true ){
-					$curlingSpan.addClass('display-inline-block');
-					$toSpan.addClass('display-inline-block');
-					$curlingSpan.removeClass('hide');
-					$toSpan.removeClass('hide');
-					if( term.hasOwnProperty('searchValues') && term.searchValues.length > 0 ){
-						term.fromSearchValue = term.searchValues[0];
-						$fromInputTag.val( term.fromSearchValue );
-					}
-					delete term.searchValues;
-				}
-				else{
-					$curlingSpan.addClass('hide');
-					$toSpan.addClass('hide');
-					$curlingSpan.removeClass('display-inline-block');
-					$toSpan.removeClass('display-inline-block');
-					if( term.hasOwnProperty('fromSearchValue') ){
-						term.searchValues = [term.fromSearchValue];
-					}
-					delete fromSearchValue; 
-					if( term.hasOwnProperty('toSearchValue') ){
-						delete term.toSearchValue;
-						$toInputTag.val('');
-					}
-				}
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-				
-				Liferay.fire(
-					SXIcecapEvents.SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED,
-					eventData
-					);
-			});
-
-			$controlSection.append( $rangeCheckbox );
-			
-			let $fromInputTag = $('<input type="text">');
-			$fromInputTag.prop({
-				'class': 'field form-control fromDate',
-				'id': controlName+'_from',
-				'name': controlName+'_from',
-				'value': term.getFromSearchValue()
-			});
-			
-			$fromSpan.append($fromInputTag);
-			
-			$fromInputTag.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
-
-				let previousValue;
-				let valueChanged = true;
-				if( term.rangeSearch === true ){
-					previousValue = term.hasOwnProperty('fromSearchValue') ? term.fromSearchValue : '';
-					if( term.setFromSearchValue( $(this).val() ) === false ){
-						$(this).val( previousValue );
-						valueChanged = false;
-					}
-				}
-				else{
-					let newValues;
-					if( $(this).val() ){
-						newValues = Util.getTokenArray($(this).val(), ' ').map( value => Number(value) );
-					}
-					else{
-						newValues = [];
-					}
-					previousValue = term.searchValues;
-					if( term.setSearchValues( newValues ) === false ){
-						$(this).val( previousValue ? previousValue.join(' ') : '' );
-						term.searchValues = previousValue; 
-						valueChanged = false;
-					} 
-				}
-
-				if( valueChanged === true ){
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-					
-					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_FROM_NUMERIC_CHANGED,
-						eventData
-					);
-				}
-			});
-				
-			let $toInputTag = $('<input type="text">');
-			$toInputTag.prop({
-				'class': 'field form-control toDate',
-				'id': controlName+'_to',
-				'name': controlName+'_to',
-				'value': term.toSearchValue,
-				'aria-live': 'assertive',
-				'aria-label': ''
-			});
-
-			$toSpan.append($toInputTag);
-
-			$toInputTag.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
-
-				if( term.setToSearchValue( $(this).val() ) === false ){
-					$(this).val( term.toSearchValue );
-				}
-				else{
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-	
-					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_TO_NUMERIC_CHANGED,
-						eventData
-					);
-				}
-
-			});
-
-			
-			return $searchKeywordSection;
-		},
-		$getFormNumericSection: function(
-			term, 
-			forWhat ){
-
-			let $numericNode;
-			if( forWhat === SXConstants.FOR_SEARCH ){
-				$numericNode = this.$getSearchNumericNode( term );
-			}
-			else{
-				$numericNode = this.$getEditorNumericNode( term );
-			}
-			
-			let $numericRow = null;
-			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$numericRow = FormUIUtil.$getPreviewRowSection(term, $numericNode);
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				$numericRow = FormUIUtil.$getEditorRowSection(term, $numericNode);
-			}
-			else{
-				// render for PDF printing here
-			}
-			
-			return $numericRow;
-
-		},
-		$getFormListSection: function(
-				term,
-				forWhat ){
-
-			let $fieldset = this.$getSelectFieldSetNode( term, forWhat );
-			
-			let $list;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$list = this.$getPreviewRowSection(term, $fieldset);
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				$list = this.$getEditorRowSection(term, $fieldset);
-			}
-			else{
-				// rendering for PDF here
-			}
-
-			return $list;
-		},
-		$getFileListTableRow( fileTerm, parentFolderId, fileId, name, size, type, downloadURL ){
-			let $tr = $('<tr id="'+name+'">');
-			$('<td class="file-id" style="width:10%;">').appendTo($tr).text(fileId);
-			$('<td class="file-name" style="width:40%;">').appendTo($tr).text(name);
-			$('<td class="file-size" style="width:10%;">').appendTo($tr).text(size);
-			$('<td class="file-type" style="width:10%;">').appendTo($tr).text(type);
-			let $actionTd = $('<td class="action" style="width:10%;">').appendTo($tr);
-			
-							
-			let $downloadSpan =$(
-				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('download') + '" style="margin: 0 2px;">' +
-					'<a href="' + downloadURL +'">' +
-						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
-							'<path class="lexicon-icon-outline" d="M15.608,6.262h-2.338v0.935h2.338c0.516,0,0.934,0.418,0.934,0.935v8.879c0,0.517-0.418,0.935-0.934,0.935H4.392c-0.516,0-0.935-0.418-0.935-0.935V8.131c0-0.516,0.419-0.935,0.935-0.935h2.336V6.262H4.392c-1.032,0-1.869,0.837-1.869,1.869v8.879c0,1.031,0.837,1.869,1.869,1.869h11.216c1.031,0,1.869-0.838,1.869-1.869V8.131C17.478,7.099,16.64,6.262,15.608,6.262z M9.513,11.973c0.017,0.082,0.047,0.162,0.109,0.226c0.104,0.106,0.243,0.143,0.378,0.126c0.135,0.017,0.274-0.02,0.377-0.126c0.064-0.065,0.097-0.147,0.115-0.231l1.708-1.751c0.178-0.183,0.178-0.479,0-0.662c-0.178-0.182-0.467-0.182-0.645,0l-1.101,1.129V1.588c0-0.258-0.204-0.467-0.456-0.467c-0.252,0-0.456,0.209-0.456,0.467v9.094L8.443,9.553c-0.178-0.182-0.467-0.182-0.645,0c-0.178,0.184-0.178,0.479,0,0.662L9.513,11.973z"></path>'+
-//							'<path class="lexicon-icon-outline" d="M256 0c-141.37 0-256 114.6-256 256 0 141.37 114.629 256 256 256s256-114.63 256-256c0-141.4-114.63-256-256-256zM269.605 360.769c-4.974 4.827-10.913 7.226-17.876 7.226s-12.873-2.428-17.73-7.226c-4.857-4.827-7.285-10.708-7.285-17.613 0-6.933 2.428-12.844 7.285-17.788 4.857-4.915 10.767-7.402 17.73-7.402s12.932 2.457 17.876 7.402c4.945 4.945 7.431 10.854 7.431 17.788 0 6.905-2.457 12.786-7.431 17.613zM321.038 232.506c-5.705 8.923-13.283 16.735-22.791 23.464l-12.99 9.128c-5.5 3.979-9.714 8.455-12.668 13.37-2.955 4.945-4.447 10.649-4.447 17.145v1.901h-34.202c-0.439-2.106-0.731-4.184-0.936-6.291s-0.321-4.301-0.321-6.612c0-8.397 1.901-16.413 5.705-24.079s10.24-14.834 19.309-21.563l15.185-11.322c9.070-6.7 13.605-15.009 13.605-24.869 0-3.57-0.644-7.080-1.901-10.533s-3.219-6.495-5.851-9.128c-2.633-2.633-5.969-4.71-9.977-6.291s-8.66-2.369-13.927-2.369c-5.705 0-10.561 1.054-14.571 3.16s-7.343 4.769-9.977 8.017c-2.633 3.247-4.594 7.022-5.851 11.322s-1.901 8.66-1.901 13.049c0 4.213 0.41 7.548 1.258 10.065l-39.877-1.58c-0.644-2.311-1.054-4.652-1.258-7.080-0.205-2.399-0.321-4.769-0.321-7.080 0-8.397 1.58-16.619 4.74-24.693s7.812-15.214 13.927-21.416c6.114-6.173 13.663-11.176 22.645-14.951s19.368-5.676 31.188-5.676c12.229 0 22.996 1.785 32.3 5.355 9.274 3.57 17.087 8.25 23.435 14.014 6.319 5.764 11.089 12.434 14.248 19.982s4.74 15.331 4.74 23.289c0.058 12.581-2.809 23.347-8.514 32.27z"></path>' +
-						'</svg>' +
-					'</a>' +
-				'</span>').appendTo( $actionTd );
-			let $deleteBtn = $(
-				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('delete') + '" style="margin: 0 2px;">' +
-					'<span>' +
-						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
-							'<path class="lexicon-icon-outline" d="M7.083,8.25H5.917v7h1.167V8.25z M18.75,3h-5.834V1.25c0-0.323-0.262-0.583-0.582-0.583H7.667c-0.322,0-0.583,0.261-0.583,0.583V3H1.25C0.928,3,0.667,3.261,0.667,3.583c0,0.323,0.261,0.583,0.583,0.583h1.167v14c0,0.644,0.522,1.166,1.167,1.166h12.833c0.645,0,1.168-0.522,1.168-1.166v-14h1.166c0.322,0,0.584-0.261,0.584-0.583C19.334,3.261,19.072,3,18.75,3z M8.25,1.833h3.5V3h-3.5V1.833z M16.416,17.584c0,0.322-0.262,0.583-0.582,0.583H4.167c-0.322,0-0.583-0.261-0.583-0.583V4.167h12.833V17.584z M14.084,8.25h-1.168v7h1.168V8.25z M10.583,7.083H9.417v8.167h1.167V7.083z"></path>' +
-						'</svg>' +
-					'</span>' +
-				'</span>').appendTo( $actionTd );
-
-			$deleteBtn.click(function(event){
-				if( fileTerm.disabled ){
-					return;
-				}
-
-				$tr.remove();
-
-				fileTerm.removeFile( parentFolderId, fileId, name );
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: fileTerm
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
-			});
-
-			return $tr;
-		},
-		$getFormFileUploadSection: function(
-			term,
-			forWhat ){
-			let controlName = NAMESPACE + term.termName;
-			let controlValueId = NAMESPACE + term.termName + '_value';
-
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let files;
-			if( term.hasOwnProperty('value') ){
-				files = term.value;
-			}
-
-			let $uploadSection = $('<div class="form-group input-text-wrapper">');
-			
-			let $label = this.$getLabelNode( controlName, label, mandatory, helpMessage );
-			$uploadSection.append( $label );
-
-			let $uploadNode = this.$getFileUploadNode( term, controlName, files);
-			$uploadSection.append( $uploadNode );
-			
-			$uploadNode.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
-
-				let files = $('#'+controlName)[0].files;
-			
-				if( files.length > 0 ){
-					if( !term.value ){
-						term.value = new Object();
-					}
-
-					let $fileListTable = $uploadNode.find('table');
-					$fileListTable.show();
-					
-					for( let i=0; i<files.length; i++){
-						let xFile = new Object();
-					
-						term.addFile( undefined, undefined, files[i]);
-					};
-				}
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-
-				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
-			});
-
-			let $row;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$row = this.$getPreviewRowSection(term, $uploadSection);
-			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
-				$row = this.$getEditorRowSection(term, $uploadSection);
-			}
-			else{
-				// rendering for PDF here
-			}
-
-			return $row;
 		},
 		$getAccordionForGroup: function( title, $body, disabled, extended=true ){
 			let $groupHead = $('<h3>').text(title);
@@ -2190,71 +1691,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			return $accordion;
-		},
-		$getFormMatrixSection: function( matrixTerm, forWhat ){
-			let $matrixSection = $('<div class="form-group input-text-wrapper">');
-			
-			let $label = this.$getLabelNode( NAMESPACE+matrixTerm.termName, 
-											matrixTerm.getLocalizedDisplayName(),
-											matrixTerm.mandatory, 
-											matrixTerm.getLocalizedTooltip() ).appendTo($matrixSection);
-			let $table = $('<table>').appendTo( $matrixSection );
-			for( let r=0; r < matrixTerm.rows; r++ ){
-				let $tr = $('<tr style="line-height:1.8rem;">').appendTo( $table ) ;
-				if( r === 0 ){
-					$tr.append( $('<td><span style="font-size:1rem;">&#9121;</span></td>') );
-				}
-				else if( r > 0 && r < matrixTerm.rows - 1 ){
-					$tr.append( $('<td><span style="font-size:1rem;">&#9122;</span></td>') );
-				}
-				else{
-					$tr.append( $('<td><span style="font-size:1rem;">&#9123;</span></td>') );
-				}
-
-				for( let c=0; c<matrixTerm.columns; c++){
-					let $td = $('<td>').appendTo( $tr );
-					let $input = $('<input type="text" name="' + NAMESPACE + matrixTerm.termName+'_'+r+'_'+c+'" class="form-control" style="width:'+matrixTerm.columnWidth+'rem;height:1.5rem;padding:0;text-align:right;margin-left:3px; margin-right:3px;"/>').appendTo($td);
-
-					if( typeof matrixTerm.value[r][c] === 'number' ){
-						$input.val( matrixTerm.value[r][c] );
-					}
-
-					if( matrixTerm.disabled ){
-						$input.prop('disabled', true);
-					}
-					else{
-						$input.change(function(event){
-							event.stopPropagation();
-							matrixTerm.value[r][c] = Number( $input.val() );
-
-							let eventData = {
-								sxeventData:{
-									sourcePortlet: NAMESPACE,
-									targetPortlet: NAMESPACE,
-									term: matrixTerm  
-								}
-							};
-			
-							Liferay.fire(
-								SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
-								eventData
-							);
-						});
-					}
-				}
-
-				if( r === 0 ){
-					$tr.append( $('<td><span style="font-size:1rem;">&#9124;</span></td>') );
-				}
-				else if( r > 0 && r < matrixTerm.rows - 1 ){
-					$tr.append( $('<td><span style="font-size:1rem;">&#9125;</span></td>') );
-				}
-				else{
-					$tr.append( $('<td><span style="font-size:1rem;">&#9126;</span></td>') );
-				}
-			}
-
-			return $matrixSection;
 		},
 		$getTypeSpecificSection: function( termType ){
 			return $('#' + NAMESPACE +  termType.toLowerCase() + 'Attributes');
@@ -2343,7 +1779,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			if( focus ){
-				$control.focus();
+				$control.trigger('focus');
 			}
 		},
 		$getRenderedFormControl: function( renderUrl, params ){
@@ -2600,6 +2036,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_SELECTED, eventData );
 				});
 
+				this.$rendered = $row;
 				return $row;
 			}
 		}
@@ -2731,7 +2168,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.selected ){
 				json.selected = true;
 			}
-			if( this.hasOwnProperty('activeTerms') && !Util.isEmptyArray( this.activeTerms ) ){
+			if( Util.isNonEmptyArray( this.activeTerms ) ){
 				json.activeTerms = this.activeTerms;
 			}
 
@@ -2930,6 +2367,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		static DEFAULT_SEARCH_OPERATOR = 'and';
 
+		
 		constructor( termType ){
 			
 			this.termId = 0;
@@ -2990,7 +2428,63 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				delete this.value;
 			}
 		}
-		
+
+		getPreviewPopupAction(){
+			let self = this;
+			return {
+				items: {
+					copy: {
+						name: 'Copy'
+					},
+					delete: {
+						name: 'Delete'
+					}
+				},
+				callback: function( item ){
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: self
+						}
+					};
+	
+					let message;
+
+					if( $(item).prop('id') === 'copy'){
+						message = SXIcecapEvents.DATATYPE_PREVIEW_COPY_TERM;
+					}
+					else if( $(item).prop('id') === 'delete' ){
+						message = SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM;
+					}
+
+					Liferay.fire(
+						message,
+						eventData
+					);
+				},
+				position: 'left'
+			};
+		}
+
+		getRowClickEventFunc(){
+			let self = this;
+
+			return function( event ){
+				event.stopPropagation();
+				
+				const eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: self
+					}
+				};
+				
+				Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+			};
+		}
+
 		getTermId(){
 			if( !(Util.isEmptyString( this.termName ) || Util.isEmptyString( this.termVersion )) ){
 				return new TermId(this.termName,this.termVersion);
@@ -3247,13 +2741,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self[key] = new LocalizedObject(); 
 						self[key].setLocalizedMap( json[key] );
 						break;
+					case 'status':
+						break;
 					default:
 						unparsed[key] = json[key];
 				}
 			});
 
-			if( this.hasOwnProperty('termVersion') )	this.termVersion = Term.DEFAULT_TERM_VERSION;
-			if( this.hasOwnProperty('state') )	this.state = SXConstants.STATE_ACTIVE;
+			if( !this.hasOwnProperty('termVersion') )	this.termVersion = Term.DEFAULT_TERM_VERSION;
+			if( !this.hasOwnProperty('state') )	this.state = SXConstants.STATE_ACTIVE;
 
 			return unparsed;
 		}
@@ -3723,7 +3219,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchField;
 		}
 		
-		
 		toJSON(){
 			let json = super.toJSON();
 			
@@ -3765,6 +3260,130 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return unvalid;
 		}
+
+		$getEditSection(){
+			let id = NAMESPACE + this.termName;
+			let name = NAMESPACE + this.termName;
+			let label = this.getLocalizedDisplayName();
+			let required = this.mandatory;
+			let disabled = this.disabled;
+			let type = this.multipleLine ? 'textarea' : 'text';
+			let helpMessage = this.getLocalizedTooltip();
+			let placeHolder = this.getLocalizedPlaceHolder();
+
+			let $section = $('<div class="form-group input-text-wrapper">');
+			FormUIUtil.$getLabelNode(id, label, required, helpMessage).appendTo( $section );
+			
+			let self = this;
+			let eventFuncs = {
+				change: function( event ){
+					event.stopPropagation();
+
+					self.value = FormUIUtil.getFormValue(self.termName);
+
+					const eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: self
+						}
+					};
+					
+					Liferay.fire( SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+				}
+			};
+
+			FormUIUtil.$getTextInput( 
+							id, name, type, placeHolder, required, disabled, this.value, eventFuncs )
+							.appendTo($section);
+			
+			return $section;
+		}
+
+		$getSearchSection(){
+			let id = NAMESPACE + this.termName;
+			let name = NAMESPACE + this.termName;
+			let label = this.getLocalizedDisplayName();
+			let required = false;
+			let disabled = this.disabled;
+			let type = 'text';
+			let helpMessage = this.getLocalizedTooltip();
+			let placeHolder = Liferay.Language.get('keywords-for-search');
+
+			let $section = $('<div class="form-group input-text-wrapper">');
+			FormUIUtil.$getLabelNode(id, label, required, helpMessage).appendTo( $section );
+			
+			let self = this;
+			let eventFuncs = {
+				change: function( event ){
+					event.stopPropagation();
+
+					let keywords = FormUIUtil.getFormValue(self.termName);
+
+					if( Util.isEmptyString(keywords) ){
+						delete self.searchKeywords;
+					}
+					else{
+						self.searchKeywords = keywords.split( ' ' );
+					}
+
+					const eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: self
+						}
+					};
+					
+					Liferay.fire( SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, eventData );					
+				}
+			};
+
+			
+			FormUIUtil.$getTextInput( 
+							id, name, type, placeHolder, required, disabled, '', eventFuncs )
+							.appendTo($section);
+
+			return $section;
+		}
+
+		$getFormStringSection( forWhat ){
+			let id = NAMESPACE + this.termName;
+			let name = NAMESPACE + this.termName;
+			let label = this.getLocalizedDisplayName();
+			let required = (forWhat === SXConstants.FOR_SEARCH) ? false : this.mandatory;
+			let disabled = this.disabled;
+			let type = this.multipleLine ? 'textarea' : 'text';
+			let helpMessage = this.getLocalizedTooltip();
+			let placeHolder = this.getLocalizedPlaceHolder();
+
+			let $section = $('<div class="form-group input-text-wrapper">')
+			.append( FormUIUtil.$getLabelNode(id, label, required, helpMessage) );
+			
+			let self = this;
+			
+
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				let $textInput = this.$getEditSection();
+				$section = FormUIUtil.$getPreviewRowSection( 
+										$textInput, 
+										this.getPreviewPopupAction(), 
+										this.getRowClickEventFunc() );
+			}
+			else if(forWhat === SXConstants.FOR_EDITOR ){
+				let $textInput = this.$getEditSection();
+				$section = FormUIUtil.$getEditorRowSection( $textInput );
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				let $textInput = this.$getSearchSection();
+				$section = FormUIUtil.$getSearchRowSection( $textInput );
+			}
+			else{
+				//PDF printing here
+			}
+
+			return $section;
+		}
 		
 		/**
 		 * Render term UI for preview
@@ -3774,8 +3393,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			this.$rendered = FormUIUtil.$getFormStringSection(
-				this,
+			
+			this.$rendered = this.$getFormStringSection(
 				forWhat
 			);
 
@@ -3942,16 +3561,372 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		removeActiveTerm( term ){
 			return null;
-		} 
+		}
+
+		$getSearchNumericNode(){
+			let controlName = NAMESPACE + this.termName;
+
+			let label = this.getLocalizedDisplayName();
+			let helpMessage = this.getLocalizedTooltip();
+			let mandatory = false;
+			let value = this.value;
+
+			let $searchKeywordSection = $('<div class="lfr-ddm-field-group field-wrapper">');
+			
+			let $label = FormUIUtil.$getLabelNode( controlName, label, mandatory, helpMessage )
+								.appendTo($searchKeywordSection);
+			
+			let $controlSection = $('<div class="form-group">').appendTo($searchKeywordSection);
+
+			if( !isNaN(this.minValue) && this.minValue !== null ){
+				$controlSection.append($('<span>'+this.minValue+'</span>'));
+
+				if( !!this.minBoundary ){
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
+				}
+				else{
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&lt;</span>'));
+				}
+			}
+			
+			let $fromSpan = $('<span class="form-group input-text-wrapper display-inline-block" style="margin-right: 5px;max-width:28%;">');
+			let $curlingSpan = $('<span style="margin: 0px 5px;max-width:4%;">~</span>').hide();
+			let $toSpan = $('<span class="form-group input-text-wrapper" style="margin:0px 5px;max-width:28%;">').hide();
+
+			$controlSection.append( $fromSpan )
+					.append( $curlingSpan )
+					.append( $toSpan );
+			
+			if( !isNaN(this.maxValue) && this.maxValue !== null ){
+				if( !!this.maxBoundary ){
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
+				}
+				else{
+					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&lt;</span>'));
+				}
+				
+				$controlSection.append($('<span>'+this.maxValue+'</span>'));
+				
+			}
+			
+			if( !!this.unit ){
+				$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">'+this.unit+'</span>'));
+			}
+
+			let term = this;
+			let eventFuncs = {
+				change: function(event){
+					//event.stopPropagation();
+					
+					term.rangeSearch = $(this).prop('checked');
+					console.log('SDFASDFASDFASD: ', term );
+					if( !term.rangeSearch ){
+						delete term.rangeSearch;
+					}
+	
+					if( term.rangeSearch === true ){
+						$curlingSpan.addClass('display-inline-block');
+						$toSpan.addClass('display-inline-block');
+						$curlingSpan.show();
+						$toSpan.show();
+						if( Util.isNonEmptyArray( term.searchValues) ){
+							term.fromSearchValue = term.searchValues[0];
+							$fromInputTag.val( term.fromSearchValue );
+						}
+						delete term.searchValues;
+					}
+					else{
+						$curlingSpan.hide();
+						$toSpan.hide();
+						$curlingSpan.removeClass('display-inline-block');
+						$toSpan.removeClass('display-inline-block');
+						if( Util.isSafeNumber(term.fromSearchValue) ){
+							term.searchValues = [term.fromSearchValue];
+						}
+						delete this.fromSearchValue; 
+						if( Util.isSafeNumber(term.toSearchValue) ){
+							delete self.toSearchValue;
+							$toInputTag.val('');
+						}
+					}
+	
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED,
+						eventData
+					);
+				}
+			}
+
+			let $rangeCheckbox = FormUIUtil.$getCheckboxTag( 
+											controlName+'_rangeSearch',
+											controlName+'_rangeSearch',
+											Liferay.Language.get( 'range-search' ),
+											false,
+											'rangeSearch',
+											false,
+											eventFuncs
+										).appendTo( $controlSection );
+			$rangeCheckbox.css( 'max-width', '28%' );
+			
+			let $fromInputTag = $('<input type="text">');
+			$fromInputTag.prop({
+				'class': 'form-control fromDate',
+				'id': controlName+'_from',
+				'name': controlName+'_from',
+				'value': this.getFromSearchValue()
+			}).appendTo($fromSpan);
+			
+			$fromInputTag.change(function(event){
+				event.stopPropagation();
+				event.preventDefault();
+
+				let previousValue;
+				let valueChanged = true;
+				if( term.rangeSearch === true ){
+					previousValue = Util.isSafeNumber(term.fromSearchValue) ? term.fromSearchValue : '';
+					if( term.setFromSearchValue( Number($(this).val()) ) === false ){
+						$(this).val( previousValue );
+						valueChanged = false;
+					}
+				}
+				else{
+					let newValues;
+					if( $(this).val() ){
+						newValues = Util.getTokenArray($(this).val(), ' ').map( value => Number(value) );
+					}
+					else{
+						newValues = [];
+					}
+					previousValue = term.searchValues;
+					if( term.setSearchValues( newValues ) === false ){
+						$(this).val( Util.isNonEmptyArray(previousValue) ? previousValue.join(' ') : '' );
+						term.searchValues = previousValue; 
+						valueChanged = false;
+					} 
+				}
+
+				if( valueChanged === true ){
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_FROM_NUMERIC_CHANGED,
+						eventData
+					);
+				}
+			});
+				
+			let $toInputTag = $('<input type="text">');
+			$toInputTag.prop({
+				'class': 'field form-control toDate',
+				'id': controlName+'_to',
+				'name': controlName+'_to',
+				'value': term.toSearchValue,
+				'aria-live': 'assertive',
+				'aria-label': ''
+			}).appendTo($toSpan);
+
+			$toInputTag.change(function(event){
+				event.stopPropagation();
+				event.preventDefault();
+
+				if( term.setToSearchValue( Number( $(this).val() ) ) === false ){
+					$(this).val( term.toSearchValue );
+				}
+				else{
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+	
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_TO_NUMERIC_CHANGED,
+						eventData
+					);
+				}
+
+			});
+
+			
+			return $searchKeywordSection;
+		}
+
+		$getEditorNumericNode(){
+			let term = this;
+
+			let valueName = NAMESPACE + term.termName + '_value';
+			let uncertaintyName = NAMESPACE + term.termName + '_uncertainty';
+
+			let label = term.getLocalizedDisplayName();
+			let helpMessage = !!term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
+			let mandatory = !!term.mandatory ? true : false;
+			let disabled = !!term.disabled ? true : false;
+			let value = Util.isSafeNumber(term.value) ? term.value : '';
+			let minValue = Util.isSafeNumber(term.minValue) ? term.minValue : '';
+			let minBoundary = !!term.minBoundary ? true : false;
+			let maxValue = Util.isSafeNumber(term.maxValue) ? term.maxValue : '';
+			let maxBoundary = !!term.maxBoundary ? true : false;
+			let unit = !!term.unit ? term.unit : '';
+			let uncertainty = !!term.uncertainty ? true : false;
+			let uncertaintyValue = Util.isSafeNumber(term.uncertaintyValue) ? term.uncertaintyValue : '';
+			let placeHolder = !!term.placeHolder ? term.placeHolder.getText(CURRENT_LANGUAGE) : '';
+
+			let $node = $('<div class="form-group input-text-wrapper">');
+			
+			let $label = FormUIUtil.$getLabelNode( valueName, label, mandatory, helpMessage ).appendTo( $node );
+			
+			let $controlSection = 
+					$('<div style="display:flex; align-items:center;justify-content: center; width:100%; margin:0; padding:0;">')
+					.appendTo( $node );
+
+			if( minValue ){
+				$('<div style="display:inline-block;min-width:8%;text-align:center;width:fit-content;"><strong>' +
+					minValue + '</strong></div>').appendTo( $controlSection );
+				
+				let minBoundaryText = '&lt;';
+				if( minBoundary ){
+					minBoundaryText = '&le;';
+				}
+
+				$('<div style="display:inline-block;width:3%;text-align:center;margin-right:5px;"><strong>' +
+						minBoundaryText + '</strong></div>').appendTo( $controlSection );
+
+			}
+			
+			let $inputCol = $('<div style="display:inline-block; min-width:30%;width:-webkit-fill-available;">').appendTo($controlSection);
+
+			let eventFuncs = {
+				change: function( event ){
+					event.stopPropagation();
+
+					if( !term.setValue( FormUIUtil.getFormValue(term.termName+'_value') ) ){
+						if( Util.isSafeNumber(term.value) ){
+							FormUIUtil.setFormValue( term.termName+'_value', term.value );
+						}
+						else{
+							FormUIUtil.clearFormValue( term.termName+'_value' );
+						}
+					};
+
+					const eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire( SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+				}
+			};
+			FormUIUtil.$getTextInput( valueName, valueName, 'text',  placeHolder, mandatory, disabled, value, eventFuncs ).appendTo($inputCol);
+
+			if( uncertainty ){
+				$('<div style="display:inline-block;width:3%;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>')
+					.appendTo( $controlSection );
+
+				$inputCol = $('<div style="display:inline-block; min-width:20%;width:fit-content;">').appendTo($controlSection);
+
+				eventFuncs = {
+					change: function( event ){
+						event.stopPropagation();
+	
+						if( !term.setUncertaintyValue( FormUIUtil.getFormValue(term.termName+'_uncertainty') ) ){
+							if( Util.isSafeNumber(term.uncertaintyValue) ){
+								FormUIUtil.setFormValue( term.termName+'_uncertainty', term.uncertaintyValue );
+							}
+							else{
+								FormUIUtil.clearFormValue( term.termName+'_uncertainty' );
+							}
+						};
+						const eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term
+							}
+						};
+						
+						Liferay.fire( SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+					}
+				};
+				FormUIUtil.$getTextInput( uncertaintyName, uncertaintyName, 'text', placeHolder, mandatory, disabled, uncertaintyValue, eventFuncs ).appendTo($inputCol);
+			}
+
+			if( !!unit ){
+				$('<div style="display:inline-block;min-width:7%;width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
+						unit + '</div>').appendTo( $controlSection );
+			}
+
+			if( !!maxValue ){
+				let maxBoundaryText = '&lt;';
+				if( maxBoundary ){
+					maxBoundaryText = '&le;';
+				}
+				
+				$('<div style="display:inline-block;width:3%;text-align:center;margin:0 2px 0 2px;"><strong>' +
+					maxBoundaryText + '</strong></div>').appendTo( $controlSection );
+
+				$('<div style="display:inline-block;min-width:8%;width:fit-content;text-align:center;"><strong>' +
+					maxValue + '</strong></div>').appendTo( $controlSection );
+			}
+
+			return $node;
+		}
+
+		$getFormNumericSection( forWhat ){
+			let $numericNode;
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				$numericNode = this.$getSearchNumericNode();
+			}
+			else{
+				$numericNode = this.$getEditorNumericNode();
+			}
+			
+			let $numericRow = null;
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$numericRow = FormUIUtil.$getPreviewRowSection(
+									$numericNode, 
+									this.getPreviewPopupAction(),
+									this.getRowClickEventFunc() );
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$numericRow = FormUIUtil.$getEditorRowSection( $numericNode );
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				$numericRow = FormUIUtil.$getSearchRowSection( $numericNode );
+			}
+			else{
+				// render for PDF printing here
+			}
+			
+			return $numericRow;
+
+		}
 		
 		$render( forWhat ){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
-			this.$rendered = FormUIUtil.$getFormNumericSection( 
-										this,
-										forWhat);
+			this.$rendered = this.$getFormNumericSection( forWhat );
 			
 			return this.$rendered;
 		}
@@ -3988,65 +3963,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchField;
 		}
 
-		minmaxValidation( value ){
-			if( !value ){
-				return true;
-			}
+		minValidation( value ){
+			let validation = true;
 
-			let minValidation = true;
-
-			if( this.minValue && this.minValue ){
+			if( Util.isSafeNumber(this.minValue) ){
 				let errorMsg;
-				if( this.hasOwnProperty( 'minBoundary' ) && this.minBoundary === true ){
+				if( !!this.minBoundary ){
+					console.log( 'new value: ', value);
 					if( value < this.minValue  ){
-						minValidation = false;
+						validation = false;
 						errorMsg = Liferay.Language.get('keyword-must-larger-than-or-equal-to-the-minimum-value') +
 									'<br>Minimum Value: ' + this.minValue;
 					}
 				}
 				else{
 					if( value <= this.minValue ){
-						minValidation = false;
+						validation = false;
 						errorMsg = Liferay.Language.get('keyword-must-larger-than-the-minimum-value') +
 									'<br>Minimum Value: ' + this.minValue;
 					}
 				}
 
-				if( minValidation === false ){
-					FormUIUtil.showError(
-						SXConstants.ERROR,
-						Liferay.Language.get('search-out-of-range-error'),
-						errorMsg,
-						{
-							ok: {
-								text: 'OK',
-								btnClass: 'btn-blue'
-							}
-						}
-					);
-					return false;
-				}
-			}
-
-			let maxValidation = true;
-			if( this.maxValue && this.maxValue ){
-				let errorMsg;
-				if( this.hasOwnProperty('maxBoundary') && this.maxBoundary === true ){
-					if( value > this.maxValue ){
-						maxValidation = false;
-						errorMsg = Liferay.Language.get('keyword-must-less-than-or-equal-to-the-maximum-value') +
-										'<br>Maximum Value: ' + this.maxValue;
-					}
-				}
-				else{
-					if( value >= this.maxValue ){
-						maxValidation = false;
-						errorMsg = Liferay.Language.get('keyword-must-less-than-the-maximum-value') +
-										'<br>Maximum Value: ' + this.maxValue;
-					}
-				}
-
-				if( maxValidation === false ){
+				if( validation === false ){
 					FormUIUtil.showError(
 						SXConstants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
@@ -4065,9 +4003,86 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return true;
 		}
 
+		maxValidation( value ){
+			let validation = true;
+
+			if( Util.isSafeNumber(this.maxValue) ){
+				let errorMsg;
+				if( !!this.maxBoundary ){
+					if( value > this.maxValue ){
+						validation = false;
+						errorMsg = Liferay.Language.get('keyword-must-less-than-or-equal-to-the-maximum-value') +
+										'<br>Maximum Value: ' + this.maxValue;
+					}
+				}
+				else{
+					if( value >= this.maxValue ){
+						validation = false;
+						errorMsg = Liferay.Language.get('keyword-must-less-than-the-maximum-value') +
+										'<br>Maximum Value: ' + this.maxValue;
+					}
+				}
+
+				if( validation === false ){
+					FormUIUtil.showError(
+						SXConstants.ERROR,
+						Liferay.Language.get('search-out-of-range-error'),
+						errorMsg,
+						{
+							ok: {
+								text: 'OK',
+								btnClass: 'btn-blue'
+							}
+						}
+					);
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		minmaxValidation( value ){
+			return this.minValidation( value ) && this.maxValidation( value );
+		}
+
+		setValue( value ){
+			if( Util.isEmptyString(value) ){
+				delete this.value;
+				return true;
+			}
+
+			let safeValue = Util.toSafeNumber( value );
+
+			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
+				return false;
+			}
+
+			this.value = safeValue;
+			return true;
+		}
+
+		setUncertaintyValue( value ){
+			console.log('value: ', value );
+			if( Util.isEmptyString(value) ){
+				delete this.uncertaintyValue;
+				return true;
+			}
+
+			let safeValue = Util.toSafeNumber( value );
+			console.log('safeValue: ', safeValue );
+
+			if( isNaN(safeValue) ){
+				return false;
+			}
+
+			this.uncertaintyValue = safeValue;
+			return true;
+		}
+
 		setSearchValues( values ){
 			let properValues = values.filter( value => {
-				if( this.hasOwnProperty('minValue') && this.minValue ){
+				if( Util.isSafeNumber(this.minValue) ){
 					if( this.minValue > value ){
 						FormUIUtil.showError(
 							SXConstants.ERROR,
@@ -4086,7 +4101,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				}
 
-				if( this.hasOwnProperty('maxValue') && this.maxValue ){
+				if( Util.isSafeNumber(this.maxValue) ){
 					if( this.maxValue < value ){
 						FormUIUtil.showError(
 							SXConstants.ERROR,
@@ -4125,9 +4140,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setFromSearchValue( fromValue ){
-			let minValidation = true;
-			let maxValidation = true;
-
 			// Validate if the search value is larger than or equal to minimum value
 			if( this.minmaxValidation( fromValue ) === false ){
 				return false;
@@ -4135,7 +4147,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			// Validate if the search value is less than or equal to upper value of range
 			if( this.rangeSearch === true ){
-				if( this.toSearchValue && this.toSearchValue < fromValue ){
+				if( Util.isSafeNumber(this.toSearchValue) && this.toSearchValue < fromValue ){
 					FormUIUtil.showError(
 						SXConstants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
@@ -4153,8 +4165,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			}
 
-			if( fromValue ){
-				this.fromSearchValue = Number(fromValue);
+			if( Util.isSafeNumber(fromValue) ){
+				this.fromSearchValue = fromValue;
 			}
 			else{
 				delete this.fromSearchValue;
@@ -4164,16 +4176,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setToSearchValue( toValue ){
-			let minValidation = true;
-			let maxValidation = true;
-
 			// Validate if the search value is larger than or equal to minimum value
 			if( this.minmaxValidation( toValue ) === false ){
 				return false;
 			}
 
-			if( toValue ){
-				if( this.hasOwnProperty('fromSearchValue') && this.fromSearchValue > Number(toValue) ){
+			if( Util.isSafeNumber(toValue) ){
+				if( Util.isSafeNumber(this.fromSearchValue) && this.fromSearchValue > toValue ){
 					FormUIUtil.showError(
 						SXConstants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
@@ -4189,7 +4198,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					return false;
 				}
 				else{
-					this.toSearchValue = Number(toValue);
+					this.toSearchValue = toValue;
 				}
 
 			}
@@ -4200,20 +4209,53 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return true;
 		}
 
-		getMinValueFormValue ( save ){
+		setMinValue( value ){
+			if( Util.isEmptyString(value) ){
+				delete this.minValue;
+				return true;
+			}
+
+			value = Util.toSafeNumber( value );
+
+			if( isNaN(value) || !this.maxValidation(value) ){
+				return false;
+			}
+
+			this.minValue = value;
+			return true;
+		}
+
+		setMaxValue( value=NaN ){
+			if( Util.isEmptyString(value) ){
+				delete this.maxValue;
+				return true;
+			}
+
+			value = Util.toSafeNumber( value );
+
+			if( isNaN(value) || !this.minValidation(value) ){
+				return false;
+			}
+
+			this.maxValue = value;
+			return true;
+		}
+
+		getMinValueFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.MIN_VALUE );
+			
 			if( save ){
-				this.minValue = value;
+				this.setMinValue( value );
 				this.setDirty( true );
 			}
 			
 			return value;
 		}
 		setMinValueFormValue ( value ){
-			if( value ){
+			if( this.setMinValue( value ) ){
 				FormUIUtil.setFormValue( TermAttributes.MIN_VALUE, value );
 			}
-			else if( this.minValue ){
+			else if( Util.isSafeNumber(this.minValue) ){
 				FormUIUtil.setFormValue( TermAttributes.MIN_VALUE, this.minValue );
 			}
 			else{
@@ -4221,7 +4263,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getMinBoundaryFormValue ( save ){
+		getMinBoundaryFormValue ( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MIN_BOUNDARY );
 			if( save ){
 				this.minBoundary = value;
@@ -4232,35 +4274,34 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setMinBoundaryFormValue ( value ){
 			if( value ){
+				this.minBoundary = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MIN_BOUNDARY, value );
 			}
 			else if( this.minBoundary ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MIN_BOUNDARY, this.minBoundary );
 			}
 			else{
+				delete this.minBoundary;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.MIN_BOUNDARY );
 			}
 		}
 		
-		getMaxValueFormValue ( save ){
+		getMaxValueFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.MAX_VALUE );
+
 			if( save ){
-				if( !value ){
-					delete this.maxValue;
-				}
-				else{
-					this.maxValue = value;
-				}
-				this.setDirty( true );
+				if( this.setMaxValue( value ) ){
+					this.setDirty( true );
+				};
 			}
 			
 			return value;
 		}
-		setMaxValueFormValue ( value ){
-			if( value ){
+		setMaxValueFormValue ( value='' ){
+			if( this.setMaxValue( value ) ){
 				FormUIUtil.setFormValue( TermAttributes.MAX_VALUE, value );
 			}
-			else if( this.hasOwnProperty(TermAttributes.MAX_VALUE) ){
+			else if( Util.isSafeNumber(this.maxValue) ){
 				FormUIUtil.setFormValue( TermAttributes.MAX_VALUE, this.maxValue );
 			}
 			else{
@@ -4268,7 +4309,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getMaxBoundaryFormValue ( save ){
+		getMaxBoundaryFormValue ( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MAX_BOUNDARY );
 			if( save ){
 				this.maxBoundary = value;
@@ -4289,7 +4330,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		getUnitFormValue ( save ){
+		getUnitFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( TermAttributes.UNIT );
 			if( save ){
 				this.unit = value;
@@ -4300,17 +4341,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setUnitFormValue ( value ){
 			if( value ){
+				this.unit = value;
 				FormUIUtil.setFormValue( TermAttributes.UNIT, value );
 			}
 			else if( this.unit ){
 				FormUIUtil.setFormValue( TermAttributes.UNIT, this.unit );
 			}
 			else{
+				delete this.unit;
 				FormUIUtil.clearFormValue( TermAttributes.UNIT );
 			}
 		}
 		
-		getUncertaintyFormValue ( save ){
+		getUncertaintyFormValue ( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.UNCERTAINTY );
 			if( save ){
 				this.uncertainty = value;
@@ -4321,17 +4364,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setUncertaintyFormValue ( value ){
 			if( value ){
+				this.uncertainty = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.UNCERTAINTY, value );
 			}
 			else if( this.uncertainty ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.UNCERTAINTY, this.uncertainty );
 			}
 			else{
+				delete this.uncertainty;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.UNCERTAINTY );
 			}
 		}
 
-		getSweepableFormValue ( save ){
+		getSweepableFormValue ( save=true ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SWEEPABLE );
 			if( save ){
 				this.sweepable = value;
@@ -4342,12 +4387,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setSweepableFormValue ( value ){
 			if( value ){
+				this.sweepable = value;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE, value );
 			}
 			else if( this.sweepable ){
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE, this.sweepable );
 			}
 			else{
+				delete this.sweepable;
 				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE );
 			}
 		}
@@ -4360,8 +4407,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.placeHolder = null;
 				}
 				else{
-					this.placeHolder = new LocalizedObject();
-					this.placeHolder.setLocalizedMap( valueMap );
+					this.placeHolder = new LocalizedObject( valueMap );
 				}
 				this.setDirty( true );
 			}
@@ -4370,12 +4416,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setNumericPlaceHolderFormValue ( valueMap ){
 			if( valueMap ){
+				this.placeHolder =  new LocalizedObject( valueMap );
 				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER, valueMap );
 			}
 			else if( this.placeHolder ){
 				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER, this.placeHolder.getLocalizedMap() );
 			}
 			else{
+				delete this.placeHolder;
 				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER );
 			}
 		}
@@ -4392,16 +4440,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setNumericPlaceHolderFormValue();
 		}
 
-		initAllAttributes(){
-			super.initAllAttributes( 'Numeric' );
-
-			if( !this.minBoundary )	this.minBoundary = false;
-			if( !this.maxBoundary )	this.maxBoundary = false;
-			if( !this.uncertainty )	this.uncertainty = false;
-			if( !this.sweepable )	this.sweepable = false;
-			if( !this.placeHolder )	this.placeHolder = new LocalizedObject();
-		}
-		
 		parse( json ){
 			let unparsed = super.parse( json );
 			let invalid = new Object();
@@ -4415,6 +4453,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'maxBoundary':
 					case 'unit':
 					case 'uncertainty':
+					case 'uncertaintyValue':
 					case 'sweepable':
 						self[key] = json[key];
 						break;
@@ -4430,12 +4469,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = super.toJSON();
 			
-			if( this.minValue )	json.minValue = this.minValue;
-			if( this.minBoundary )	json.minBoundary = true;
-			if( this.maxValue )	json.maxValue = this.maxValue;
-			if( this.maxBoundary )	json.maxBoundary = true;
-			if( this.unit )	json.unit = this.unit;
-			if( this.uncertainty )	json.uncertainty = true;
+			if( Util.isSafeNumber(this.minValue) )	json.minValue = this.minValue;
+			if( !!this.minBoundary )	json.minBoundary = true;
+			if( Util.isSafeNumber(this.maxValue) )	json.maxValue = this.maxValue;
+			if( !!this.maxBoundary )	json.maxBoundary = true;
+			if( !!this.unit )	json.unit = this.unit;
+			if( !!this.uncertainty )	json.uncertainty = true;
+			if( Util.isSafeNumber(this.uncertaintyValue) )	json.uncertaintyValue = this.uncertaintyValue;
 			if( this.sweepable )	json.sweepable = true;
 			if( this.placeHolder ){
 				json.placeHolder = this.placeHolder.getLocalizedMap();
@@ -4468,6 +4508,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		highlightOptionPreview(){
+			/*
 			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('tr') );
 			rows.forEach((row, index) => { 
 				$(row).removeClass( 'highlight-border' );
@@ -4475,6 +4516,36 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$(row).addClass( 'highlight-border' );
 				}
 			});
+			*/
+
+			this.options.forEach( option => {
+				option.$rendered.removeClass('highlight-border');
+			});
+
+			if( this.highlightedOption.$rendered ){
+				this.highlightedOption.$rendered.addClass('highlight-border');
+			}
+		}
+
+		initOptionFormValues( option ){
+			if( option ){
+				this.setOptionLabelFormValue( option.labelMap );
+				this.setOptionValueFormValue( option.value );
+				this.setOptionSelectedFormValue( option.selected );
+				this.setActiveTermsFormValue( option.activeTerms );
+
+				this.highlightedOption = option;
+			}
+			else{
+				this.setOptionLabelFormValue();
+				this.setOptionValueFormValue();
+				this.setOptionSelectedFormValue();
+				this.setActiveTermsFormValue();
+
+				this.options.forEach( opt => {
+					opt.$rendered.removeClass('highlight-border');
+				});
+			}
 		}
 
 		/**********************************************************
@@ -4514,6 +4585,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let newOption = new ListOption( optionLabelMap, optionValue, selected, false, activeTerms );
 
+			if( !this.options ){
+				this.options = new Array();
+			}
+
 			this.options.push(newOption);
 
 			let $row = newOption.$renderPreview();
@@ -4533,6 +4608,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.highlightedOption;
 		}
 
+		setEmptyHighlightedOption(){
+			this.highlightedOption = new ListOption();
+			this.initOptionFormValues();
+		}
+
 		clearSelectedOption(){
 			this.options.forEach((option, index)=>{
 				if( option !== this.highlightedOption ){
@@ -4544,6 +4624,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		removeOption( optionValue ){
+			if( !this.options )	return;
+
 			this.options = this.options.filter(
 				(option, index, ary) => { 
 					if( option.value === optionValue ){
@@ -4581,22 +4663,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.highlightedOption ){
 				this.highlightedOption.setLabelMap( labelMap );
 				this.refreshOptionPreview( 'label' );
+				this.setDirty( true );
 			}
-			this.setDirty( true );
 		}
 
 		setOptionValue( value ){
 			if( this.highlightedOption ){
 				this.highlightedOption.value = value;
 				this.refreshOptionPreview('value');
+				this.setDirty( true );
 			}
-			this.setDirty( true );
 		}
 
 		setOptionSelected( value ){
 			if( this.highlightedOption ){
 				this.highlightedOption.selected = value;
 				this.refreshOptionPreview('selected');
+				this.setDirty( true );
 			}
 		}
 
@@ -4729,31 +4812,200 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
+		$getFieldSetNode( forWhat ){
+			let term = this;
+
+			let controlName = NAMESPACE + term.termName;
+			let label = term.getLocalizedDisplayName();
+			let helpMessage = term.getLocalizedTooltip();
+			let mandatory = !!term.mandatory ? true : false;
+			let value = term.value;
+			let displayStyle = !!term.displayStyle ? term.displayStyle : 'select';
+			let options = !!term.options ? term.options : new Array();
+			let disabled = !!term.disabled ? true : false;
+
+			let $node;
+
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, false, helpMessage );
+				let $panelBody = $panelGroup.find('.panel-body');
+
+				options.forEach((option, index)=>{
+					let $option = option.$render( SXConstants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
+
+					$option.change(function(event){
+						event.stopPropagation();
+
+						term.emptySearchKeywords();
+						let $checkedInputs = $('input[name="' + controlName + '"]:checked');
+						if( $checkedInputs.length > 0 && 
+							$checkedInputs.length < term.options.length ){
+							term.searchKeywords = new Array();
+							$.each( $checkedInputs, function(){
+								term.addSearchKeyword( $(this).val() );
+							});
+						}
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, 
+							eventData );
+
+					});
+
+					$panelBody.append( $option );
+				});
+					
+				$node = $('<div class="card-horizontal main-content-card">')
+								.append( $panelGroup );
+			}
+			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+				let $node = $('<div class="form-group input-text-wrapper">')
+								.append( FormUIUtil.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage, disabled) );
+
+				$node.change(function(event){
+					event.stopPropagation();
+
+					term.value = [$node.find('select').val()];
+
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term,
+							controlName: controlName,
+							value: term.value
+						}
+					};
+
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				});
+
+				return $node;
+
+			}
+			else{
+				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
+				let $panelBody = $panelGroup.find('.panel-body');
+
+				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
+					options.forEach((option, index)=>{
+							let selected = (value[0] === option.value);
+							$panelBody.append( FormUIUtil.$getRadioButtonTag( 
+														controlName+'_'+(index+1),
+														controlName, 
+														option,
+														selected,
+														disabled ) );
+					});
+
+					$panelBody.change(function(event){
+						event.stopPropagation();
+
+						let changedVal = $(this).find('input[type="radio"]:checked').val();
+						term.value = [changedVal];
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term,
+								value: changedVal
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							eventData
+						);
+					});
+				}
+				else{ //For Checkbox
+					options.forEach((option, index)=>{
+							$panelBody.append( FormUIUtil.$getCheckboxTag( 
+														controlName+'_'+(index+1),
+														controlName,
+														option.labelMap[CURRENT_LANGUAGE],
+														option.selected || value.includes(option.value),
+														option.value,
+														disabled ) );
+					});
+						
+					$panelBody.change(function(event){
+						event.stopPropagation();
+
+						let checkedValues = new Array();
+
+						$.each( $(this).find('input[type="checkbox"]:checked'), function(){
+							checkedValues.push( $(this).val() );
+						});
+
+						term.value = checkedValues;
+						term.valueMode = SXConstants.ARRAY;
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: term,
+								value: checkedValues
+							}
+						};
+
+						Liferay.fire(
+							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							eventData
+						);
+					});
+				}
+
+				$node = $('<div class="card-horizontal main-content-card">')
+								.append( $panelGroup );
+			}
+
+			return $node;
+		}
+
 		$render( forWhat ){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 			
-			this.$rendered = FormUIUtil.$getFormListSection(
-									this,
-									forWhat );
+			let $fieldset = this.$getFieldSetNode( forWhat );
 			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				this.$rendered = FormUIUtil.$getPreviewRowSection(
+										$fieldset, 
+										this.getPreviewPopupAction(), 
+										this.getRowClickEventFunc() );
+
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				this.$rendered = FormUIUtil.$getEditorRowSection( $fieldset );
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getSearchRowSection( $fieldset );
+			}
+			else{
+				// rendering for PDF here
+			}
+
 			return this.$rendered;
 		}
 
 		disable( disable=true ){
 			this.disable = disable;
 			this.$rendered.find('select, input').prop('disabled', this.disable);
-		}
-
-		initAllAttributes(){
-			super.initAllAttributes( 'List' );
-
-			if( !this.options )			this.options = new Array();
-			if( !this.displayStyle )	this.displayStyle = 'select';
-
-			ListTerm.$OPTION_TABLE.empty();
-			ListTerm.$OPTION_ACTIVE_TERMS.empty();
 		}
 
 		getDisplayStyleFormValue ( save ){
@@ -4853,22 +5105,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.setDisplayStyleFormValue();
 			this.renderOptions();
-			this.initOptionFormValues();
-		}
 
-		initOptionFormValues( option ){
-			if( !option ){
+			if( !this.options ){
 				this.highlightedOption = null;	
 			}
 			else{
-				this.highlightedOption = option;
+				this.highlightedOption = this.options[0];
 			}
 			
 			this.setOptionLabelFormValue();
 			this.setOptionValueFormValue();
 			this.setOptionSelectedFormValue();
 			this.setActiveTermsFormValue();
-
+	
 			this.highlightOptionPreview();
 		}
 
@@ -4903,7 +5152,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let json = super.toJSON();
 			
 			json.displayStyle = this.displayStyle;
-			json.options = this.options.map(option=>option.toJSON());
+
+			if( this.options ){
+				json.options = this.options.map(option=>option.toJSON());
+			}
 			
 			return json;
 		}
@@ -4925,6 +5177,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( jsonObj ){
 				this.parse( jsonObj );
 			}
+
+			super.setAllFormValues();
 		}
 
 		$emailFormSection( forWhat ){
@@ -5076,10 +5330,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $row;
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $emailSection );
+				this.$rendered = FormUIUtil.$getPreviewRowSection( 
+										$emailSection,
+										this.getPreviewPopupAction(), 
+										this.getRowClickEventFunc()  );
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				this.$rendered = FormUIUtil.$getEditorRowSection( this, $emailSection );
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				this.$rendered = FormUIUtil.$getEditorRowSection( $emailSection );
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getSearchRowSection( $emailSection );
 			}
 
 			return this.$rendered;
@@ -5164,13 +5424,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$address.val( this.value[1] );
 				}
 
+				let $detailNode = $('<div>').appendTo( $inputSection );
+				let $detailLabel = $('<span style="margin-right: 5px;display:inline-block;">'+Liferay.Language.get('detail-address')+':</span>').appendTo($detailNode);
 
 				let $detailAddr = $('<input class="form-control" ' + 
 											'id="' + controlId + '_detailAddr" ' +
 											'name="' + controlId + '_detailAddr" ' +
 											'aria-required="true" ' +
+											'style="display:inline-block;max-width:76%;" '+
 											'disabled '+
-											'/>' ).appendTo( $inputSection );
+											'/>' ).appendTo( $detailNode );
 				if( this.hasOwnProperty('value') && this.value[2] ){
 					$detailAddr.val( this.value[2] );
 					$detailAddr.prop('disabled', false);
@@ -5182,14 +5445,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				});
 							
-				$resetBtn.click( (event) => {
+				$resetBtn.click( function(event){
+					event.stopPropagation();
+					event.preventDefault();
+
 					delete self.value;
 					self.setAddressValue();
+
+					$inputZipcode.val('');
+					$address.val('');
+					$detailAddr.val('');
 
 					$detailAddr.trigger('change');
 				});
 
-				$searchZipcodeBtn.click( function(){
+				$searchZipcodeBtn.click( function( e ){
+					e.stopPropagation();
+					e.preventDefault();
+
 					new daum.Postcode({
 						width: 500,
 						height: 600,
@@ -5212,13 +5485,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							
 							$detailAddr.prop('disabled', false).focus();
 						}
-					}).open({
-						left: (window.screen.width / 2) - (500 / 2),
-						top: (window.screen.height / 2) - (600 / 2)
-					});
+					}).open();
 				});
 
 				$detailAddr.change( function(event){
+					event.stopPropagation();
+
 					if( self.value ){
 						self.value[2] = $(this).val().replaceAll(',', ' ');
 					}
@@ -5241,6 +5513,57 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $section;
 		}
 
+		$getSearchAddressSection(){
+			let controlName = NAMESPACE + this.termName;
+			let label = this.getLocalizedDisplayName();
+			let helpMessage = this.getLocalizedTooltip();
+			let $section = $('<div class="form-group input-text-wrapper">');
+			
+			FormUIUtil.$getLabelNode(controlName, label, false, helpMessage).appendTo( $section );
+
+			let placeHolder = Liferay.Language.get('keywords-for-search');
+			let searchKeywords = this.searchKeywords instanceof Array ? this.searchKeywords.join(' ') : '';
+				
+			let $input = $( '<input type="text" aria-required="true">' ).appendTo( $section );
+				
+			$input.prop({
+				class: 'field form-control',
+				id: controlName,
+				name: controlName,
+				value: searchKeywords,
+				placeholder: placeHolder
+			});
+				
+			let self = this;
+			$input.change(function(event){
+				event.stopPropagation();
+
+				let keywords = $(this).val().trim();
+
+				if( keywords ){
+					self.searchKeywords = Util.getTokenArray(keywords);
+				}
+				else{
+					delete self.searchKeywords;
+				}
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: self
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+					eventData
+				);
+			});
+		
+			return $section;
+		}
+
 		$render( forWhat ){
 			if( this.$rendered ){
 				this.$rendered.remove();
@@ -5250,15 +5573,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( forWhat === SXConstants.FOR_PREVIEW ){
 				$addrSection = this.$getAddressSection( forWhat );
-				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $addrSection ) ;
+				this.$rendered = FormUIUtil.$getPreviewRowSection( 
+												$addrSection,
+												this.getPreviewPopupAction(), 
+												this.getRowClickEventFunc() ) ;
 			}
 			else if( forWhat === SXConstants.FOR_EDITOR ){
 				$addrSection = this.$getAddressSection( forWhat );
-				this.$rendered = FormUIUtil.$getEditorRowSection( this, $addrSection );
+				this.$rendered = FormUIUtil.$getEditorRowSection( $addrSection );
 			}
 			else{
-				$addrSection = FormUIUtil.$getFormStringSection( this, forWhat );
-				this.$rendered = FormUIUtil.$getEditorRowSection( this, $addrSection );
+				$addrSection = this.$getSearchAddressSection();
+				this.$rendered = FormUIUtil.$getSearchRowSection( $addrSection );
 			}
 
 			return this.$rendered;
@@ -5304,15 +5630,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( jsonObj ){
 				this.parse( jsonObj );
-				this.setRowsFormValue();
-				this.setColumnsFormValue();
-				this.setColumnWidthFormValue();
 			}
-			else{
-				this.setRowsFormValue( MatrixTerm.DEFAULT_ROWS );
-				this.setColumnsFormValue( MatrixTerm.DEFAULT_COLUMNS );
-				this.setColumnWidthFormValue( MatrixTerm.DEFAULT_COLUMN_WIDTH );
-			}
+
+			super.setAllFormValues();
+
+			this.setRowsFormValue();
+			this.setColumnsFormValue();
+			this.setColumnWidthFormValue();
 		}
 
 		isEmptyValue(){
@@ -5320,13 +5644,109 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			for( let r=0; r<this.rows; r++ ){
 				for( let c=0; c<this.columns; c++ ){
-					if( typeof this.value[r][c] !== 'number' ){
-						return true;
+					if( Util.isSafeNumber(this.value[r][c]) ){
+						return false;
 					}
 				}
 			}
 
-			return false;
+			return true;
+		}
+
+		$getFormMatrixSection( forWhat ){
+			let $matrixSection = $('<div class="form-group input-text-wrapper">');
+			
+			FormUIUtil.$getLabelNode( NAMESPACE+this.termName, 
+									this.getLocalizedDisplayName(),
+									this.mandatory, 
+									this.getLocalizedTooltip() ).appendTo($matrixSection);
+
+			let $table = $('<table>').appendTo( $matrixSection );
+			for( let r=0; r < this.rows; r++ ){
+				let $tr = $('<tr style="line-height:1.8rem;">').appendTo( $table ) ;
+				if( r === 0 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9121;</span></td>') );
+				}
+				else if( r > 0 && r < this.rows - 1 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9122;</span></td>') );
+				}
+				else{
+					$tr.append( $('<td><span style="font-size:1rem;">&#9123;</span></td>') );
+				}
+
+				for( let c=0; c<this.columns; c++){
+					let $td = $('<td>').appendTo( $tr );
+					$td.css({
+						'width': this.columnWidth+'rem',
+						'max-width': (100 / (this.columns + 2)) + '%'
+					});
+					let $input = $('<input type="text" ' + 
+										'name="' + NAMESPACE + this.termName+'_'+r+'_'+c+'" ' + 
+										'class="form-control">').appendTo( $td );
+					$input.css({
+						'height': '1.5rem',
+						'padding': '0',
+						'text-align': 'right',
+						'margin-left': '3px',
+						'margin-right':'3px'
+					});
+
+					if( Util.isSafeNumber(this.value[r][c]) ){
+						$input.val( this.value[r][c] );
+					}
+					else{
+						$input.val('');
+					}
+
+					if( this.disabled ){
+						$input.prop('disabled', true);
+					}
+					else{
+						let matrixTerm = this;
+						$input.change(function(event){
+							event.stopPropagation();
+
+							let strVal = $(this).val();
+							let safeVal = Util.toSafeNumber( strVal );
+							if( Util.isSafeNumber(safeVal) ){
+								matrixTerm.value[r][c] = safeVal ;
+							}
+							else{
+								$.alert( Liferay.Language.get('matix-allowed-only-numbers') );
+								if( Util.isSafeNumber(matrixTerm.value[r][c]) )
+									$(this).val(matrixTerm.value[r][c]);
+								else	$(this).val('');
+							}
+
+							let eventData = {
+								sxeventData:{
+									sourcePortlet: NAMESPACE,
+									targetPortlet: NAMESPACE,
+									term: matrixTerm  
+								}
+							};
+			
+							Liferay.fire(
+								SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+								eventData
+							);
+						});
+					}
+				}
+
+				if( r === 0 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9124;</span></td>') );
+				}
+				else if( r > 0 && r < this.rows - 1 ){
+					$tr.append( $('<td><span style="font-size:1rem;">&#9125;</span></td>') );
+				}
+				else{
+					$tr.append( $('<td><span style="font-size:1rem;">&#9126;</span></td>') );
+				}
+			}
+
+			return $matrixSection;
+
 		}
 
 		$render( forWhat ){
@@ -5342,69 +5762,105 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			}
 
-			let $matrixSection = FormUIUtil.$getFormMatrixSection( this, forWhat );
+			let $matrixSection = this.$getFormMatrixSection( forWhat );
 
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $matrixSection ) ;
+				this.$rendered = FormUIUtil.$getPreviewRowSection( 
+										$matrixSection,
+										this.getPreviewPopupAction(),
+										this.getRowClickEventFunc() ) ;
 			}
 			else if( forWhat === SXConstants.FOR_EDITOR ){
-				this.$rendered = FormUIUtil.$getEditorRowSection( this, $matrixSection );
+				this.$rendered = FormUIUtil.$getEditorRowSection( $matrixSection );
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getSearchRowSection( $matrixSection );
 			}
 
 			return this.$rendered;
 		}
 
 		setRows( rows ){
-			if( typeof rows === 'string' ){
-				this.rows = Number( rows );
-			}
-			else if( typeof rows === 'number' ){
-				this.rows = rows;
-			}
-			else if( typeof rows === 'undefined' ){
-				delete this.rows;
-			}
-			else{
-				return false;
+			let safeRows = Util.toSafeNumber( rows );
+
+			if( Util.isSafeNumber(safeRows) ){
+				if( safeRows < 1 ){
+					$.alert(Liferay.Language.get('matrix-rows-should-be-lager-than-0'));
+					return 0;
+				}
+				else{
+					this.rows = safeRows;
+
+					return this.rows;
+				}
 			}
 
-			return true;
+			if( Util.isEmptyString(rows) || typeof rows === 'undefined' ){
+				this.rows = 3;
+
+				return this.rows;
+			}
+
+			return 0;
 		}
 
 		setColumns( columns ){
-			if( typeof columns === 'string' ){
-				this.columns = Number( columns );
-			}
-			else if( typeof columns === 'number' ){
-				this.columns = columns;
-			}
-			else if( typeof rows === 'undefined' ){
-				delete this.rows;
-			}
-			else{
-				return false;
+			let safeColumns = Util.toSafeNumber( columns );
+
+			if( Util.isSafeNumber(safeColumns) ){
+				if( safeColumns < 1 ){
+					$.alert(Liferay.Language.get('matrix-columns-should-be-lager-than-0'));
+					return 0;
+				}
+				else{
+					this.columns = safeColumns;
+
+					return this.columns;
+				}
 			}
 
-			return true;
+			if( Util.isEmptyString(columns) || typeof columns === 'undefined' ){
+				this.columns = 3;
+
+				return this.columns;
+			}
+
+			return 0;
+		}
+
+		setColumnWidth( width ){
+			let safeWidth = Util.toSafeNumber( width );
+
+			if( Util.isSafeNumber(safeWidth) ){
+				if( safeWidth < 1 ){
+					$.alert(Liferay.Language.get('matrix-column-width-should-be-lager-than-0'));
+					return 0;
+				}
+				else{
+					this.columnWidth = safeWidth;
+
+					return this.columnWidth;
+				}
+			}
+
+			if( Util.isEmptyString(width) || typeof width === 'undefined' ){
+				this.columnWidth = 2;
+
+				return this.columnWidth;
+			}
+
+			return 0;
 		}
 
 
 		setRowsFormValue( value ){
-			if( value ){
-				this.setRows( value );
-				FormUIUtil.setFormValue( 'rows', value );
-			}
-			else if( this.hasOwnProperty('rows') ){
-				FormUIUtil.setFormValue( 'rows', this.rows );
-			}
-			else{
-				this.setRows();
-				FormUIUtil.setFormValue( 'rows' );
-			}
+			this.setRows( value );
+
+			FormUIUtil.setFormValue( 'rows', this.rows );
 		}
 
 		getRowsFormValue( save=true ){
-			let value = Number( FormUIUtil.getFormValue( 'rows' ) );
+			let value = FormUIUtil.getFormValue( 'rows' );
 			if( save ){
 				this.setRows( value );
 				this.dirty = true;
@@ -5414,21 +5870,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setColumnsFormValue( value ){
-			if( value ){
-				this.setColumns( value );
-				FormUIUtil.setFormValue( 'columns', value );
-			}
-			else if( this.hasOwnProperty('columns') ){
-				FormUIUtil.setFormValue( 'columns', this.columns );
-			}
-			else{
-				this.setColumns();
-				FormUIUtil.setFormValue( 'columns' );
-			}
+			this.setColumns( value );
+			
+			FormUIUtil.setFormValue( 'columns', this.columns );
 		}
 
 		getColumnsFormValue( save=true ){
-			let value = Number( FormUIUtil.getFormValue( 'columns' ) );
+			let value = FormUIUtil.getFormValue( 'columns' );
 
 			if( save ){
 				this.setColumns( value );
@@ -5439,23 +5887,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setColumnWidthFormValue( value ){
-			if( value ){
-				this.columnWidth = value;
-				FormUIUtil.setFormValue( 'columnWidth', value );
-			}
-			else if( this.hasOwnProperty('columnWidth') ){
-				FormUIUtil.setFormValue( 'columnWidth', this.columnWidth );
-			}
-			else{
-				delete this.columnWidth;
-				FormUIUtil.setFormValue( 'columnWidth', '' );
-			}
+			this.setColumnWidth( value );
+			FormUIUtil.setFormValue( 'columnWidth', this.columnWidth );
 		}
 
 		getColumnWidthFormValue( save=true ){
 			if( save ){
-				this.columnWidth = FormUIUtil.getFormValue( 'columnWidth' );
+				this.setColumnWidth( FormUIUtil.getFormValue( 'columnWidth' ) );
 				this.dirty = true;
+
+				return this.columnWidth;
 			}
 			else{
 				return FormUIUtil.getFormValue( 'columnWidth' );
@@ -5463,7 +5904,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		parse( jsonObj ){
-			console.log( 'for parse: ', jsonObj );
 			let unparsed = super.parse( jsonObj );
 
 			let self = this;
@@ -5476,15 +5916,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self.setColumns( unparsed[key] );
 						break;
 					case 'columnWidth':
-						self[key] = unparsed[key];
+						self[key] = self.setColumnWidth( unparsed[key] );
 						break;
 					default:
 						console.log( 'Un-recognizable attribute: ' + key );
 
 				}
 			});
-
-			console.log( 'After parse: ', this);
 		}
 
 		toJSON(){
@@ -5493,8 +5931,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			json.rows = this.rows;
 			json.columns = this.columns;
 			json.columnWidth = this.columnWidth;
-
-			console.log('mATRIX JSON: ', json );
+			
+			if( this.isEmptyValue() ){
+				delete json.value;
+			}
 
 			return json;
 		}
@@ -5512,17 +5952,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		checkDigit( $control, val ){
 
-			if( !Number.isInteger( Number(val) ) ){
-				FormUIUtil.showError( 
-							SXConstants.ERROR, 
-							'digit-error', 
-							'only-0-9-digit-allowed', 
-							{
-								ok: {
-									text: 'OK',
-									btnClass: 'btn-blue'
-								}
-							} );
+			if( !Number.isInteger( Util.toSafeNumber(val) ) ){
+				$.alert('only-0-9-digit-allowed');
 				$control.focus();
 
 				return false;
@@ -5564,88 +5995,159 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getPhoneSection( forWhat ){
 			let helpMessage = '';
 			let self = this;
-			if( this.tooltip )	helpMessage = this.getLocalizedTooltip();
+			if( !!this.tooltip )	helpMessage = this.getLocalizedTooltip();
 
 			let $phoneSection = $('<div>');
+
+			FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage)
+							.appendTo($phoneSection);
+
+			if( forWhat === SXConstants.FOR_SEARCH ){
+				let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
+
+				let eventFuncs = {
+					'change': function( event ){
+						delete self.searchKeywords;
+
+						self.searchKeywords = $(this).val().split(' ');
+
+						let eventData = {
+							sxeventData:{
+								sourcePortlet: NAMESPACE,
+								targetPortlet: NAMESPACE,
+								term: self  
+							}
+						}
+
+						Liferay.fire(
+							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+							eventData
+						);
+					}
+				}
+
+				FormUIUtil.$getTextInput( 
+								NAMESPACE + this.termName,
+								NAMESPACE + this.termName,
+								'text',
+								this.getLocalizedPlaceHolder(),
+								false,
+								false,
+								'',
+								eventFuncs
+							).appendTo( $inputNode );
+
+			}
+			else{
+				let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
+
+				let value = (this.value instanceof Array && this.value[0]) ? this.value[0] : ''; 
+
+				let eventFuncs = {
+					change: function(event){
+						event.stopPropagation();
+
+						let mobileNo = $(this).val();
+
+						if( !self.checkDigit( $(this), mobileNo ) ) return;
+
+						self.setValue( mobileNo, 0 );
+					}
+				};
+
+				let $mobileInput = FormUIUtil.$getTextInput(
+										NAMESPACE + this.termName + '_mobile',
+										NAMESPACE + this.termName + '_mobile',
+										'text',
+										'',
+										false,
+										this.disabled,
+										value,
+										eventFuncs
+									).appendTo( $inputNode );
+
+				$mobileInput.addClass( 'form-control' );
+				$mobileInput.prop( 'maxLength', '3' );
+				$mobileInput.css({
+					'width': '4rem',
+					'display': 'inline-block',
+					'text-align': 'center'
+				});
+				
+				$('<span>)&nbsp;</span>').appendTo( $inputNode );
+
+				value = (this.value instanceof Array && this.value[1]) ? this.value[1] : '';
+
+				eventFuncs = {
+					change: function(event){
+						event.stopPropagation();
+
+						let stationNo = $(this).val();
+
+						if( !self.checkDigit( $(this), stationNo ) ) return;
+
+						self.setValue( stationNo, 1 );
+					}
+				};
+
+				let $stationInput = FormUIUtil.$getTextInput(
+										NAMESPACE + this.termName + '_station',
+										NAMESPACE + this.termName + '_station',
+										'text',
+										'',
+										false,
+										this.disabled,
+										value,
+										eventFuncs
+									).appendTo( $inputNode );
+
+				$stationInput.addClass( 'form-control' );
+				$stationInput.prop( 'maxLength', '4' );
+				$stationInput.css({
+									'width': '5rem',
+									'display': 'inline-block',
+									'text-align': 'center',
+									'margin-left': '3px',
+									'margin-right': '5px'
+								});
+
+				$('<span>-</span>').appendTo( $inputNode );
+
+				value = (this.value instanceof Array && this.value[2]) ? this.value[2] : '';
+
+				eventFuncs = {
+					change: function(event){
+						event.stopPropagation();
+
+						let personalNo = $(this).val();
+
+						if( !self.checkDigit( $(this), personalNo ) ) return;
+
+						self.setValue( personalNo, 2 );
+					}
+				};
+
+				let $personalInput = FormUIUtil.$getTextInput(
+										NAMESPACE + this.termName + '_personal',
+										NAMESPACE + this.termName + '_personal',
+										'text',
+										'',
+										false,
+										this.disabled,
+										value,
+										eventFuncs
+									).appendTo( $inputNode );
+
+				$personalInput.addClass( 'form-control' );
+				$personalInput.prop( 'maxLength', '4' );
+				$personalInput.css({
+									'width': '5rem',
+									'display': 'inline-block',
+									'text-align': 'center',
+									'margin-left': '5px'
+								});
+			}
 			
-			$phoneSection.append( 
-						FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage) );
-					
-			let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
-
-			let $mobileInput = $( '<input type="text" name="' + NAMESPACE + 'mobile" ' +
-											'id="' + NAMESPACE + 'mobile" ' +
-											'class="form-control" ' +
-											'maxLength="3" ' +
-											'style="width:4rem;display:inline-block;text-align:center;"/>' ).appendTo( $inputNode );
-			if( this.disabled ){
-				$mobileInput.prop( 'disabled', true );
-			}
-
-			if( self.value && self.value[0] ){
-				$mobileInput.val( self.value[0] );
-			}
-
-			$mobileInput.change( function(event){
-				event.stopPropagation();
-
-				let mobileNo = $(this).val();
-
-				if( !self.checkDigit( $(this), mobileNo ) ) return;
-
-				self.setValue( mobileNo, 0 );
-			} );
-
-			$('<span>)&nbsp;</span>').appendTo( $inputNode );
-
-			let $stationInput = $( '<input type="text" name="' + NAMESPACE + 'station" ' +
-											'id="' + NAMESPACE + 'station" ' +
-											'class="form-control" ' +
-											'maxLength="4" ' +
-											'style="width:5rem;display:inline-block;margin-left:3px;margin-right:5px;text-align:center;" />' ).appendTo( $inputNode );
-			if( this.disabled ){
-				$stationInput.prop( 'disabled', true );
-			}
-
-			if( self.value && self.value[1] ){
-				$stationInput.val( self.value[1] );
-			}
-								
-			$stationInput.change( function(event){
-				event.stopPropagation();
-
-				let stationNo = $(this).val();
-
-				if( !self.checkDigit( $(this), stationNo ) ) return;
-
-				self.setValue( stationNo, 1 );
-			} );
-
-			$('<span>-</span>').appendTo( $inputNode );
-
-			let $personalInput = $( '<input type="text" name="' + NAMESPACE + 'personal" ' +
-											'id="' + NAMESPACE + 'personal" ' +
-											'class="form-control" ' +
-											'maxLength="4" ' +
-											'style="width:5rem;display:inline-block;margin-left:5px;text-align:center;" />' ).appendTo( $inputNode );
-			if( this.disabled ){
-				$personalInput.prop( 'disabled', true );
-			}
-
-			if( self.value && self.value[2] ){
-				$personalInput.val( self.value[2] );
-			}
-								
-			$personalInput.change( function(event){
-				event.stopPropagation();
-
-				let personNo = $(this).val();
-
-				if( !self.checkDigit( $(this), personNo ) ) return;
-
-				self.setValue( personNo, 2 );
-			} );
-
 			return $phoneSection;
 		}
 		
@@ -5654,19 +6156,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $phoneSection;
+			let $phoneSection = this.$getPhoneSection( forWhat );
 			
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				$phoneSection = this.$getPhoneSection( forWhat );
-				this.$rendered = FormUIUtil.$getPreviewRowSection( this, $phoneSection ) ;
+				this.$rendered = FormUIUtil.$getPreviewRowSection( 
+													$phoneSection, 
+													this.getPreviewPopupAction(), 
+													this.getRowClickEventFunc() ) ;
 			}
 			else if( forWhat === SXConstants.FOR_EDITOR ){
-				$phoneSection = this.$getPhoneSection( forWhat );
-				this.$rendered = FormUIUtil.$getEditorRowSection( this, $phoneSection );
+				this.$rendered = FormUIUtil.$getEditorRowSection( $phoneSection );
 			}
-			else{
-				$phoneSection = FormUIUtil.$getFormStringSection( this, forWhat );
-				this.$rendered = FormUIUtil.$getEditorRowSection( this, $phoneSection );
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getSearchRowSection( $phoneSection );
 			}
 
 			return this.$rendered;
@@ -5681,7 +6183,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = super.toJSON();
 
-			if( this.hasOwnProperty('value') ){
+			if( this.value instanceof Array ){
 				json.value = this.value.join('-');
 			}
 
@@ -5712,36 +6214,395 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setAllFormValues();
 		}
 
+		$getDateTimeInputNode(){
+			let term = this;
+
+			let controlName = NAMESPACE + this.termName;
+
+			let $node = $('<span class="lfr-input-date">');
+			
+			let value;
+			if( this.enableTime ){
+				value = this.toDateTimeString();
+			}
+			else{
+				value = this.toDateString();
+			}
+
+			let $inputTag = FormUIUtil.$getTextInput( 
+									controlName, 
+									controlName,
+									'text',
+									'',
+									!!this.mandatory,
+									!!this.disabled,
+									'',
+									{}
+								);
+			
+			let options = {
+				lang: 'kr',
+				changeYear: true,
+				changeMonth : true,
+				yearStart: this.startYear ? this.startYear : new Date().getFullYear(),
+				yearEnd: this.endYear ? this.endYear : new Date().getFullYear(),
+				scrollInput:false,
+				//setDate: new Date(Number(term.value)),
+				value: this.enableTime ? this.toDateTimeString() : this.toDateString(),
+				validateOnBlur: false,
+				id:controlName,
+				onChangeDateTime: function(dateText, inst){
+					term.value = $inputTag.datetimepicker("getValue").getTime();
+
+					if( term.enableTime ){
+						$inputTag.val(term.toDateTimeString());
+					}
+					else{
+						$inputTag.val(term.toDateString());
+					}
+
+					$inputTag.datetimepicker('setDate', $inputTag.datetimepicker("getValue"));
+
+					let eventData = {
+						bubbles: false,
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term 
+						}
+					};
+
+					Liferay.fire(
+						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						eventData
+					);
+				}
+			};
+
+			/*
+			let thisYear = new Date().getFullYear();
+			options.yearStart = term.startYear ? term.startYear : thisYear;
+			options.yearEnd = term.endYear ? term.endYear : thisYear;
+			*/
+			if( this.enableTime ){
+				options.timepicker = true;
+				options.format = 'Y. m. d. H:i';
+				options.value = this.toDateTimeString(),
+				$inputTag.datetimepicker(options);
+				$inputTag.val(this.toDateTimeString());
+			}
+			else{
+				options.timepicker = false;
+				options.format = 'Y. m. d.';
+				options.value = this.toDateString(),
+				$inputTag.datetimepicker(options);
+				$inputTag.val(this.toDateString());
+			}
+
+			$node.append($inputTag);
+
+			return $node;
+		}
+
+		$getDateInputSection(){
+			let $dateTimeSection = $('<div class="lfr-ddm-field-group field-wrapper">')
+					.append( FormUIUtil.$getLabelNode(
+						NAMESPACE + this.termName, 
+						this.getLocalizedDisplayName(),
+						this.mandatory,
+						this.getLocalizedTooltip() ) )
+					.append( this.$getDateTimeInputNode() );
+
+			return $dateTimeSection;
+		}
+
+		$getDateSearchSection(){
+			let term = this;
+
+			let controlName = NAMESPACE + term.termName;
+
+			let $dateSection = $('<div class="lfr-ddm-field-group field-wrapper">');
+
+			FormUIUtil.$getLabelNode(
+						NAMESPACE + term.termName, 
+						term.getLocalizedDisplayName(),
+						term.mandatory ? true : false,
+						term.getLocalizedTooltip())
+						.appendTo($dateSection);
+			
+			let $searchKeywordSection = $('<div class="form-group">').appendTo( $dateSection );
+			let $fromSpan = $('<span class="lfr-input-date display-inline-block" style="margin-right: 5px;max-width:28%;">')
+									.appendTo($searchKeywordSection);
+			let $curlingSpan = $('<span style="margin: 0px 5px;">~</span>')
+									.appendTo($searchKeywordSection).hide();
+			let $toSpan = $('<span class="lfr-input-date" style="margin:0px 5px;max-width:28%;">')
+									.appendTo($searchKeywordSection).hide();
+			
+			let eventFuncs = {
+				change: function(e){
+					e.stopPropagation();
+
+					if( term.rangeSearch ){
+						let previousDate = null;
+						
+						if( Util.isSafeNumber(term.fromSearchDate) ){
+							previousDate = term.fromSearchDate;
+						}
+						if( $fromInputTag.val() ){
+
+							term.fromSearchDate = $fromInputTag.datetimepicker("getValue").getTime();
+							
+							if( Util.isSafeNumber(term.toSearchDate) ){
+								if( term.toSearchDate < term.fromSearchDate ){
+									FormUIUtil.showError(
+										SXConstants.ERROR,
+										'search-out-of-range-error',
+										'from-date-must-smaller-or-equel-to-to-date',
+										{
+											ok: {
+												text: 'OK',
+												btnClass: 'btn-blue',
+												action: function(){
+													if( previousDate !== null ){
+														term.fromSearchDate = previousDate;
+														$fromInputTag.datetimepicker('setOptions', {defaultDate: new Date(previousDate)});
+														$fromInputTag.val(term.toDateString( term.fromSearchDate ));
+													}
+												}
+											}
+										});
+								}
+							}
+						}
+						else{
+							delete term.fromSearchDate;
+						}
+					}
+					else{
+						if( !$fromInputTag.val() ){
+							delete term.searchDate;
+						}
+						else{
+							term.searchDate = [$fromInputTag.datetimepicker("getValue").getTime()];
+						}
+					};
+
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
+						eventData
+						);
+				}
+			};
+
+			let $fromInputTag = FormUIUtil.$getTextInput(
+									controlName+'_from',
+									controlName+'_from',
+									'text',
+									'',
+									false,
+									false,
+									this.fromSearchDate,
+									eventFuncs
+								).appendTo( $fromSpan );
+
+			eventFuncs = {
+				change: function( e ){
+					e.stopPropagation();
+					e.preventDefault();
+
+					let previousDate = term.toSearchDate;
+
+					if( $toInputTag.val() ){
+						term.toSearchDate = $toInputTag.datetimepicker("getValue").getTime();
+
+						if( term.toSearchDate < term.fromSearchDate ){
+							FormUIUtil.showError(
+								SXConstants.ERROR,
+								'search-out-of-range-error',
+								'to-date-must-larger-or-equel-to-from-date',
+								{
+									ok: {
+										text: 'OK',
+										btnClass: 'btn-blue',
+										action: function(){
+											if( previousDate ){
+												term.toSearchDate = previousDate;
+												$toInputTag.datetimepicker('setOptions', {defaultDate: new Date(previousDate)});
+												$toInputTag.val(term.toDateString( term.toSearchDate ));
+											}
+										}
+									}
+								}
+							);
+						}
+					}
+					else{
+						delete term.toSearchDate;
+					}
+
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_SEARCH_TO_DATE_CHANGED,
+						eventData
+						);
+				}
+			};
+
+			let $toInputTag = FormUIUtil.$getTextInput(
+									controlName+'_to',
+									controlName+'_to',
+									'text',
+									'',
+									false,
+									false,
+									this.toSearchDate,
+									eventFuncs
+								).appendTo( $toSpan );
+			
+			let options = {
+				lang: 'kr',
+				changeYear: true,
+				changeMonth : true,
+				validateOnBlur: false,
+				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
+				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
+				timepicker: false,
+				format: 'Y. m. d.'
+			};
+
+			$fromInputTag.datetimepicker(options);
+
+			options.yearStart = term.startYear;
+			$toInputTag.datetimepicker(options);
+
+			let rangeEventFuncs = {
+				change: function(event){
+					console.log('asdkfjchaskljdhvcasdkhlfvhj', term);
+					//event.stopPropagation();
+
+					term.rangeSearch = $(this).prop('checked');
+					console.log('rangeSearch: ', term );
+					if( term.rangeSearch === false ){
+						delete term.rangeSearch;
+					}
+
+					if( term.rangeSearch === true ){
+						$curlingSpan.addClass('display-inline-block');
+						$toSpan.addClass('display-inline-block');
+						$curlingSpan.show();
+						$toSpan.show();
+
+						if( term.hasOwnProperty('searchDate') ){
+							term.fromSearchDate = term.searchDate[0];
+						}
+						delete term.searchDate;
+					}
+					else{
+						$curlingSpan.hide();
+						$toSpan.hide();
+						$curlingSpan.removeClass('display-inline-block');
+						$toSpan.removeClass('display-inline-block');
+
+						if( Util.isSafeNumber(term.fromSearchDate) ){
+							term.searchDate = [term.fromSearchDate];
+						}
+
+						delete term.fromSearchDate;
+						delete term.toSearchDate;
+						$toInputTag.val('');
+					}
+
+					let eventData = {
+						sxeventData:{
+							sourcePortlet: NAMESPACE,
+							targetPortlet: NAMESPACE,
+							term: term
+						}
+					};
+					
+					Liferay.fire(
+						SXIcecapEvents.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
+						eventData
+						);
+				}
+			};
+
+
+			let $rangeCheckbox = FormUIUtil.$getCheckboxTag( 
+				controlName+'_rangeSearch',
+				controlName+'_rangeSearch',
+				Liferay.Language.get( 'range-search' ),
+				false,
+				'rangeSearch',
+				false,
+				rangeEventFuncs
+			).appendTo( $searchKeywordSection );
+
+			$rangeCheckbox.css('max-width', '28%' );
+
+			return $dateSection;
+		}
+
 		$render(forWhat=SXConstants.FOR_EDITOR){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
-			this.$rendered = FormUIUtil.$getFormDateSection(
-				this,
-				forWhat
-			);
+			let $dateSection;
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				$dateSection = this.$getDateInputSection();
+
+				this.$rendered =  FormUIUtil.$getPreviewRowSection( 
+												$dateSection, 
+												this.getPreviewPopupAction(), 
+												this.getRowClickEventFunc() ) ;
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				$dateSection = this.$getDateInputSection();
+
+				this.$rendered = FormUIUtil.$getEditorRowSection( $dateSection );
+			}
+			else if(forWhat === SXConstants.FOR_SEARCH){
+				$dateSection = this.$getDateSearchSection();
+
+				this.$rendered = FormUIUtil.$getSearchRowSection( $dateSection );
+			}
+			else{
+				// for PDF
+			}
 
 			return this.$rendered;
 		}
 		
-		getFormValue( save ){
-			let value = $('#'+NAMESPACE+this.termName).val();
-			if( save ){
-				this.value = value;
-			}
-			
-			return value;
-		}
-
-		setFormValue( value ){
-			if( value ){
+		setDateValue( value ){
+			if( Util.isSafeNumber(value) ){
 				this.value = value;
 			}
 
-			this.value ? 
-				$('#'+NAMESPACE+this.termName).val( this.value ) :
-				$('#'+NAMESPACE+this.termName).val( '' );
+			if( Util.isSafeNumber(this.value) ){
+				if( this.enableTime ){
+					$('#'+NAMESPACE+this.termName).val( this.toDateTimeString() );
+				}
+				else{
+					$('#'+NAMESPACE+this.termName).val( this.toDateString() );
+				}
+			} 
 		}
 
 		setAllFormValues(){
@@ -5928,7 +6789,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toDateTimeString(value=this.value){
-			if( !value ){
+			if( !Util.isSafeNumber(value) ){
 				return '';
 			}
 
@@ -5944,7 +6805,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toDateString( value=this.value){
-			if( !value ){
+			if( !Util.isSafeNumber(value) ){
 				return '';
 			}
 
@@ -5955,7 +6816,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toDate(){
-			return this.value ? new Date( Number(this.value) ) : '';
+			return Util.isSafeNumber(this.value) ? new Date( this.value ) : new Date();
 		}
 
 		parse( json ){
@@ -5971,7 +6832,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self[key] = json[key];
 						break;
 					case 'value':
-						self.value = Number( json.value );
+						let safeValue = Util.toSafeNumber( json[key] );
+
+						if( Util.isSafeNumber(safeValue) )
+							self.value = Util.toSafeNumber( json.value );
 						break;
 					default:
 						if( unparsed.hasOwnProperty(key) ){
@@ -6016,7 +6880,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				console.log('File already selected: ' + file.name );
 			}
 			else{
-				FormUIUtil.$getFileListTableRow( this, undefined, undefined, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
+				this.$getFileListTableRow( undefined, undefined, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
 			}
 
 			let newFile = new Object();
@@ -6170,22 +7034,173 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
+		$getFileListTableRow( parentFolderId, fileId, name, size, type, downloadURL ){
+			let $tr = $('<tr id="'+name+'">');
+			$('<td class="file-id" style="width:10%;">').appendTo($tr).text(fileId);
+			$('<td class="file-name" style="width:40%;">').appendTo($tr).text(name);
+			$('<td class="file-size" style="width:10%;">').appendTo($tr).text(size);
+			$('<td class="file-type" style="width:10%;">').appendTo($tr).text(type);
+			let $actionTd = $('<td class="action" style="width:10%;">').appendTo($tr);
+			
+							
+			let $downloadSpan =$(
+				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('download') + '" style="margin: 0 2px;">' +
+					'<a href="' + downloadURL +'">' +
+						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
+							'<path class="lexicon-icon-outline" d="M15.608,6.262h-2.338v0.935h2.338c0.516,0,0.934,0.418,0.934,0.935v8.879c0,0.517-0.418,0.935-0.934,0.935H4.392c-0.516,0-0.935-0.418-0.935-0.935V8.131c0-0.516,0.419-0.935,0.935-0.935h2.336V6.262H4.392c-1.032,0-1.869,0.837-1.869,1.869v8.879c0,1.031,0.837,1.869,1.869,1.869h11.216c1.031,0,1.869-0.838,1.869-1.869V8.131C17.478,7.099,16.64,6.262,15.608,6.262z M9.513,11.973c0.017,0.082,0.047,0.162,0.109,0.226c0.104,0.106,0.243,0.143,0.378,0.126c0.135,0.017,0.274-0.02,0.377-0.126c0.064-0.065,0.097-0.147,0.115-0.231l1.708-1.751c0.178-0.183,0.178-0.479,0-0.662c-0.178-0.182-0.467-0.182-0.645,0l-1.101,1.129V1.588c0-0.258-0.204-0.467-0.456-0.467c-0.252,0-0.456,0.209-0.456,0.467v9.094L8.443,9.553c-0.178-0.182-0.467-0.182-0.645,0c-0.178,0.184-0.178,0.479,0,0.662L9.513,11.973z"></path>'+
+//							'<path class="lexicon-icon-outline" d="M256 0c-141.37 0-256 114.6-256 256 0 141.37 114.629 256 256 256s256-114.63 256-256c0-141.4-114.63-256-256-256zM269.605 360.769c-4.974 4.827-10.913 7.226-17.876 7.226s-12.873-2.428-17.73-7.226c-4.857-4.827-7.285-10.708-7.285-17.613 0-6.933 2.428-12.844 7.285-17.788 4.857-4.915 10.767-7.402 17.73-7.402s12.932 2.457 17.876 7.402c4.945 4.945 7.431 10.854 7.431 17.788 0 6.905-2.457 12.786-7.431 17.613zM321.038 232.506c-5.705 8.923-13.283 16.735-22.791 23.464l-12.99 9.128c-5.5 3.979-9.714 8.455-12.668 13.37-2.955 4.945-4.447 10.649-4.447 17.145v1.901h-34.202c-0.439-2.106-0.731-4.184-0.936-6.291s-0.321-4.301-0.321-6.612c0-8.397 1.901-16.413 5.705-24.079s10.24-14.834 19.309-21.563l15.185-11.322c9.070-6.7 13.605-15.009 13.605-24.869 0-3.57-0.644-7.080-1.901-10.533s-3.219-6.495-5.851-9.128c-2.633-2.633-5.969-4.71-9.977-6.291s-8.66-2.369-13.927-2.369c-5.705 0-10.561 1.054-14.571 3.16s-7.343 4.769-9.977 8.017c-2.633 3.247-4.594 7.022-5.851 11.322s-1.901 8.66-1.901 13.049c0 4.213 0.41 7.548 1.258 10.065l-39.877-1.58c-0.644-2.311-1.054-4.652-1.258-7.080-0.205-2.399-0.321-4.769-0.321-7.080 0-8.397 1.58-16.619 4.74-24.693s7.812-15.214 13.927-21.416c6.114-6.173 13.663-11.176 22.645-14.951s19.368-5.676 31.188-5.676c12.229 0 22.996 1.785 32.3 5.355 9.274 3.57 17.087 8.25 23.435 14.014 6.319 5.764 11.089 12.434 14.248 19.982s4.74 15.331 4.74 23.289c0.058 12.581-2.809 23.347-8.514 32.27z"></path>' +
+						'</svg>' +
+					'</a>' +
+				'</span>').appendTo( $actionTd );
+			let $deleteBtn = $(
+				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('delete') + '" style="margin: 0 2px;">' +
+					'<span>' +
+						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
+							'<path class="lexicon-icon-outline" d="M7.083,8.25H5.917v7h1.167V8.25z M18.75,3h-5.834V1.25c0-0.323-0.262-0.583-0.582-0.583H7.667c-0.322,0-0.583,0.261-0.583,0.583V3H1.25C0.928,3,0.667,3.261,0.667,3.583c0,0.323,0.261,0.583,0.583,0.583h1.167v14c0,0.644,0.522,1.166,1.167,1.166h12.833c0.645,0,1.168-0.522,1.168-1.166v-14h1.166c0.322,0,0.584-0.261,0.584-0.583C19.334,3.261,19.072,3,18.75,3z M8.25,1.833h3.5V3h-3.5V1.833z M16.416,17.584c0,0.322-0.262,0.583-0.582,0.583H4.167c-0.322,0-0.583-0.261-0.583-0.583V4.167h12.833V17.584z M14.084,8.25h-1.168v7h1.168V8.25z M10.583,7.083H9.417v8.167h1.167V7.083z"></path>' +
+						'</svg>' +
+					'</span>' +
+				'</span>').appendTo( $actionTd );
+
+			let self = this;
+			$deleteBtn.click(function(event){
+				if( self.disabled ){
+					return;
+				}
+
+				$tr.remove();
+
+				self.removeFile( parentFolderId, fileId, name );
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: self
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
+			});
+
+			return $tr;
+		}
+
+		$getFileUploadNode(){
+			let controlName = NAMESPACE + this.termName;
+			let files = this.value;
+
+			let $node = $('<div class="file-uploader-container">');
+
+			let $input = $( '<input type="file" class="lfr-input-text form-control" size="80" multiple>' )
+							.appendTo($node);
+
+			$input.prop({
+				id: controlName,
+				name: controlName,
+				disabled: !!this.disabled ? true : false
+			});
+
+			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">')
+									.appendTo($node);
+
+			if( files ){
+				let fileNames = Object.keys( files );
+				fileNames.forEach( fileName => {
+					let file = files[fileName];
+					$fileListTable.append( this.$getFileListTableRow( file.parentFolderId, file.fileId, file.name, file.size, file.type, file.downloadURL ) );
+				});
+
+				$fileListTable.show();
+			}
+
+			return $node;
+		}
+
+		$getFormFileUploadSection(){
+			let controlName = NAMESPACE + this.termName;
+			let controlValueId = NAMESPACE + this.termName + '_value';
+
+			let label = this.getLocalizedDisplayName();
+			let helpMessage = this.getLocalizedTooltip();
+			let mandatory = !!this.mandatory ? true : false;
+			let disabled = !!this.disabled ? true : false;
+
+			let $uploadSection = $('<div class="form-group input-text-wrapper">');
+			
+			let $label = FormUIUtil.$getLabelNode( controlName, label, mandatory, helpMessage )
+							.appendTo( $uploadSection );
+
+			let $uploadNode = this.$getFileUploadNode().appendTo( $uploadSection );
+			
+			let term = this;
+			$uploadNode.change(function(event){
+				event.stopPropagation();
+
+				let files = $('#'+controlName)[0].files;
+			
+				if( files.length > 0 ){
+					if( !term.value ){
+						term.value = new Object();
+					}
+
+					let $fileListTable = $uploadNode.find('table');
+					$fileListTable.show();
+					
+					for( let i=0; i<files.length; i++){
+						term.addFile( undefined, undefined, files[i]);
+					};
+				}
+
+				let eventData = {
+					sxeventData:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term
+					}
+				};
+
+				Liferay.fire(
+					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
+			});
+
+			return $uploadSection;
+		}
+
 		$render( forWhat ){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
-			if( this.searchable && forWhat === SXConstants.FOR_SEARCH ){
-				this.placeHolder = new LocalizedObject();
-				this.placeHolder.addText( CURRENT_LANGUAGE, Liferay.Language.get('file-name-for-search') );
-				
-				this.$rendered = FormUIUtil.$getFormStringSection( this, forWhat );
+			let $fileSection;
+
+			if( forWhat === SXConstants.FOR_PREVIEW ||
+				forWhat === SXConstants.FOR_EDITOR ){
+				$fileSection = this.$getFormFileUploadSection();
+			}
+			
+			
+			if( forWhat === SXConstants.FOR_PREVIEW ){
+				this.$rendered = FormUIUtil.$getPreviewRowSection(
+									$fileSection,
+									this.getPreviewPopupAction(),
+									this.getRowClickEventFunc() );
+			}
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				this.$rendered = FormUIUtil.$getEditorRowSection($fileSection);
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				// rendering for search
 			}
 			else{
-				this.$rendered = FormUIUtil.$getFormFileUploadSection(
-												this,
-												forWhat );
+				// rendering for PDF here
 			}
+
+
 
 			return this.$rendered;
 		}
@@ -6463,10 +7478,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $fieldset = this.$getBooleanFieldSetNode( forWhat );
 			
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				this.$rendered = FormUIUtil.$getPreviewRowSection(this, $fieldset);
+				this.$rendered = FormUIUtil.$getPreviewRowSection(
+									$fieldset,
+									this.getPreviewPopupAction(),
+									this.getRowClickEventFunc());
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				this.$rendered = FormUIUtil.$getEditorRowSection(this, $fieldset);
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				this.$rendered = FormUIUtil.$getEditorRowSection($fieldset);
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered = FormUIUtil.$getSearchRowSection($fieldset);
 			}
 			else{
 				// rendering for PDF here
@@ -6534,10 +7555,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.value = (this.value === true || this.value === 'true') ? true : false;
 			
 			super.setAllFormValues();
-			this.initOptionFormValues();
-		}
-
-		initOptionFormValues(){
 			this.setDisplayStyleFormValue();
 			this.setTrueLabelFormValue();
 			this.setFalseLabelFormValue();
@@ -6635,7 +7652,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			devided.hits = new Array();
 			devided.others = new Array();
 
-			if( Util.isEmptyArray(terms) ){
+			if( !Util.isNonEmptyArray(terms) ){
 				return devided;
 			}
 
@@ -6666,7 +7683,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			members.forEach(term=>{
 				let $row;
 				if( deep === true ){
-					if( term.isGroupTerm() && !Util.isEmptyArray(others) ){
+					if( term.isGroupTerm() && Util.isNonEmptyArray(others) ){
 						let termSets = term.devideTermsByGroup( others, term.getTermId() );
 						$row = term.$render( termSets.hits, termSets.others, forWhat ); 
 					}
@@ -6706,16 +7723,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			let $accordion = FormUIUtil.$getAccordionForGroup( 
-											this.displayName.getText(CURRENT_LANGUAGE),
+											this.getLocalizedDisplayName(),
 											$container,
 											disabled,
 											extended );
 
 			if( forWhat === SXConstants.FOR_PREVIEW ){
-				this.$rendered = FormUIUtil.$getPreviewRowSection(this, $accordion);
+				this.$rendered = FormUIUtil.$getPreviewRowSection(
+												$accordion,
+												this.getPreviewPopupAction(),
+												this.getRowClickEventFunc() );
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR || forWhat === SXConstants.FOR_SEARCH ){
-				this.$rendered =  FormUIUtil.$getEditorRowSection(this, $accordion);
+			else if( forWhat === SXConstants.FOR_EDITOR ){
+				this.$rendered =  FormUIUtil.$getEditorRowSection($accordion);
+			}
+			else if( forWhat === SXConstants.FOR_SEARCH ){
+				this.$rendered =  FormUIUtil.$getSearchRowSection($accordion);
 			}
 			else{
 				//Rendering for PDF here
@@ -6750,7 +7773,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				switch( key ){
 					case 'extended':
 						self[key] = unparsed[key];
-						FormUIUtil.setFormCheckboxValue( 'extended', self[key] );
+						//FormUIUtil.setFormCheckboxValue( 'extended', self[key] );
 						break;
 					default:
 						console.log('Group Term has unparsed attributes: '+ self.termName, unparsed[key]);
@@ -7131,7 +8154,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @returns 
 		 */
 		getGroupMembers( groupTermId ){
-			if( Util.isEmptyArray(this.terms) ){
+			if( !Util.isNonEmptyArray(this.terms) ){
 				return [];
 			}
 
@@ -7202,7 +8225,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			switchedTerm.order++;
 			term.order--;
 
-			let $panel = this.$getPreviewPanel( term.groupTermId );
+			let $panel = this.$getPreviewPanel( term.getGroupId() );
 
 			if( term.order === 1 ){
 				$panel.prepend(term.$rendered); 
@@ -7222,7 +8245,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			switchedTerm.order--;
 			term.order++;
 
-			let $panel = this.$getPreviewPanel( term.groupTermId );
+			let $panel = this.$getPreviewPanel( term.getGroupId() );
 
 			if( switchedTerm.order === 1 ){
 				$panel.prepend(switchedTerm.$rendered); 

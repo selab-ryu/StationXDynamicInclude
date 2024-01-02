@@ -2720,11 +2720,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'searchable':
 					case 'downloadable':
 					case 'mandatory':
-					case 'value':
 					case 'active':
 					case 'order':
 					case 'state':
 					case 'disabled':
+					case 'value':
 					case 'masterTerm':
 						self[key] = json[key];
 						break;
@@ -4517,12 +4517,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 			*/
+			if( this.options instanceof Array ){
+				this.options.forEach( option => {
+					option.$rendered.removeClass('highlight-border');
+				});
+			}
 
-			this.options.forEach( option => {
-				option.$rendered.removeClass('highlight-border');
-			});
-
-			if( this.highlightedOption.$rendered ){
+			if( this.highlightedOption && this.highlightedOption.$rendered ){
 				this.highlightedOption.$rendered.addClass('highlight-border');
 			}
 		}
@@ -6229,6 +6230,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				value = this.toDateString();
 			}
 
+			let eventFuncs = {
+				change: function(event){
+					if( Util.isEmptyString( $(this).val() ) ){
+						delete term.value;
+					}
+				}
+			};
+
 			let $inputTag = FormUIUtil.$getTextInput( 
 									controlName, 
 									controlName,
@@ -6237,7 +6246,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									!!this.mandatory,
 									!!this.disabled,
 									'',
-									{}
+									eventFuncs
 								);
 			
 			let options = {
@@ -6848,12 +6857,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		toJSON(){
+
 			let json = super.toJSON();
 			
 			if( this.enableTime )	json.enableTime = this.enableTime;
 			if( this.startYear )	json.startYear = this.startYear;
 			if( this.endYear )	json.endYear = this.endYear;
-			
+
 			return json;
 		}
 	}
@@ -7552,8 +7562,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setAllFormValues(){
-			this.value = (this.value === true || this.value === 'true') ? true : false;
-			
 			super.setAllFormValues();
 			this.setDisplayStyleFormValue();
 			this.setTrueLabelFormValue();
@@ -8054,6 +8062,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					self.copyTerm( member, copied.getTermId() );
 				});
 			}
+
+			//copied.setAllFormValues();
+			//copied.$rendered.trigger('click');
 			
 			return copied;
 		}

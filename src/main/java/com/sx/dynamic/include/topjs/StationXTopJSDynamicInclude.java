@@ -33,8 +33,8 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		content += "<link rel=\"stylesheet\" href=\"//code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css\">";
 		content += "<script charset=\"utf-8\" src=\"https://code.jquery.com/ui/1.13.1/jquery-ui.js\"></script>";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/station-x.js\" ></script>";
-		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/sx-visualizer.js\"></script>";
-		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/sx-visualizer.css\">";
+		//content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/sx-visualizer.js\"></script>";
+		//content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/sx-visualizer.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/jquery/dateTimePicker/jquery.datetimepicker.full.min.js\"></script>";
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/css/jquery/dateTimePicker/jquery.datetimepicker.min.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/lodash.js\"></script>";

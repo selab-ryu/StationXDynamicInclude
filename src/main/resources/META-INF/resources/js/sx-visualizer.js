@@ -1,19 +1,36 @@
 (function(SX, $){
     'use strict';
-
+    
+    console.log('StationX in Visualizer: ', SX );
     if( SX.Visualizer ){
-        console.log( 'OSP.Visualizer already loaded.');
+        console.log( 'SXVisualizer already loaded.');
         return;
     }
 
+
     class Visualizer {
-        #Menues;
+        #menus;
         #namespace;
         #portletId;
         #resourceURL;
         #connector;
         #eventHandlers;
 
+        get menus(){
+            return this.#menus;
+        }
+
+        set menus( val ){
+            this.#menus = val;
+        }
+
+        get portletId(){
+            return this.#portletId;
+        }
+
+        set portletId( portletId ){
+            this.#portletId = portletId;
+        }
 
         constructor( config ){
             this.#portletId = config.portletId;
@@ -58,33 +75,33 @@
 
             //Hides un-needed menu
             if( !$.isEmptyObject(this.menuOptions ) ){
-                if( this.menuOptions.menu === false )           $('#'+this.namespace+'menu').remove();
-                if( this.menuOptions.sample === false )         $('#'+this.namespace+'sample').remove();
-                if( this.menuOptions.upload === false )         $('#'+this.namespace+'upload').remove();
-                if( this.menuOptions.download === false )       $('#'+this.namespace+'download').remove();
-                if( this.menuOptions.openLocalFile === false )  $('#'+this.namespace+'openLocalFile').remove();
-                if( this.menuOptions.openServerFile === false ) $('#'+this.namespace+'openServerFile').remove();
-                if( this.menuOptions.saveAtLocal === false )    $('#'+this.namespace+'saveAtLocal').remove();
+                if( this.menuOptions.menu === false )           $('#'+this.#namespace+'menu').remove();
+                if( this.menuOptions.sample === false )         $('#'+this.#namespace+'sample').remove();
+                if( this.menuOptions.upload === false )         $('#'+this.#namespace+'upload').remove();
+                if( this.menuOptions.download === false )       $('#'+this.#namespace+'download').remove();
+                if( this.menuOptions.openLocalFile === false )  $('#'+this.#namespace+'openLocalFile').remove();
+                if( this.menuOptions.openServerFile === false ) $('#'+this.#namespace+'openServerFile').remove();
+                if( this.menuOptions.saveAtLocal === false )    $('#'+this.#namespace+'saveAtLocal').remove();
                 if( this.menuOptions.saveAtServer === false ){
-                        $('#'+this.namespace+'save').remove();
-                        $('#'+this.namespace+'saveAs').remove();
+                        $('#'+this.#namespace+'save').remove();
+                        $('#'+this.#namespace+'saveAs').remove();
                 }
             }
 
             // Set namespace on iframe if canvas is iframe
             
-            if( canvas.tagName.toLowerCase() === 'iframe' ){
+            if( this.canvas.tagName.toLowerCase() === 'iframe' ){
                 // console.log('Visualizer setNamespace!!');
-                if(canvas.contentWindow['setNamespace']){
-                    canvas.contentWindow['setNamespace']( namespace );
+                if(this.canvas.contentWindow['setNamespace']){
+                    this.canvas.contentWindow['setNamespace']( this.#namespace );
                 }else{
                     setTimeout(function(){ 
-                        canvas.contentWindow['setNamespace']( namespace );
+                        this.canvas.contentWindow['setNamespace']( this.#namespace );
                     }, 500)
                 }
                 
-                if( disabled )
-                    canvas.contentWindow['disable']( disabled );
+                if( this.disabled )
+                this.canvas.contentWindow['disable']( this.disabled );
             }
 
             this.#attachEventHandlers();
@@ -116,9 +133,9 @@
         }
 
         getPortletSection(){
-            let portlet = $('#p_p_id'+this.namespace);
+            let portlet = $('#p_p_id'+this.#namespace);
             if( !portlet[0] ){
-                portlet = $('#'+this.namespace).parent();
+                portlet = $('#'+this.#namespace).parent();
             }
 
             //portlet = $('#workbench-layout-area');
@@ -129,7 +146,7 @@
             let portlet = this.getPortletSection();
 
             if( !portlet[0] ){
-                console.log( 'There is no portlet section for '+this.namespace);
+                console.log( 'There is no portlet section for '+this.#namespace);
                 return;
             }
 
@@ -813,22 +830,22 @@
 
         #attachEventHandlers(){
            // console.log( 'Event Handlers: ', eventHandlers);
-            for( let event in this.eventHandlers){
-            	let handler = this.eventHandlers[event];
+            for( let event in this.#eventHandlers){
+            	let handler = this.#eventHandlers[event];
                 this.attachEventHandler( event, handler);
             }
             
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_HANDSHAKE ) ){
-                this.attachEventHandler( SX.Constants.Events.SX_HANDSHAKE, this.defaultHandshakeEventHandler );
+            if( ! this.#eventHandlers.hasOwnProperty(SX.Events.SX_HANDSHAKE ) ){
+                this.attachEventHandler( SX.Events.SX_HANDSHAKE, this.defaultHandshakeEventHandler );
             }
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_EVENTS_REGISTERED ) ){
-                this.attachEventHandler(  SX.Constants.Events.SX_EVENTS_REGISTERED, this.defaultEventsResigeteredEventHandler );
+            if( ! this.#eventHandlers.hasOwnProperty( SX.Events.SX_EVENTS_REGISTERED ) ){
+                this.attachEventHandler(  SX.Events.SX_EVENTS_REGISTERED, this.defaultEventsResigeteredEventHandler );
             }
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_DISABLE_CONTROLS ) ){
-                this.attachEventHandler(  SX.Constants.Events.SX_DISABLE_CONTROLS, this.defaultDisableControlsEventHandler );
+            if( ! this.#eventHandlers.hasOwnProperty( SX.Events.SX_DISABLE_CONTROLS ) ){
+                this.attachEventHandler(  SX.Events.SX_DISABLE_CONTROLS, this.defaultDisableControlsEventHandler );
             }
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_CHECK_MANDATORY ) ){
-            	this.attachEventHandler( SX.Constants.Events.SX_CHECK_MANDATORY, this.defaultCheckMandatoryEventHandler);
+            if( ! this.#eventHandlers.hasOwnProperty( SX.Events.SX_CHECK_MANDATORY ) ){
+            	this.attachEventHandler( SX.Events.SX_CHECK_MANDATORY, this.defaultCheckMandatoryEventHandler);
             }
         }
 

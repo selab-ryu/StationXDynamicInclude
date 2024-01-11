@@ -66,10 +66,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( (areObjects && !Util.deepEqualObject(val1, val2)) ||
 					(!areObjects && val1 !== val2) ){
 					result = false;
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return result;
@@ -340,99 +340,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 VERSION : 'version'
 	};
 
-	const Constants = {
-		Commands:{
-			SX_DOWNLOAD: 'SX_DOWNLOAD',
-			SX_DOWNLOAD_WITH_IB: 'SX_DOWNLOAD_WITH_IB',
-			SX_GET_COPIED_TEMP_FILE_PATH: 'SX_GET_COPIED_TEMP_FILE_PATH',
-			SX_GET_FILE_INFO: 'SX_GET_FILE_INFO'
-		},
-		PathType:{
-			CONTENT: 'CONTENT',
-			EXT: 'EXT',
-			FILE: 'FILE',
-			FILE_CONTENT: 'FILE_CONTENT',
-			FOLDER: 'FOLDER',
-			FOLDER_CONTENT: 'FOLDER_CONTENT',
-			URL: 'URL'
-		},
-		RepositoryTypes:{
-			USER_JOBS: 'USER_JOBS'
-		},
-		Events:{
-			SX_CHECK_MANDATORY: 'SX_CHECK_MANDATORY',
-			SX_DATA_CHANGED: 'SX_DATA_CHANGED',
-			SX_DISABLE_CONTROLS: 'SX_DISABLE_CONTROLS',
-			SX_EVENTS_REGISTERED: 'SX_EVENTS_REGISTERED',
-			SX_HANDSHAKE: 'SX_HANDSHAKE',
-			SX_REGISTER_EVENTS: 'SX_REGISTER_EVENTS',
-			SX_RESPONSE_DATA: 'SX_RESPONSE_DATA',
-			SX_REQUEST_DATA: 'SX_REQUEST_DATA',
-			SX_REQUEST_SAMPLE_CONTENT: 'SX_REQUEST_SAMPLE_CONTENT',
-			SX_REQUEST_SAMPLE_URL: 'SX_REQUEST_SAMPLE_URL',
-			SX_SAMPLE_SELECTED:'SX_SAMPLE_SELECTED',
-		},
-		TermFields:{
-			ACTIVE : 'active',
-			AVAILABLE_LANGUAGE_IDS : 'availableLanguageIds',
-			COUNTRY_CODE : 'countryCode',
-			DATATYPE_NAME : 'dataTypeName',
-			DATATYPE_VERSION : 'dataTypeVersion',
-			DEFINITION : 'definition',
-			DEFAULT_LANGUAGE_ID : 'defaultLanguageId',
-			DEFAULT_LOCALE : 'defaultLocale',
-			DIMENSION_X : 'dimensionX',
-			DIMENSION_Y : 'dimensionY',
-			DISABLED : 'disabled',
-			DISPLAY_NAME : 'displayName',
-			DISPLAY_STYLE : 'displayStyle',
-			ELEMENT_TYPE : 'elementType',
-			FILE_ID : 'fileId',
-			FORMAT : 'format',
-			ID : 'id',
-			ITEM_DISPLAY_NAME : 'itemDisplayName',
-			LIST_ITEM : 'listItem',
-			LIST_ITEM_VALUE : 'listItemValue',
-			LIST_ITEMS : 'listItems',
-			MANDATORY : 'mandatory',
-			NAME : 'name',
-			MAX_BOUNDARY : 'maxBoundary',
-			MAX_LENGTH :'maxLength',
-			MAX_VALUE :'maxValue',
-			MIN_BOUNDARY : 'minBoundary',
-			MIN_LENGTH :'minLength',
-			MIN_VALUE :'minValue',
-			MULTIPLE_LINE :'multipleLine',
-			OPTION_LABEL: 'optionLabel',
-			OPTION_VALUE: 'optionValue',
-			OPTION_SELECTED: 'optionSelected',
-			ORDER : 'order',
-			PATH : 'path',
-			PATH_TYPE : 'pathType',
-			PLACE_HOLDER : 'placeHolder',
-			RANGE : 'range',
-			REF_DATATYPES : 'refDataTypes',
-			REF_DATABASES : 'refDatabases',
-			SWEEPABLE : 'sweepable',
-			SYNONYMS : 'synonyms',
-			TERM_NAME : 'termName',
-			TERM_TYPE : 'termType',
-			TERM_VERSION : 'termVersion',
-			TEXT : 'text',
-			TOOLTIP : 'tooltip',
-			UNCERTAINTY : 'uncertainty',
-			UNCERTAINTY_VALUE : 'uncertaintyValue',
-			UNIT : 'unit',
-			URI : 'uri',
-			URI_TYPE : 'uriType',
-			URL : 'url',
-			VALIDATION_RULE  : 'validationRule',
-			VALUE : 'value',
-			VALUE_DELIMITER : 'valueDelimiter',
-			VERSION : 'version'
-		}
-	}
-
 	class TermId{
 		static getEmptyTermId(){
 			return new TermId('', '');
@@ -651,7 +558,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.fields.every( field => {
 				if( field.fieldName === fieldName ){
 					searchField = field;
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 			});
 			
@@ -674,11 +581,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.fields = this.fields.filter( field => {
 				if( field.fieldName === fieldName ){
 					if( !keywords ){
-						return SXConstants.FILTER_SKIP; 
+						return Constants.FILTER_SKIP; 
 					}
 					else{
 						field.removeKeywords( keywords );
-						return SXConstants.FILTER_ADD;
+						return Constants.FILTER_ADD;
 					}
 				}
 			});
@@ -831,7 +738,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 
 				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					Events.DATATYPE_SDE_VALUE_CHANGED,
 					eventData
 				);
 			});
@@ -874,7 +781,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 
 				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+					Events.SD_SEARCH_KEYWORD_CHANGED,
 					eventData
 				);
 			});
@@ -950,7 +857,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						if( term.hasOwnProperty('toSearchDate') ){
 							if( term.toSearchDate < term.fromSearchDate ){
 								FormUIUtil.showError(
-									SXConstants.ERROR,
+									Constants.ERROR,
 									'search-out-of-range-error',
 									'from-date-must-smaller-or-equel-to-to-date',
 									{
@@ -991,7 +898,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 				
 				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
+					Events.SD_SEARCH_FROM_DATE_CHANGED,
 					eventData
 					);
 			});
@@ -1010,7 +917,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					if( term.toSearchDate < term.fromSearchDate ){
 						FormUIUtil.showError(
-							SXConstants.ERROR,
+							Constants.ERROR,
 							'search-out-of-range-error',
 							'to-date-must-larger-or-equel-to-from-date',
 							{
@@ -1042,7 +949,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 				
 				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_TO_DATE_CHANGED,
+					Events.SD_SEARCH_TO_DATE_CHANGED,
 					eventData
 					);
 			});
@@ -1099,7 +1006,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 				
 				Liferay.fire(
-					SXIcecapEvents.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
+					Events.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
 					eventData
 					);
 			});
@@ -1168,7 +1075,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				}
@@ -1203,7 +1110,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $select = $( '<select class="form-control" id="' + controlName + '" name="' + controlName + '">' );
 
 			options.forEach( (option)=>{
-				let $option = option.$render( SXConstants.DISPLAY_STYLE_SELECT, controlName+'_'+option.value, controlName);
+				let $option = option.$render( Constants.DISPLAY_STYLE_SELECT, controlName+'_'+option.value, controlName);
 				
 				$option.text(option.labelMap[CURRENT_LANGUAGE]);
 
@@ -1223,7 +1130,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		},
 		$getRadioButtonTag: function (controlId, controlName, option, selected, disabled=false ){
-			let $radio = option.$render( SXConstants.DISPLAY_STYLE_RADIO, controlId, controlName );
+			let $radio = option.$render( Constants.DISPLAY_STYLE_RADIO, controlId, controlName );
 			$radio.find('input[type="radio"]').prop({
 				checked: selected,
 				disabled: disabled
@@ -1318,12 +1225,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node;
 
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, false, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
-					let $option = option.$render( SXConstants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
+					let $option = option.$render( Constants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
 
 					$option.unbind('change').change(function(event){
 						event.stopPropagation();
@@ -1348,7 +1255,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, 
+							Events.SD_SEARCH_KEYWORD_CHANGED, 
 							eventData );
 
 					});
@@ -1359,7 +1266,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$node = $('<div class="card-horizontal main-content-card">')
 								.append( $panelGroup );
 			}
-			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+			else if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
 				let $node = $('<div class="form-group input-text-wrapper">')
 								.append( this.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage, disabled) );
 
@@ -1380,7 +1287,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 	
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				});
@@ -1392,7 +1299,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
-				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
+				if( displayStyle === Constants.DISPLAY_STYLE_RADIO ){
 					options.forEach((option, index)=>{
 							let selected = (value[0] === option.value);
 							$panelBody.append( this.$getRadioButtonTag( 
@@ -1422,7 +1329,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							Events.DATATYPE_SDE_VALUE_CHANGED,
 							eventData
 						);
 					});
@@ -1449,7 +1356,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						});
 
 						term.value = checkedValues;
-						term.valueMode = SXConstants.ARRAY;
+						term.valueMode = Constants.ARRAY;
 
 						let eventData = {
 							sxeventData:{
@@ -1461,7 +1368,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							Events.DATATYPE_SDE_VALUE_CHANGED,
 							eventData
 						);
 					});
@@ -1646,15 +1553,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $textInput;
 
 			let $String;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				$textInput = this.$getTextInputNode( term, forWhat );
 				$String = this.$getPreviewRowSection( term, $textInput );
 			}
-			else if(forWhat === SXConstants.FOR_EDITOR ){
+			else if(forWhat === Constants.FOR_EDITOR ){
 				$textInput = this.$getTextInputNode( term, forWhat );
 				$String = this.$getEditorRowSection( term, $textInput );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				$textInput = this.$getTextSearchNode( term );
 				$String = this.$getSearchRowSection( term, $textInput );
 			}
@@ -1805,7 +1712,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$('#'+NAMESPACE+controlId).prop('disabled', disable);
 			})
 		},
-		showError: function( type=SXConstants.ERROR, title, msg, buttonOptions){
+		showError: function( type=Constants.ERROR, title, msg, buttonOptions){
 			let options = {
 				title: title,
 				content: msg,
@@ -1817,7 +1724,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			};
 
-			if( type === SXConstants.CONFIRM ){
+			if( type === Constants.CONFIRM ){
 				options.buttons.cancel = buttonOptions.cancel;
 			}
 
@@ -1825,23 +1732,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	};
 	
-	const SXIcecapEvents = {
+	const Events = {
 		DATATYPE_PREVIEW_TERM_DELETED: 'DATATYPE_PREVIEW_TERM_DELETED',
 		DATATYPE_PREVIEW_REMOVE_TERM: 'DATATYPE_PREVIEW_REMOVE_TERM',
-		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELTE_TERM',
+		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELETE_TERM',
 		DATATYPE_PREVIEW_COPY_TERM: 'DATATYPE_PREVIEW_COPY_TERM',
 		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
-		DATATYPE_ACTIVE_TERM_CHANGED: 'DATATYPE_ACTIVE_TERM_CHANGED',
 		DATATYPE_FORM_UI_CHECKBOX_CHANGED: 'DATATYPE_FORM_UI_CHECKBOX_CHANGED',
-		LIST_OPTION_ACTIVE_TERM_DELETED: 'LIST_OPTION_ACTIVE_TERM_REMOVED',
+		DATATYPE_SDE_VALUE_CHANGED: 'DATATYPE_SDE_VALUE_CHANGED',
 		LIST_OPTION_ACTIVE_TERM_SELECTED: 'LIST_OPTION_ACTIVE_TERM_SELECTED',
 		LIST_OPTION_PREVIEW_REMOVED: 'LIST_OPTION_PREVIEW_REMOVED',
 		LIST_OPTION_PREVIEW_SELECTED: 'LIST_OPTION_PREVIEW_SELECTED',
-		LIST_OPTION_ACTIVE_TERMS_CHANGED:'LIST_OPTION_ACTIVE_TERMS_CHANGED',
 
-		TERM_PROPERTY_CHANGED: 'TERM_PROPERTY_CHANGED',
-		DATATYPE_SDE_VALUE_CHANGED: 'DATATYPE_SDE_VALUE_CHANGED',
 
 		SD_SEARCH_FROM_DATE_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
 		SD_SEARCH_TO_DATE_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
@@ -1854,10 +1757,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_SEARCH_KEYWORD_REMOVED: 'SD_SEARCH_KEYWORD_REMOVED',
 		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_REMOVED',
 		SD_SEARCH_KEYWORDS_CHANGED: 'SD_SEARCH_KEYWORDS_REMOVED',
-		SD_SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED'
+		SD_SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED',
+		STRUCTURED_DATA_CHANGED: 'STRUCTURED_DATA_CHANGED',
+
+		SX_CHECK_MANDATORY: 'SX_CHECK_MANDATORY',
+		SX_DATA_CHANGED: 'SX_DATA_CHANGED',
+		SX_DISABLE_CONTROLS: 'SX_DISABLE_CONTROLS',
+		SX_EVENTS_REGISTERED: 'SX_EVENTS_REGISTERED',
+		SX_HANDSHAKE: 'SX_HANDSHAKE',
+		SX_REGISTER_EVENTS: 'SX_REGISTER_EVENTS',
+		SX_RESPONSE_DATA: 'SX_RESPONSE_DATA',
+		SX_REQUEST_DATA: 'SX_REQUEST_DATA',
+		SX_REQUEST_SAMPLE_CONTENT: 'SX_REQUEST_SAMPLE_CONTENT',
+		SX_REQUEST_SAMPLE_URL: 'SX_REQUEST_SAMPLE_URL',
+		SX_SAMPLE_SELECTED:'SX_SAMPLE_SELECTED',
+		SX_LOAD_DATA:'SX_LOAD_DATA'
 	};
 
-	const SXConstants = {
+	const Constants = {
 		FOR_NOTHING: 0,
 		FOR_PREVIEW: 1,
 		FOR_EDITOR: 2,
@@ -1883,7 +1800,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		ERROR: 0,
 		WARNING: 1,
-		CONFIRM: 2
+		CONFIRM: 2,
+
+		Commands:{
+			SX_DOWNLOAD: 'SX_DOWNLOAD',
+			SX_DOWNLOAD_WITH_IB: 'SX_DOWNLOAD_WITH_IB',
+			SX_GET_COPIED_TEMP_FILE_PATH: 'SX_GET_COPIED_TEMP_FILE_PATH',
+			SX_GET_FILE_INFO: 'SX_GET_FILE_INFO'
+		},
+		PathType:{
+			CONTENT: 'CONTENT',
+			EXT: 'EXT',
+			FILE: 'FILE',
+			FILE_CONTENT: 'FILE_CONTENT',
+			FOLDER: 'FOLDER',
+			FOLDER_CONTENT: 'FOLDER_CONTENT',
+			URL: 'URL'
+		},
+		RepositoryTypes:{
+			USER_JOBS: 'USER_JOBS'
+		},
+		Events:{
+		}
 	};
 	
 	class LocalizedObject {
@@ -2021,7 +1959,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					};
 					
-					Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_REMOVED, eventData );
+					Liferay.fire( Events.LIST_OPTION_PREVIEW_REMOVED, eventData );
 				});
 				
 				$row.click(function(event){
@@ -2035,7 +1973,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					};
 					
-					Liferay.fire( SXIcecapEvents.LIST_OPTION_PREVIEW_SELECTED, eventData );
+					Liferay.fire( Events.LIST_OPTION_PREVIEW_SELECTED, eventData );
 				});
 
 				this.$rendered = $row;
@@ -2044,7 +1982,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$render( renderStyle, optionId, optionName ){
-			if( renderStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+			if( renderStyle === Constants.DISPLAY_STYLE_SELECT ){
 				let $option = $( '<option>' );
 				
 				$option.prop('value', this.value);
@@ -2056,7 +1994,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				return $option;
 			}
-			else if( renderStyle === SXConstants.DISPLAY_STYLE_RADIO ){
+			else if( renderStyle === Constants.DISPLAY_STYLE_RADIO ){
 				let $label = $( '<label>' );
 				let $input = $( '<input type="radio">')
 										.prop({
@@ -2077,7 +2015,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				return $radio;
 			}
-			else{ // renderStyle === SXConstants.DISPLAY_STYLE_CHECK
+			else{ // renderStyle === Constants.DISPLAY_STYLE_CHECK
 				let $label = $( '<label>' )
 							.prop( 'for', optionId );
 			
@@ -2138,7 +2076,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					}
 
-					Liferay.fire( SXIcecapEvents.LIST_OPTION_ACTIVE_TERM_REMOVED, eventData );
+					Liferay.fire( Events.LIST_OPTION_ACTIVE_TERM_REMOVED, eventData );
 				});
 
 				$row.click(function(event){
@@ -2155,7 +2093,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					}
 
-					Liferay.fire( SXIcecapEvents.LIST_OPTION_ACTIVE_TERM_SELECTED, eventData );
+					Liferay.fire( Events.LIST_OPTION_ACTIVE_TERM_SELECTED, eventData );
 				});
 				
 				$previewPanel.append( $row );
@@ -2178,151 +2116,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 
-	class TermPropertyControl{
-		static $DEFAULT_TERM_TYPE_FORM_CTRL = $('#' + NAMESPACE + 'termType');
-		static $DEFAULT_TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
-		static $DEFAULT_TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
-		static $DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
-		static $DEFAULT_TERM_DEFINITION_FORM_CTRL = $('#' + NAMESPACE + 'termDefinition');
-		static $DEFAULT_TERM_TOOLTIP_FORM_CTRL = $('#' + NAMESPACE + 'termTooltip');
-		static $DEFAULT_TERM_SYNONYMS_FORM_CTRL = $('#' + NAMESPACE + 'synonyms');
-		static $DEFAULT_TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
-		static $DEFAULT_TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
-		static $DEFAULT_ABSTRACT_KEY_FORM_CTRL = $('#' + NAMESPACE + 'abstractKey');
-
-		constructor( termName, termVersion, propertyName, propertyType, $control){
-			this.termName = termName;
-			this.termVersion = termVersion;
-			this.propertyName = propertyName;
-			this.propertyType = propertyType;
-			this.$control = $control;
-		}
-	}
-
-	class TextTermPropertyControl extends TermPropertyControl {
-		static PROPERTY_TYPE = 'text';
-
-		constructor(termName, termVersion, propertyName, $control){
-			super(termName, termVersion, propertyName, TextTermPropertyControl.PROPERTY_TYPE, $control);
-
-			$control.change( function(event){
-				Liferay.fire(
-					SXIcecapEvents.TERM_PROPERTY_CHANGED,
-					{
-						termName: termName,
-						termVersion: termVersion,
-						propertyName: propertyName,
-						propertyType: TextTermPropertyControl.PROPERTY_TYPE,
-						value: this.getPropertyValue()
-					}
-				);
-			});
-		}
-
-		getPropertyValue(){
-			return this.$control.val();
-		}
-
-		setPropertyValue( value ){
-			this.$control.val( value );
-		}
-	}
-
-	class SelectTermPropertyControl extends TermPropertyControl {
-		static PROPERTY_TYPE = 'select';
-
-		constructor(termName, termVersion, propertyName, $control){
-			super(termName, termVersion, propertyName, SelectTermPropertyControl.PROPERTY_TYPE, $control);
-
-			$control.change( function(event){
-				Liferay.fire(
-					SXIcecapEvents.TERM_PROPERTY_CHANGED,
-					{
-						termName: termName,
-						termVersion: termVersion,
-						propertyName: propertyName,
-						propertyType: SelectTermPropertyControl.PROPERTY_TYPE,
-						value: this.getPropertyValue()
-					}
-				);
-			});
-		}
-
-		getPropertyValue(){
-			return this.$control.val();
-		}
-
-		setPropertyValue( value ){
-			this.$control.val( value );
-		}
-	}
-
-	class RadioTermPropertyControl extends TermPropertyControl {
-		static PROPERTY_TYPE = 'radio';
-
-		constructor(termName, termVersion, propertyName, $control){
-			super(termName, termVersion, propertyName, RadioTermPropertyControl.PROPERTY_TYPE, $control);
-
-			$control.change( function(event){
-				Liferay.fire(
-					SXIcecapEvents.TERM_PROPERTY_CHANGED,
-					{
-						termName: termName,
-						termVersion: termVersion,
-						propertyName: propertyName,
-						propertyType: RadioTermPropertyControl.PROPERTY_TYPE,
-						value: this.getPropertyValue()
-					}
-				);
-			});
-		}
-
-		getPropertyValue(){
-			return this.$control.find('input[type="radio"]:checked').val();
-		}
-
-		setPropertyValue( value ){
-			this.$control.filter('[value='+value+']').prop('checked', true);
-		}
-	}
-
-	class CheckboxTermPropertyControl extends TermPropertyControl {
-		static PROPERTY_TYPE = 'checkbox';
-
-		constructor(termName, termVersion, propertyName, $control){
-			super(termName, termVersion, propertyName, CheckboxTermPropertyControl.PROPERTY_TYPE, $control);
-
-			$control.change( function(event){
-				Liferay.fire(
-					SXIcecapEvents.TERM_PROPERTY_CHANGED,
-					{
-						termName: termName,
-						termVersion: termVersion,
-						propertyName: propertyName,
-						propertyType: CheckboxTermPropertyControl.PROPERTY_TYPE,
-						value: this.getPropertyValue()
-					}
-				);
-			});
-		}
-
-		getPropertyValues(){
-			return this.$control.filter('input[type="checkbox"]:checked')
-								.map(function(){return this.value;})
-								.get();
-		}
-
-		setPropertyValues( values ){
-			for( i=0; i<values.length; i++){
-				this.$control.filter('[value='+values[i]+']').prop('checked', true);
-			}
-		}
-
-		setChecked( value, check ){
-			this.$control.find('input[type="checkbox" value='+value+']').prop('checked', check);
-		}
-	}
-
 	class Term {
 		static DEFAULT_TERM_ID = 0;
 		static DEFAULT_TERM_VERSION = '1.0.0';
@@ -2331,7 +2124,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_SEARCHABLE = true;
 		static DEFAULT_DOWNLOADABLE = true;
 		static DEFAULT_MIN_LENGTH = 1;
-		static DEFAULT_VALUE_MODE = SXConstants.SINGLE;
+		static DEFAULT_VALUE_MODE = Constants.SINGLE;
 
 		static VALID_NAME_PATTERN=/^[_a-zA-Z]([_a-zA-Z0-9])*$/;
 
@@ -2391,11 +2184,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let int = Number(part); 
 				
 				if( Number.isInteger(int) ){
-					return SXConstants.CONTINUE_EVERY;
+					return Constants.CONTINUE_EVERY;
 				}
 				else{
-					validationPassed = SXConstants.FAIL;
-					return SXConstants.STOP_EVERY;
+					validationPassed = Constants.FAIL;
+					return Constants.STOP_EVERY;
 				}
 			});
 			
@@ -2418,6 +2211,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			return validationPassed;
+		}
+
+		static validateTermName( termName ){
+			return /^[_|a-z|A-Z][_|a-z|A-Z|0-9]*/.test( termName );
 		}
 
 		activate( active=true ){
@@ -2454,10 +2251,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					let message;
 
 					if( $(item).prop('id') === 'copy'){
-						message = SXIcecapEvents.DATATYPE_PREVIEW_COPY_TERM;
+						message = Events.DATATYPE_PREVIEW_COPY_TERM;
 					}
 					else if( $(item).prop('id') === 'delete' ){
-						message = SXIcecapEvents.DATATYPE_PREVIEW_REMOVE_TERM;
+						message = Events.DATATYPE_PREVIEW_REMOVE_TERM;
 					}
 
 					Liferay.fire(
@@ -2483,7 +2280,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				};
 				
-				Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+				Liferay.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
 			};
 		}
 
@@ -2622,10 +2419,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.synonyms.every( (item, index, arr ) => {
 				if( item === synonym ){
 					this.synonyms.splice( index, 1 );
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 				
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 		}
 		
@@ -2751,7 +2548,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			if( !this.hasOwnProperty('termVersion') )	this.termVersion = Term.DEFAULT_TERM_VERSION;
-			if( !this.hasOwnProperty('state') )	this.state = SXConstants.STATE_ACTIVE;
+			if( !this.hasOwnProperty('state') )	this.state = Constants.STATE_ACTIVE;
 
 			return unparsed;
 		}
@@ -2844,7 +2641,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName', valueMap );
 			}
 			else if( this.hasOwnProperty('displayName') ){
-				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.getLocalizedDisplayName() );
+				console.log( 'displayName: ' + this.getLocalizedDisplayName() );
+				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.displayName.getLocalizedMap() );
 			}
 			else{
 				delete this.displayName;
@@ -2855,8 +2653,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getDefinitionFormValue ( save=true ){
 			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDefinition' );
 			if( save ){
-				this.definition = new LocalizedObject();
-				this.definition.setLocalizedMap( valueMap );
+				this.definition = new LocalizedObject(valueMap);
 				this.setDirty( true );
 			}
 			
@@ -2864,8 +2661,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		setDefinitionFormValue ( valueMap ){
 			if( valueMap ){
-				this.definition = new LocalizedObject();
-				this.definition.setLocalizedMap( valueMap );
+				this.definition = new LocalizedObject(valueMap);
 				FormUIUtil.setFormLocalizedValue( 'termDefinition', valueMap );
 			}
 			else if( this.hasOwnProperty('definition') ){
@@ -3291,7 +3087,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					};
 					
-					Liferay.fire( SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+					Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
 				}
 			};
 
@@ -3337,7 +3133,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					};
 					
-					Liferay.fire( SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, eventData );					
+					Liferay.fire( Events.SD_SEARCH_KEYWORD_CHANGED, eventData );					
 				}
 			};
 
@@ -3353,7 +3149,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let id = NAMESPACE + this.termName;
 			let name = NAMESPACE + this.termName;
 			let label = this.getLocalizedDisplayName();
-			let required = (forWhat === SXConstants.FOR_SEARCH) ? false : this.mandatory;
+			let required = (forWhat === Constants.FOR_SEARCH) ? false : this.mandatory;
 			let disabled = this.disabled;
 			let type = this.multipleLine ? 'textarea' : 'text';
 			let helpMessage = this.getLocalizedTooltip();
@@ -3365,18 +3161,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let self = this;
 			
 
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				let $textInput = this.$getEditSection();
 				$section = FormUIUtil.$getPreviewRowSection( 
 										$textInput, 
 										this.getPreviewPopupAction(), 
 										this.getRowClickEventFunc() );
 			}
-			else if(forWhat === SXConstants.FOR_EDITOR ){
+			else if(forWhat === Constants.FOR_EDITOR ){
 				let $textInput = this.$getEditSection();
 				$section = FormUIUtil.$getEditorRowSection( $textInput );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				let $textInput = this.$getSearchSection();
 				$section = FormUIUtil.$getSearchRowSection( $textInput );
 			}
@@ -3661,7 +3457,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 					
 					Liferay.fire(
-						SXIcecapEvents.SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED,
+						Events.SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED,
 						eventData
 					);
 				}
@@ -3725,7 +3521,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 					
 					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_FROM_NUMERIC_CHANGED,
+						Events.SD_SEARCH_FROM_NUMERIC_CHANGED,
 						eventData
 					);
 				}
@@ -3758,7 +3554,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 	
 					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_TO_NUMERIC_CHANGED,
+						Events.SD_SEARCH_TO_NUMERIC_CHANGED,
 						eventData
 					);
 				}
@@ -3834,7 +3630,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					};
 					
-					Liferay.fire( SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+					Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
 				}
 			};
 			FormUIUtil.$getTextInput( valueName, valueName, 'text',  placeHolder, mandatory, disabled, value, eventFuncs ).appendTo($inputCol);
@@ -3865,7 +3661,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						};
 						
-						Liferay.fire( SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+						Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
 					}
 				};
 				FormUIUtil.$getTextInput( uncertaintyName, uncertaintyName, 'text', placeHolder, mandatory, disabled, uncertaintyValue, eventFuncs ).appendTo($inputCol);
@@ -3894,7 +3690,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getFormNumericSection( forWhat ){
 			let $numericNode;
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				$numericNode = this.$getSearchNumericNode();
 			}
 			else{
@@ -3903,16 +3699,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $numericRow = null;
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				$numericRow = FormUIUtil.$getPreviewRowSection(
 									$numericNode, 
 									this.getPreviewPopupAction(),
 									this.getRowClickEventFunc() );
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				$numericRow = FormUIUtil.$getEditorRowSection( $numericNode );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				$numericRow = FormUIUtil.$getSearchRowSection( $numericNode );
 			}
 			else{
@@ -3988,7 +3784,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				if( validation === false ){
 					FormUIUtil.showError(
-						SXConstants.ERROR,
+						Constants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
 						errorMsg,
 						{
@@ -4027,7 +3823,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				if( validation === false ){
 					FormUIUtil.showError(
-						SXConstants.ERROR,
+						Constants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
 						errorMsg,
 						{
@@ -4087,7 +3883,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( Util.isSafeNumber(this.minValue) ){
 					if( this.minValue > value ){
 						FormUIUtil.showError(
-							SXConstants.ERROR,
+							Constants.ERROR,
 							Liferay.Language.get('search-out-of-range-error'),
 							Liferay.Language.get('keyword-must-lager-than-or-equal-to-the-minimum-value') + 
 											'<br>Minimum Value: ' + this.minValue,
@@ -4099,14 +3895,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						);
 
-						return SXConstants.FILTER_SKIP;
+						return Constants.FILTER_SKIP;
 					}
 				}
 
 				if( Util.isSafeNumber(this.maxValue) ){
 					if( this.maxValue < value ){
 						FormUIUtil.showError(
-							SXConstants.ERROR,
+							Constants.ERROR,
 							Liferay.Language.get('search-out-of-range-error'),
 							Liferay.Language.get('keyword-must-less-than-or-equal-to-the-maximum-value') + 
 											'<br>Maximum Value: ' + this.maxValue,
@@ -4118,11 +3914,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						);
 
-						return SXConstants.FILTER_SKIP;
+						return Constants.FILTER_SKIP;
 					}
 				}
 
-				return SXConstants.FILTER_ADD;
+				return Constants.FILTER_ADD;
 			});
 
 			if( properValues.length === values.length ){
@@ -4151,7 +3947,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.rangeSearch === true ){
 				if( Util.isSafeNumber(this.toSearchValue) && this.toSearchValue < fromValue ){
 					FormUIUtil.showError(
-						SXConstants.ERROR,
+						Constants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
 						Liferay.Language.get('keyword-must-less-than-or-equal-to-the-upper-range-value') + 
 										'<br>Upper Range: ' + this.toSearchValue,
@@ -4186,7 +3982,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( Util.isSafeNumber(toValue) ){
 				if( Util.isSafeNumber(this.fromSearchValue) && this.fromSearchValue > toValue ){
 					FormUIUtil.showError(
-						SXConstants.ERROR,
+						Constants.ERROR,
 						Liferay.Language.get('search-out-of-range-error'),
 						Liferay.Language.get('keyword-must-larger-than-or-equal-to-the-lower-range-value') +'<br>Lower Range: '+ this.fromSearchValue,
 						{
@@ -4694,10 +4490,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( option.hasOwnProperty('activeTerms') ){
 					hasSlaves = true;
 
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return hasSlaves;
@@ -4799,10 +4595,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							break;
 					}
 					
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			})
 		}
 
@@ -4831,12 +4627,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node;
 
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, false, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
-					let $option = option.$render( SXConstants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
+					let $option = option.$render( Constants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
 
 					$option.change(function(event){
 						event.stopPropagation();
@@ -4860,7 +4656,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, 
+							Events.SD_SEARCH_KEYWORD_CHANGED, 
 							eventData );
 
 					});
@@ -4871,7 +4667,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$node = $('<div class="card-horizontal main-content-card">')
 								.append( $panelGroup );
 			}
-			else if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+			else if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
 				let optionValue = value ? value[0] : '';
 				let $node = $('<div class="form-group input-text-wrapper">')
 								.append( FormUIUtil.$getSelectTag(controlName, options, optionValue, label, mandatory, helpMessage, disabled) );
@@ -4892,7 +4688,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				});
@@ -4905,7 +4701,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				let optionValue = value ? value[0] : '';
-				if( displayStyle === SXConstants.DISPLAY_STYLE_RADIO ){
+				if( displayStyle === Constants.DISPLAY_STYLE_RADIO ){
 					options.forEach((option, index)=>{
 							let selected = (optionValue === option.value);
 							$panelBody.append( FormUIUtil.$getRadioButtonTag( 
@@ -4932,7 +4728,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							Events.DATATYPE_SDE_VALUE_CHANGED,
 							eventData
 						);
 					});
@@ -4961,7 +4757,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						});
 
 						term.value = checkedValues;
-						term.valueMode = SXConstants.ARRAY;
+						term.valueMode = Constants.ARRAY;
 
 						let eventData = {
 							sxeventData:{
@@ -4973,7 +4769,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							Events.DATATYPE_SDE_VALUE_CHANGED,
 							eventData
 						);
 					});
@@ -4993,17 +4789,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $fieldset = this.$getFieldSetNode( forWhat );
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 										$fieldset, 
 										this.getPreviewPopupAction(), 
 										this.getRowClickEventFunc() );
 
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $fieldset );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $fieldset );
 			}
 			else{
@@ -5036,8 +4832,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.setFormRadioValue( 'listDisplayStyle', this.displayStyle );
 			}
 			else{
-				this.displayStyle = SXConstants.DISPLAY_STYLE_SELECT;
-				FormUIUtil.setFormRadioValue( 'listDisplayStyle', SXConstants.DISPLAY_STYLE_SELECT );
+				this.displayStyle = Constants.DISPLAY_STYLE_SELECT;
+				FormUIUtil.setFormRadioValue( 'listDisplayStyle', Constants.DISPLAY_STYLE_SELECT );
 			}
 		}
 
@@ -5196,7 +4992,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let controlId = NAMESPACE+this.termName;
 			let mandatory = this.mandatory;
 
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				mandatory = false;
 			}
 
@@ -5207,8 +5003,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.getLocalizedTooltip() ).appendTo($section);
 			
 			let self = this;
-			if( forWhat === SXConstants.FOR_EDITOR ||
-				forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_EDITOR ||
+				forWhat === Constants.FOR_PREVIEW ){
 				let $inputSection = $('<div>').appendTo( $section );
 				let $inputEmailId = $('<input class="form-control" ' + 
 											'id="' + controlId + '_emailId" ' +
@@ -5246,7 +5042,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				});
@@ -5289,7 +5085,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				});
@@ -5323,7 +5119,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 
 					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED, 
+						Events.SD_SEARCH_KEYWORD_CHANGED, 
 						eventData );
 				});
 			}
@@ -5339,16 +5135,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			let $row;
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 										$emailSection,
 										this.getPreviewPopupAction(), 
 										this.getRowClickEventFunc()  );
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $emailSection );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $emailSection );
 			}
 
@@ -5391,7 +5187,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let controlId = NAMESPACE+this.termName;
 			let mandatory = this.mandatory;
 
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				mandatory = false;
 			}
 
@@ -5402,8 +5198,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.getLocalizedTooltip() ).appendTo($section);
 			
 			let self = this;
-			if( forWhat === SXConstants.FOR_EDITOR ||
-				forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_EDITOR ||
+				forWhat === Constants.FOR_PREVIEW ){
 				let $inputSection = $('<div>').appendTo( $section );
 				let $inputZipcode = $('<input class="form-control" ' + 
 											'id="' + controlId + '_zipcode" ' +
@@ -5514,7 +5310,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 	
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				});
@@ -5566,7 +5362,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 
 				Liferay.fire(
-					SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+					Events.SD_SEARCH_KEYWORD_CHANGED,
 					eventData
 				);
 			});
@@ -5581,14 +5377,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $addrSection;
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				$addrSection = this.$getAddressSection( forWhat );
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 												$addrSection,
 												this.getPreviewPopupAction(), 
 												this.getRowClickEventFunc() ) ;
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				$addrSection = this.$getAddressSection( forWhat );
 				this.$rendered = FormUIUtil.$getEditorRowSection( $addrSection );
 			}
@@ -5737,7 +5533,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							};
 			
 							Liferay.fire(
-								SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+								Events.DATATYPE_SDE_VALUE_CHANGED,
 								eventData
 							);
 						});
@@ -5774,16 +5570,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $matrixSection = this.$getFormMatrixSection( forWhat );
 
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 										$matrixSection,
 										this.getPreviewPopupAction(),
 										this.getRowClickEventFunc() ) ;
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $matrixSection );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $matrixSection );
 			}
 
@@ -5996,7 +5792,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 
 				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					Events.DATATYPE_SDE_VALUE_CHANGED,
 					eventData
 				);
 			}
@@ -6012,7 +5808,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage)
 							.appendTo($phoneSection);
 
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
 
 				let eventFuncs = {
@@ -6030,7 +5826,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 
 						Liferay.fire(
-							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+							Events.SD_SEARCH_KEYWORD_CHANGED,
 							eventData
 						);
 					}
@@ -6168,16 +5964,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $phoneSection = this.$getPhoneSection( forWhat );
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 													$phoneSection, 
 													this.getPreviewPopupAction(), 
 													this.getRowClickEventFunc() ) ;
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $phoneSection );
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $phoneSection );
 			}
 
@@ -6291,7 +6087,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				}
@@ -6373,7 +6169,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							if( Util.isSafeNumber(term.toSearchDate) ){
 								if( term.toSearchDate < term.fromSearchDate ){
 									FormUIUtil.showError(
-										SXConstants.ERROR,
+										Constants.ERROR,
 										'search-out-of-range-error',
 										'from-date-must-smaller-or-equel-to-to-date',
 										{
@@ -6414,7 +6210,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 					
 					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_FROM_DATE_CHANGED,
+						Events.SD_SEARCH_FROM_DATE_CHANGED,
 						eventData
 						);
 				}
@@ -6443,7 +6239,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 						if( term.toSearchDate < term.fromSearchDate ){
 							FormUIUtil.showError(
-								SXConstants.ERROR,
+								Constants.ERROR,
 								'search-out-of-range-error',
 								'to-date-must-larger-or-equel-to-from-date',
 								{
@@ -6475,7 +6271,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 					
 					Liferay.fire(
-						SXIcecapEvents.SD_SEARCH_TO_DATE_CHANGED,
+						Events.SD_SEARCH_TO_DATE_CHANGED,
 						eventData
 						);
 				}
@@ -6554,7 +6350,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 					
 					Liferay.fire(
-						SXIcecapEvents.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
+						Events.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
 						eventData
 						);
 				}
@@ -6576,14 +6372,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $dateSection;
 		}
 
-		$render(forWhat=SXConstants.FOR_EDITOR){
+		$render(forWhat=Constants.FOR_EDITOR){
 			if( this.$rendered ){
 				this.$rendered.remove();
 			}
 
 			let $dateSection;
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				$dateSection = this.$getDateInputSection();
 
 				this.$rendered =  FormUIUtil.$getPreviewRowSection( 
@@ -6591,12 +6387,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 												this.getPreviewPopupAction(), 
 												this.getRowClickEventFunc() ) ;
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				$dateSection = this.$getDateInputSection();
 
 				this.$rendered = FormUIUtil.$getEditorRowSection( $dateSection );
 			}
-			else if(forWhat === SXConstants.FOR_SEARCH){
+			else if(forWhat === Constants.FOR_SEARCH){
 				$dateSection = this.$getDateSearchSection();
 
 				this.$rendered = FormUIUtil.$getSearchRowSection( $dateSection );
@@ -6686,15 +6482,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				aryFromDates.every( fromDate => {
 					if( fromDate < startDate || fromDate > endDate ){
 						validation = DateTerm.IMPOSSIBLE_DATE;
-						return SXConstants.STOP_EVERY;
+						return Constants.STOP_EVERY;
 					}
 
 					if( this.hasOwnProperty('toSearchDate') && fromDate > this.toSearchDate ){
 						validation = DateTerm.OUT_OF_RANGE;
-						return SXConstants.STOP_EVERY;
+						return Constants.STOP_EVERY;
 					}
 					
-					return SXConstants.CONTINUE_EVERY;
+					return Constants.CONTINUE_EVERY;
 				});
 				
 				this.fromSearchDate = aryFromDates;
@@ -7099,7 +6895,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 
 				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					Events.DATATYPE_SDE_VALUE_CHANGED,
 					eventData
 				);
 			});
@@ -7182,7 +6978,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				};
 
 				Liferay.fire(
-					SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+					Events.DATATYPE_SDE_VALUE_CHANGED,
 					eventData
 				);
 			});
@@ -7197,22 +6993,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $fileSection;
 
-			if( forWhat === SXConstants.FOR_PREVIEW ||
-				forWhat === SXConstants.FOR_EDITOR ){
+			if( forWhat === Constants.FOR_PREVIEW ||
+				forWhat === Constants.FOR_EDITOR ){
 				$fileSection = this.$getFormFileUploadSection();
 			}
 			
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 									$fileSection,
 									this.getPreviewPopupAction(),
 									this.getRowClickEventFunc() );
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection($fileSection);
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				// rendering for search
 			}
 			else{
@@ -7304,7 +7100,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
 		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
 
-		static DEFAULT_DISPLAY_STYLE = SXConstants.DISPLAY_STYLE_SELECT;
+		static DEFAULT_DISPLAY_STYLE = Constants.DISPLAY_STYLE_SELECT;
 		static AVAILABLE_TERMS = null;
 
 		static OPTION_FOR_TRUE = 0;
@@ -7362,14 +7158,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				value = this.value;
 			}
 			
-			let displayStyle = (forWhat === SXConstants.FOR_SEARCH ) ? SXConstants.DISPLAY_STYLE_RADIO : this.displayStyle;
+			let displayStyle = (forWhat === Constants.FOR_SEARCH ) ? Constants.DISPLAY_STYLE_RADIO : this.displayStyle;
 			let options = this.options;
 
 			let self = this;
 
 			let $node;
 
-			if( displayStyle === SXConstants.DISPLAY_STYLE_SELECT ){
+			if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
 
 				$node = $('<div class="form-group input-text-wrapper">')
 							.append( FormUIUtil.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled) );
@@ -7389,7 +7185,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 	
 					Liferay.fire(
-						SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+						Events.DATATYPE_SDE_VALUE_CHANGED,
 						eventData
 					);
 				});
@@ -7399,7 +7195,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
-					let selected = ( forWhat === SXConstants.FOR_SEARCH ) ? false : (value === option.value);
+					let selected = ( forWhat === Constants.FOR_SEARCH ) ? false : (value === option.value);
 
 					let $radioTag = FormUIUtil.$getRadioButtonTag( 
 										controlName+'_'+(index+1),
@@ -7423,7 +7219,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					});
 				});
 					
-				if( forWhat === SXConstants.FOR_SEARCH ){
+				if( forWhat === Constants.FOR_SEARCH ){
 					$panelBody.change(function(event){
 						event.stopPropagation();
 						event.preventDefault();
@@ -7447,7 +7243,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.SD_SEARCH_KEYWORD_CHANGED,
+							Events.SD_SEARCH_KEYWORD_CHANGED,
 							eventData
 						);
 					});
@@ -7476,7 +7272,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						};
 
 						Liferay.fire(
-							SXIcecapEvents.DATATYPE_SDE_VALUE_CHANGED,
+							Events.DATATYPE_SDE_VALUE_CHANGED,
 							eventData
 						);
 					});
@@ -7496,16 +7292,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $fieldset = this.$getBooleanFieldSetNode( forWhat );
 			
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 									$fieldset,
 									this.getPreviewPopupAction(),
 									this.getRowClickEventFunc());
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection($fieldset);
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection($fieldset);
 			}
 			else{
@@ -7734,7 +7530,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let disabled = this.disabled ? true : false;
 			let extended = this.extended ? true : false;
-			if( forWhat === SXConstants.FOR_SEARCH ){
+			if( forWhat === Constants.FOR_SEARCH ){
 				disabled = false;
 				extended = false; 
 			}
@@ -7745,16 +7541,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											disabled,
 											extended );
 
-			if( forWhat === SXConstants.FOR_PREVIEW ){
+			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 												$accordion,
 												this.getPreviewPopupAction(),
 												this.getRowClickEventFunc() );
 			}
-			else if( forWhat === SXConstants.FOR_EDITOR ){
+			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered =  FormUIUtil.$getEditorRowSection($accordion);
 			}
-			else if( forWhat === SXConstants.FOR_SEARCH ){
+			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered =  FormUIUtil.$getSearchRowSection($accordion);
 			}
 			else{
@@ -7852,7 +7648,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.dirty = false;
 			this.uploadFiles = false;
 			this.$canvas = null;
-			this.forWhat = SXConstants.FOR_NOTHING;
+			this.forWhat = Constants.FOR_NOTHING;
 			this.fieldOperator = DataStructure.DEFAULT_FIELD_OPERATOR;
 			this.infieldOperator = DataStructure.DEFAULT_INFIELD_OPERATOR;
 
@@ -8061,7 +7857,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			delete copied.$rendered;
 			copied.order = 0;
 			
-			this.addTerm( copied, 0, SXConstants.FOR_PREVIEW, true, true );
+			this.addTerm( copied, 0, Constants.FOR_PREVIEW, true, true );
 
 			let self = this;
 			if( term.isGroupTerm() ){
@@ -8097,10 +7893,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.every( term => {
 				if( termId.sameWith( term.getTermId() ) ){
 					searchedTerm = term;
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return searchedTerm;
@@ -8118,10 +7914,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.every( term => {
 				if( term.termName === termName ){
 					searchedTerm = term;
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return searchedTerm;
@@ -8184,15 +7980,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let members = this.terms.filter( term => {
 				if( groupTermId.isEmpty() && !term.isMemberOfGroup() ){
-					return SXConstants.FILTER_ADD;
+					return Constants.FILTER_ADD;
 				}
 				else if( term.isMemberOfGroup() && 
 						 groupTermId.isNotEmpty() &&
 						 groupTermId.sameWith(term.groupTermId) ){
-					return SXConstants.FILTER_ADD;
+					return Constants.FILTER_ADD;
 				}
 				else{
-					return SXConstants.FILTER_SKIP;
+					return Constants.FILTER_SKIP;
 				};
 			});
 
@@ -8227,10 +8023,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			children.every(child=>{
 				if( child.order === order ){
 					searchedTerm = child;
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
 
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return searchedTerm;
@@ -8370,10 +8166,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							oldMembers = oldMembers.filter( member=>{
 								if( !termNameSet.includes(member.termName) ){
 									self.addGroupMember( member, groupTerm.groupTermId, false);
-									return SXConstants.FILTER_SKIP;
+									return Constants.FILTER_SKIP;
 								}
 
-								return SXConstants.FILTER_ADD;
+								return Constants.FILTER_ADD;
 							});
 
 							termNameSet.forEach(termName=>{
@@ -8421,7 +8217,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $rendered = term.$rendered;
 			if( render === true ){
-				$rendered = this.$renderTerm( term, SXConstants.FOR_PREVIEW );
+				$rendered = this.$renderTerm( term, Constants.FOR_PREVIEW );
 			}
 
 			this.$getPreviewPanel( newGroupTermId ).append( $rendered );
@@ -8472,10 +8268,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						option.activeTerms.includes( term.termName ) ){
 						disabled = true;
 
-						return SXConstants.STOP_EVERY;
+						return Constants.STOP_EVERY;
 					}
 
-					return SXConstants.CONTINUE_EVERY;
+					return Constants.CONTINUE_EVERY;
 				});
 				
 				$activeTermsSelector.append( FormUIUtil.$getCheckboxTag( 
@@ -8547,7 +8343,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						activeTermNames.forEach( termName => dataStructure.activateTerm( termName, true ) );
 					}
 					else{
-						if( this.forWhat === SXConstants.FOR_PREVIEW ){
+						if( this.forWhat === Constants.FOR_PREVIEW ){
 							let slaveTerms = dataStructure.getAllSlaveTerms( listTerm.termName );
 							slaveTerms.forEach( term => term.$rendered.show() );
 							
@@ -8573,7 +8369,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  	term : Term instance to be added or inserted
 		 *  	preview: boolean - preview or not
 		 ********************************************************************/
-		addTerm( term, baseOrder=0, forWhat=SXConstants.FOR_NOTHING, highlight=false, validate=true ){
+		addTerm( term, baseOrder=0, forWhat=Constants.FOR_NOTHING, highlight=false, validate=true ){
 			if( validate && term.validate() === false ) {
 				return false;
 			}
@@ -8586,7 +8382,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.terms.push( term );
 
-			if( forWhat !== SXConstants.FOR_NOTHING ){
+			if( forWhat !== Constants.FOR_NOTHING ){
 				this.renderTerm( term, forWhat, highlight );
 			}
 
@@ -8676,7 +8472,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('delete'),
 				click: function(){
 					self.deleteTerm(targetTerm, true);
-					self.render(SXConstants.FOR_PREVIEW);
+					self.render(Constants.FOR_PREVIEW);
 
 					$(this).dialog('destroy');
 				}
@@ -8686,7 +8482,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('move-group-up'),
 				click: function(){
 					self.moveTermGroupUp( targetTerm );
-					self.render(SXConstants.FOR_PREVIEW);
+					self.render(Constants.FOR_PREVIEW);
 
 					$(this).dialog('destroy');
 				}
@@ -8696,7 +8492,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('remove'),
 				click: function(){
 					self.deleteTerm(targetTerm, false);
-					self.render(SXConstants.FOR_PREVIEW);
+					self.render(Constants.FOR_PREVIEW);
 
 					$(this).dialog('destroy');
 				}
@@ -8749,9 +8545,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.every( (term) => {
 				if( term.termName === termName ){
 					exist = true;
-					return SXConstants.STOP_EVERY;
+					return Constants.STOP_EVERY;
 				}
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 			
 			return exist;
@@ -8787,14 +8583,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.terms.filter(
 				term =>{
 					if( term.isGroupTerm() && includeGroup === false ){
-						return SXConstants.FILTER_SKIP;
+						return Constants.FILTER_SKIP;
 					}
 					else{
 						if( term.searchable === searchable ){
-							return SXConstants.FILTER_ADD;
+							return Constants.FILTER_ADD;
 						}
 						else{
-							return SXConstants.FILTER_SKIP;
+							return Constants.FILTER_SKIP;
 						}
 					}
 				}
@@ -8868,16 +8664,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				.every( member => {
 					if( !member.disabled ){
 						allDisabled = false;
-						return SXConstants.STOP_EVERY;
+						return Constants.STOP_EVERY;
 					}
 
-					return SXConstants.CONTINUE_EVERY;
+					return Constants.CONTINUE_EVERY;
 				});
 
 			return allDisabled;
 		}
 
-		disableTerm( term, disable=true, forWhat=SXConstants.FOR_EDITOR, recursive=false ){
+		disableTerm( term, disable=true, forWhat=Constants.FOR_EDITOR, recursive=false ){
 			term.setDisable( disable );
 
 
@@ -8956,7 +8752,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				}
 				
-				return SXConstants.CONTINUE_EVERY;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return JSON.stringify( fileContent );
@@ -9102,8 +8898,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {int} forWhat 
 		 * @param {boolean} highlight 
 		 */
-		renderTerm( term, forWhat=SXConstants.FOR_EDITOR, highlight=false, deep=true ){
-			if( forWhat === SXConstants.FOR_SEARCH && !term.searchable ){
+		renderTerm( term, forWhat=Constants.FOR_EDITOR, highlight=false, deep=true ){
+			if( forWhat === Constants.FOR_SEARCH && !term.searchable ){
 				console.log( 'Not searchable term: ', term );
 				return;
 			}
@@ -9162,7 +8958,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param { Integer } forWhat
 		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
 		 */
-		render( forWhat=SXConstants.FOR_PREVIEW, $canvas ){
+		render( forWhat=Constants.FOR_PREVIEW, $canvas ){
 			$canvas = this.$setCanvas( forWhat, $canvas );
 			
 			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
@@ -9184,7 +8980,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 			*/
 
-			if( forWhat === SXConstants.FOR_EDITOR ){
+			if( forWhat === Constants.FOR_EDITOR ){
 				this.terms.forEach(term=>{
 					if( term.termType === 'List' ){
 						if( term.hasSlaves() ){
@@ -9205,13 +9001,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$canvas = $canvas;
 			}
 			else{
-				if( forWhat === SXConstants.FOR_PREVIEW ){
+				if( forWhat === Constants.FOR_PREVIEW ){
 					this.$canvas = DataStructure.$DEFAULT_PREVIEW_PANEL;
 				}
-				else if( forWhat === SXConstants.FOR_EDITOR ){
+				else if( forWhat === Constants.FOR_EDITOR ){
 					this.$canvas = DataStructure.$DEFAULT_CANVAS;
 				}
-				else if( forWhat === SXConstants.FOR_SEARCH ){
+				else if( forWhat === Constants.FOR_SEARCH ){
 					this.$canvas = DataStructure.$DEFAULT_SEARCH_CANVAS
 				}
 				else{
@@ -9235,7 +9031,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		$renderTerm( term, forWhat=SXConstants.FOR_PREVIEW, deep ){
+		$renderTerm( term, forWhat=Constants.FOR_PREVIEW, deep ){
 			if( term.isGroupTerm() ){
 				let termSets = this.devideTermsByGroup( term.getTermId() );
 
@@ -9251,7 +9047,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 
 		 * @param {Term} targetTerm 
 		 */
-		refreshTerm( targetTerm, forWhat=SXConstants.FOR_PREVIEW, deep=true ){
+		refreshTerm( targetTerm, forWhat=Constants.FOR_PREVIEW, deep=true ){
 			if( !targetTerm.isRendered() ){
 				return null;
 			}
@@ -9871,7 +9667,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let devided = this.devideTermsByGroup( this.getTopLevelTermId() );
 			this.sortTermsByOrder( devided.hits, devided.others );
 			this.terms = devided.hits.concat(devided.others);
-			this.render( SXConstants.FOR_PREVIEW, $canvas );
+			this.render( Constants.FOR_PREVIEW, $canvas );
 
 			let firstTerm = this.terms[0];
 
@@ -9883,7 +9679,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			};
 			
-			Liferay.fire( SXIcecapEvents.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+			Liferay.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
 		}
 
 	}
@@ -10023,8 +9819,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$resultPagination = $resultPagination;
 			this.searchHistories = new Array();
 
-			this.dataStructure.$setCanvas(SXConstants.FOR_SEARCH, $querySection);
-			this.dataStructure.render( SXConstants.FOR_SEARCH, $querySection );
+			this.dataStructure.$setCanvas(Constants.FOR_SEARCH, $querySection);
+			this.dataStructure.render( Constants.FOR_SEARCH, $querySection );
 			this.renderAllData( structuredDataList );
 		}
 
@@ -10271,7 +10067,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			} 
 
 			Liferay.fire(
-				SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+				Events.SD_SEARCH_HISTORY_CHANGED,
 				{}
 			);
 				
@@ -10329,7 +10125,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			Liferay.fire(
-				SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+				Events.SD_SEARCH_HISTORY_CHANGED,
 				{}
 			);
 
@@ -10453,7 +10249,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							self.showSearchHistories();
 
 							Liferay.fire(
-								SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+								Events.SD_SEARCH_HISTORY_CHANGED,
 								{}
 							);
 						}
@@ -10475,7 +10271,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							self.showSearchHistories();
 
 							Liferay.fire(
-								SXIcecapEvents.SD_SEARCH_HISTORY_CHANGED,
+								Events.SD_SEARCH_HISTORY_CHANGED,
 								{}
 							);
 						}
@@ -10500,15 +10296,39 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class Visualizer {
-        #Menues;
+        #menus;
         #namespace;
         #portletId;
         #resourceURL;
         #connector;
         #eventHandlers;
 
+        get menus(){
+            return this.#menus;
+        }
+
+        set menus( val ){
+            this.#menus = val;
+        }
+
+        get portletId(){
+            return this.#portletId;
+        }
+
+        set portletId( portletId ){
+            this.#portletId = portletId;
+        }
+
+		get namespace(){
+			return this.#namespace;
+		}
+
+		set namespace( ns ){
+			this.#namespace = ns;
+		}
 
         constructor( config ){
+			console.log( 'visualizeer config: ', config );
             this.#portletId = config.portletId;
             this.#namespace  = config.namespace;
             this.#resourceURL = config.resourceURL;
@@ -10551,33 +10371,36 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
             //Hides un-needed menu
             if( !$.isEmptyObject(this.menuOptions ) ){
-                if( this.menuOptions.menu === false )           $('#'+this.namespace+'menu').remove();
-                if( this.menuOptions.sample === false )         $('#'+this.namespace+'sample').remove();
-                if( this.menuOptions.upload === false )         $('#'+this.namespace+'upload').remove();
-                if( this.menuOptions.download === false )       $('#'+this.namespace+'download').remove();
-                if( this.menuOptions.openLocalFile === false )  $('#'+this.namespace+'openLocalFile').remove();
-                if( this.menuOptions.openServerFile === false ) $('#'+this.namespace+'openServerFile').remove();
-                if( this.menuOptions.saveAtLocal === false )    $('#'+this.namespace+'saveAtLocal').remove();
+                if( this.menuOptions.menu === false )           $('#'+this.#namespace+'menu').remove();
+                if( this.menuOptions.sample === false )         $('#'+this.#namespace+'sample').remove();
+                if( this.menuOptions.upload === false )         $('#'+this.#namespace+'upload').remove();
+                if( this.menuOptions.download === false )       $('#'+this.#namespace+'download').remove();
+                if( this.menuOptions.openLocalFile === false )  $('#'+this.#namespace+'openLocalFile').remove();
+                if( this.menuOptions.openServerFile === false ) $('#'+this.#namespace+'openServerFile').remove();
+                if( this.menuOptions.saveAtLocal === false )    $('#'+this.#namespace+'saveAtLocal').remove();
                 if( this.menuOptions.saveAtServer === false ){
-                        $('#'+this.namespace+'save').remove();
-                        $('#'+this.namespace+'saveAs').remove();
+                        $('#'+this.#namespace+'save').remove();
+                        $('#'+this.#namespace+'saveAs').remove();
                 }
             }
 
             // Set namespace on iframe if canvas is iframe
             
-            if( canvas.tagName.toLowerCase() === 'iframe' ){
-                // console.log('Visualizer setNamespace!!');
-                if(canvas.contentWindow['setNamespace']){
-                    canvas.contentWindow['setNamespace']( namespace );
+            if( this.canvas.tagName.toLowerCase() === 'iframe' ){
+                console.log('Visualizer setNamespace!!', this.canvas );
+                if(this.canvas.contentWindow['setNamespace']){
+                    this.canvas.contentWindow['setNamespace']( this.#namespace );
                 }else{
-                    setTimeout(function(){ 
-                        canvas.contentWindow['setNamespace']( namespace );
+					let self = this;
+					let count = 0;
+                    setTimeout(function(){
+						console.log( 'Try to set namespace: ' + ++count );
+                        self.canvas.contentWindow['setNamespace']( self.namespace );
                     }, 500)
                 }
                 
-                if( disabled )
-                    canvas.contentWindow['disable']( disabled );
+                if( this.disabled )
+                	this.canvas.contentWindow['disable']( this.disabled );
             }
 
             this.#attachEventHandlers();
@@ -10609,9 +10432,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         getPortletSection(){
-            let portlet = $('#p_p_id'+this.namespace);
+            let portlet = $('#p_p_id'+this.#namespace);
             if( !portlet[0] ){
-                portlet = $('#'+this.namespace).parent();
+                portlet = $('#'+this.#namespace).parent();
             }
 
             //portlet = $('#workbench-layout-area');
@@ -10622,7 +10445,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             let portlet = this.getPortletSection();
 
             if( !portlet[0] ){
-                console.log( 'There is no portlet section for '+this.namespace);
+                console.log( 'There is no portlet section for '+this.#namespace);
                 return;
             }
 
@@ -10842,7 +10665,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                         };
                         this.setCurrentData( result );
 
-                        this.loadCanvas( SX.Util.toJSON(currentData, changeAlert) );
+                        this.loadCanvas( Util.toJSON(currentData, changeAlert) );
                 },
                 error: function(data, e ){
                     console.log('Error read first server file name: ', jsonData, data, e);
@@ -10861,9 +10684,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 parentPath: currentData.parent()
             };
 
-            SX.Debug.eventTrace('getFirstFileName()', 'Params', params);
+            Debug.eventTrace('getFirstFileName()', 'Params', params);
 
-            if( baseFolder.type() === SX.Enum.PathType.EXT){
+            if( baseFolder.type() === Enum.PathType.EXT){
                 params.fileName = baseFolder.name();
             }
 
@@ -10885,11 +10708,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                        }
 
                         let result = {
-                            type: SX.Constants.PathType.FILE,
+                            type: Constants.PathType.FILE,
                             parent: data.parentPath,
                             name:data.fileName
                         };
-                        SX.Debug.eventTrace('result of getFirstFileName', data, result);
+                        Debug.eventTrace('result of getFirstFileName', data, result);
                         this.setCurrentData( result );
 
                         successFunc();
@@ -10908,7 +10731,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             }
 
             let successFunc = function(){
-                this.loadCanvas( SX.Util.toJSON(this.currentData), changeAlert );
+                this.loadCanvas( Util.toJSON(this.currentData), changeAlert );
             };
 
             this.getFirstFileName( successFunc );
@@ -10937,7 +10760,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                         data: {
                                 repositoryType_: this.baseFolder.type(),
                                 user_: this.currentData.user(),
-                                type: SX.Constants.PathType.FILE,
+                                type: Constants.PathType.FILE,
                                 parent: this.currentData.parent(),
                                 name: this.currentData.name()
                         },
@@ -10945,7 +10768,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                             changeAlert:false
                         }
             };
-            Liferay.fire(SX.Constants.Event.LOAD_DATA, eventData );
+            Liferay.fire(Constants.Events.SX_LOAD_DATA, eventData );
 
             this.dirDirty = false;
         }
@@ -10993,8 +10816,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         setCurrentData( jsonData ){
             if( jsonData ){
                 this.currentData.deserialize( jsonData );
-                if( this.currentData.type() === SX.Constants.PathType.FOLDER &&
-                    this.baseFolder.type() === SX.Constants.PathType.EXT ){
+                if( this.currentData.type() === Constants.PathType.FOLDER &&
+                    this.baseFolder.type() === Constants.PathType.EXT ){
                     this.currentData.type( this.baseFolder.type() );
                     this.currentData.name( this.baseFolder.name() );
                 }
@@ -11052,11 +10875,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 beforeSend: this.blockVisualizer,
                 success : function(result) {
                     let jsonData = {
-                        type: SX.Constants.PathType.CONTENT,
+                        type: Constants.PathType.CONTENT,
                         content_: result
                     };
                     this.setCurrentData( jsonData );
-                    this.loadCanvas( SX.Util.toJSON(currentData), changeAlert );
+                    this.loadCanvas( Util.toJSON(currentData), changeAlert );
                 },
                 error: function(data, e ){
                     this.errorFunc(data, e);
@@ -11087,7 +10910,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 beforeSend: this.blockVisualizer,
                 success : function(data) {
                         //currentData.deserialize( data );
-                        this.currentData.type( SX.Constants.PathType.FILE );
+                        this.currentData.type( Constants.PathType.FILE );
                         successFunc(data);
                 },
                 complete: this.unblockVisualizer
@@ -11113,7 +10936,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 beforeSend: this.blockVisualizer,
                 success : function(data) {
                         //currentData.deserialize( data );
-                        this.currentData.type( SX.Constants.PathType.FILE );
+                        this.currentData.type( Constants.PathType.FILE );
                         successFunc(data);
                 },
                 complete: this.unblockVisualizer
@@ -11129,7 +10952,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                         '</p>' +
                     '</div>';
             let dialog = $(dialogDom);
-            dialog.find( '#'+this.namespace+'targetFilePath').val(SX.Util.mergePath(this.currentData.parent(), targetFileName));
+            dialog.find( '#'+this.namespace+'targetFilePath').val(Util.mergePath(this.currentData.parent(), targetFileName));
             dialog.dialog({
                 resizable: false,
                 height: "auto",
@@ -11138,7 +10961,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 buttons: {
                     'OK': function(){
                         let targetPath = dialog.find( '#'+this.namespace+'targetFilePath').val();
-                        let path = SX.Util.convertToPath( targetPath );
+                        let path = Util.convertToPath( targetPath );
                         this.currentData.parent(path.parent);
                         this.currentData.name(path.name);
                         this.submitUpload( localFile, successFunc );
@@ -11156,7 +10979,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             formData.append(this.namespace+'command', 'CHECK_DUPLICATED');
             formData.append(this.namespace+'repositoryType', this.baseFolder.repositoryType());
             formData.append(this.namespace+'userScreenName', this.currentData.user());
-            formData.append(this.namespace+'target', SX.Util.mergePath(this.currentData.parent(), targetFileName));
+            formData.append(this.namespace+'target', Util.mergePath(this.currentData.parent(), targetFileName));
             
             $.ajax({
                     url: this.resourceURL,
@@ -11195,12 +11018,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 serveResourceURL.setParameter('command', command);
 
                 let jsonData = {
-                    type: SX.Constants.PathType.URL,
+                    type: Constants.PathType.URL,
                     content_: this.serveResourceURL.toString()
                 };
 
                 this.setCurrentData( jsonData );
-                this.loadCanvas( SX.Util.toJSON(this.currentData), changeAlert);
+                this.loadCanvas( Util.toJSON(this.currentData), changeAlert);
             });
         }
 
@@ -11212,7 +11035,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 //            window.location.href = createURL('DOWNLOAD');
             let separator = (this.resourceURL.indexOf('?') > -1) ? '&' : '?';
             let data = {};
-            data[this.namespace+'command'] = SX.Constants.Commands.DOWNLOAD;
+            data[this.namespace+'command'] = Constants.Commands.DOWNLOAD;
             data[this.namespace+'repositoryType'] = this.baseFolder.repositoryType();
             data[this.namespace+'userScreenName'] = this.currentData.user();
             data[this.namespace+'parentPath'] = this.currentData.parent();
@@ -11230,7 +11053,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             else{
                 this.attachedEventHandlers[event] = function( e ){
                 	if( e.targetPortlet !== this.portletId ) return;
-            		if(event === SX.Constants.Events.CHECK_MANDATORY){
+            		if(event === Constants.Events.CHECK_MANDATORY){
                     	let isPassed = handler( e.data, e.params );
                     	return isPassed;
                     }else{
@@ -11242,16 +11065,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         setBaseFolderAndCurrentData(){
-            this.currentData = new SX.InputData( this.initData );
+            this.currentData = new InputData( this.initData );
             this.currentData.dirty(false);
-            this.baseFolder = new SX.InputData();
+            this.baseFolder = new InputData();
 
             for( let key in this.initData ){
                 switch( key ){
-                    case SX.Constants.TYPE:
-                        if( this.initData[key] !== SX.Constants.PathType.FOLDER && 
-                            this.initData[key] !== SX.Constants.PathType.EXT ){
-                            this.baseFolder.type( SX.Constants.PathType.FOLDER );
+                    case Constants.TYPE:
+                        if( this.initData[key] !== Constants.PathType.FOLDER && 
+                            this.initData[key] !== Constants.PathType.EXT ){
+                            this.baseFolder.type( Constants.PathType.FOLDER );
                         }
                         else{
                             this.baseFolder.type( this.initData[key] );
@@ -11284,7 +11107,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                         params: params
             };
 
-            Liferay.fire( SX.Constants.Events.SX_REGISTER_EVENTS, eventData );
+            Liferay.fire( Constants.Events.SX_REGISTER_EVENTS, eventData );
         }
 
         defaultEventsResigeteredEventHandler( jsonData, params ){
@@ -11301,27 +11124,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             let eventData = {
                         targetPortlet : this.portletId
             };
-            Liferay.fire( SX.Constants.Events.SX_CHECK_MANDATORY , eventData );
+            Liferay.fire( Constants.Events.SX_CHECK_MANDATORY , eventData );
         }
 
         #attachEventHandlers(){
            // console.log( 'Event Handlers: ', eventHandlers);
-            for( let event in this.eventHandlers){
-            	let handler = this.eventHandlers[event];
+            for( let event in this.#eventHandlers){
+            	let handler = this.#eventHandlers[event];
                 this.attachEventHandler( event, handler);
             }
             
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_HANDSHAKE ) ){
-                this.attachEventHandler( SX.Constants.Events.SX_HANDSHAKE, this.defaultHandshakeEventHandler );
+            if( ! this.#eventHandlers.hasOwnProperty(Events.SX_HANDSHAKE ) ){
+                this.attachEventHandler( Events.SX_HANDSHAKE, this.defaultHandshakeEventHandler );
             }
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_EVENTS_REGISTERED ) ){
-                this.attachEventHandler(  SX.Constants.Events.SX_EVENTS_REGISTERED, this.defaultEventsResigeteredEventHandler );
+            if( ! this.#eventHandlers.hasOwnProperty( Events.SX_EVENTS_REGISTERED ) ){
+                this.attachEventHandler(  Events.SX_EVENTS_REGISTERED, this.defaultEventsResigeteredEventHandler );
             }
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_DISABLE_CONTROLS ) ){
-                this.attachEventHandler(  SX.Constants.Events.SX_DISABLE_CONTROLS, this.defaultDisableControlsEventHandler );
+            if( ! this.#eventHandlers.hasOwnProperty( Events.SX_DISABLE_CONTROLS ) ){
+                this.attachEventHandler(  Events.SX_DISABLE_CONTROLS, this.defaultDisableControlsEventHandler );
             }
-            if( ! this.eventHandlers.hasOwnProperty( SX.Constants.Events.SX_CHECK_MANDATORY ) ){
-            	this.attachEventHandler( SX.Constants.Events.SX_CHECK_MANDATORY, this.defaultCheckMandatoryEventHandler);
+            if( ! this.#eventHandlers.hasOwnProperty( Events.SX_CHECK_MANDATORY ) ){
+            	this.attachEventHandler( Events.SX_CHECK_MANDATORY, this.defaultCheckMandatoryEventHandler);
             }
         }
 
@@ -11335,19 +11158,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         fireMadatoryCheckEvent(){
-            let isPassed = Liferay.fire( SX.Constants.Event.SX_CHECK_MANDATORY, {targetPortlet : this.portletId});
+            let isPassed = Liferay.fire( Constants.Event.SX_CHECK_MANDATORY, {targetPortlet : this.portletId});
             return isPassed;
         }
 
         fireRegisterEventsEvent( data, params ){
             // console.log( '++++ EventData: ', createEventData(data, params ));
-            Liferay.fire( SX.Constants.Events.SX__REGISTER_EVENTS, this.createEventData(data, params ));
+            Liferay.fire( Constants.Events.SX__REGISTER_EVENTS, this.createEventData(data, params ));
         }
 
         fireDataChangedEvent( data, params ){
             if( data ){
             	if(!data.type){
-            		if(this.currentData.type()===SX.Constants.PathType.FILE_CONTENT){
+            		if(this.currentData.type()===Constants.PathType.FILE_CONTENT){
             			data.type = this.currentData.type();
             		}
             	}
@@ -11356,37 +11179,37 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 this.currentData.dirty(true);
             }
             // console.log('Fire data changed event: ', currentData );
-            let eventData = data ? data : SX.Util.toJSON(this.currentData);
+            let eventData = data ? data : Util.toJSON(this.currentData);
 
             this.checkInputPortsType(eventData);
             
-            Liferay.fire( SX.Constants.Events.SX_DATA_CHANGED, this.createEventData(eventData, params ) );
+            Liferay.fire( Constants.Events.SX_DATA_CHANGED, this.createEventData(eventData, params ) );
         }
         
         /* Strucutred Data's Port type check */
         checkInputPortsType(data) {
-        	let inputsType = data[SX.Constants.TYPE];
-        	if(inputsType === SX.Constants.PathType.FILE_CONTENTS) {
-        		let fileContents = data[SX.Constants.CONTENT];
+        	let inputsType = data[Constants.TYPE];
+        	if(inputsType === Constants.PathType.FILE_CONTENTS) {
+        		let fileContents = data[Constants.CONTENT];
         		if( fileContents.fileCount === 1 ) {
-        			data[SX.Constants.TYPE] = SX.Constants.PathType.FILE_CONTENT
-        			data[SX.Constants.CONTENT] = ( fileContents.content[0].join('') );
+        			data[Constants.TYPE] = Constants.PathType.FILE_CONTENT
+        			data[Constants.CONTENT] = ( fileContents.content[0].join('') );
         		}
         	}
         }
 
         fireSampleSelectedEvent( data, params ){
-            Liferay.fire( SX.Constants.Events.SX_SAMPLE_SELECTED, this.createEventData(data, params) );
+            Liferay.fire( Constants.Events.SX_SAMPLE_SELECTED, this.createEventData(data, params) );
         }
 
         fireRequestSampleContentEvent( data, params ){
             console.log("sampleFileRead")
             console.log(this.createEventData(data, params))
-        	Liferay.fire( SX.Constants.Events.SX_REQUEST_SAMPLE_CONTENT, this.createEventData(data, params) );
+        	Liferay.fire( Constants.Events.SX_REQUEST_SAMPLE_CONTENT, this.createEventData(data, params) );
         }
 
         fireRequestSampleURL( data, params ){
-            Liferay.fire( SX.Constants.Events.SX_REQUEST_SAMPLE_URL, this.createEventData(data, params) );
+            Liferay.fire( Constants.Events.SX_REQUEST_SAMPLE_URL, this.createEventData(data, params) );
         }
 
         fireRequestDataEvent( targetPortlet, data, params ){
@@ -11397,13 +11220,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 params: params
             };
 
-            Liferay.fire( SX.Constants.Events.SX_REQUEST_DATA, eventData );
+            Liferay.fire( Constants.Events.SX_REQUEST_DATA, eventData );
         }
 
         fireResponseDataEvent( jsonData, params ){
             console.log('Fire response data event: ', jsonData, params );
             
-            Liferay.fire( SX.Constants.Events.SX_RESPONSE_DATA, this.createEventData( jsonData, params ) );
+            Liferay.fire( Constants.Events.SX_RESPONSE_DATA, this.createEventData( jsonData, params ) );
         }
 
         openHtmlIndex( jsonData, changeAlert ){
@@ -11416,7 +11239,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 command: 'READ_HTML_INDEX_URL',
                 repositoryType: this.baseFolder.repositoryType(),
                 userScreenName: this.currentData.user(),
-                pathType: SX.Constants.PathType.FILE,
+                pathType: Constants.PathType.FILE,
                 parentPath: this.currentData.parent(),
                 fileName: this.currentData.name()
             };
@@ -11433,8 +11256,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 beforeSend: this.blockVisualizer,
                 success: function(result) {
                     let jsonData = {
-                        type: SX.Constants.PathType.URL,
-                        content:  SX.Util.mergePath( result.parentPath, result.fileName),
+                        type: Constants.PathType.URL,
+                        content:  Util.mergePath( result.parentPath, result.fileName),
                         fileType: result.fileType
                     };
                     this.loadCanvas( jsonData, changeAlert );
@@ -11453,7 +11276,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             }
 
             let params = {
-                command: SX.Constants.Commands.SX_GET_COPIED_TEMP_FILE_PATH,
+                command: Constants.Commands.SX_GET_COPIED_TEMP_FILE_PATH,
                 repositoryType: this.baseFolder.repositoryType(),
                 userScreenName: this.currentData.user(),
                 pathType: this.currentData.type(),
@@ -11473,8 +11296,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 beforeSend: this.blockVisualizer,
                 success: function(result) {
                     let jsonData = {
-                        type: SX.Constants.PathType.URL,
-                        content: contextPath+'/'+SX.Util.mergePath( result.parentPath, result.fileName ),
+                        type: Constants.PathType.URL,
+                        content: contextPath+'/'+Util.mergePath( result.parentPath, result.fileName ),
                         fileType: result.fileType
                     };
                     this.loadCanvas( jsonData, changeAlert );
@@ -11497,8 +11320,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                     let reader = new FileReader();
                     let fileName = '';
                     
-                    fileName = SX.Util.getLocalFileName(this);
-                    let file = SX.Util.getLocalFile( this );
+                    fileName = Util.getLocalFileName(this);
+                    let file = Util.getLocalFile( this );
                     switch( contentType ){
                         case 'url':
                             reader.readAsDataURL(file);
@@ -11511,10 +11334,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                         let result = {};
                         switch(contentType){
                             case 'url':
-                                result.type = SX.Constants.PathType.URL;
+                                result.type = Constants.PathType.URL;
                                 break;
                             default:
-                                result.type = SX.Constants.PathType.CONTENT;
+                                result.type = Constants.PathType.CONTENT;
                                 break;
                         }
                         result.name = fileName;
@@ -11527,8 +11350,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         saveAtServer = function(content){
             switch( this.currentData.type() ){
-                case SX.Constants.PathType.FILE_CONTENT:
-                case SX.Constants.PathType.FILE:
+                case Constants.PathType.FILE_CONTENT:
+                case Constants.PathType.FILE:
                     this.saveAtServerAs( this.currentData.parent(), this.currentData.name(), content );
                     break;
                 default:
@@ -11555,8 +11378,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             domFileSelector.on(
                 'change',
                 function(event){
-                    let localFile = SX.Util.getLocalFile( this );
-                    let defaultTargetFileName = SX.Util.getLocalFileName( this );
+                    let localFile = Util.getLocalFile( this );
+                    let defaultTargetFileName = Util.getLocalFileName( this );
                     this.uploadFile( localFile,  defaultTargetFileName, successFunc );
                 }
             );
@@ -11564,17 +11387,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         getFolderInfo( folderPath, extension, changeAlert){
             let params = {};
-            params.command = SX.Constants.Commands.SX_GET_FILE_INFO;
+            params.command = Constants.Commands.SX_GET_FILE_INFO;
             params.repositoryType = this.baseFolder.repositoryType();
             params.userScreenName = this.currentData.user();
             params.parentPath = folderPath;
 
-            if( this.baseFolder.type() === SX.Constants.PathType.EXT ){
-                params.pathType = SX.Constants.PathType.EXT;
+            if( this.baseFolder.type() === Constants.PathType.EXT ){
+                params.pathType = Constants.PathType.EXT;
                 params.fileName = extension;
             }
             else{
-                params.pathType = SX.Constants.PathType.FOLDER;
+                params.pathType = Constants.PathType.FOLDER;
             }
             
             let formData = this.createFormData( params );
@@ -11590,7 +11413,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 //                beforeSend: blockVisualizer,
                 success: function(data) {
                     let jsonData = {
-                        type: SX.Constants.PathType.FOLDER_CONTENT,
+                        type: Constants.PathType.FOLDER_CONTENT,
                         parent: data.parentPath,
                         name: currentData.name(), 
                         content: data.fileInfos
@@ -11609,15 +11432,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         loadCanvas( jsonData, changeAlert ){
             // console.log('loadCanvas data: ', jsonData, changeAlert );
         	this.setCurrentData( jsonData );
-            this.loadCanvasFunc( SX.Util.toJSON(currentData), changeAlert);
+            this.loadCanvasFunc( Util.toJSON(currentData), changeAlert);
         }
 
         downloadResultFile(){
         	let sendData = Liferay.Util.ns(this.namespace, {
         		parentPath : this.currentData.parent,
         		fileName : this.currentData.name,
-        		repositoryType : SX.Constants.RepositoryTypes.USER_JOBS,
-        		command : SX.Constants.Commands.SX_DOWNLOAD_WITH_IB
+        		repositoryType : Constants.RepositoryTypes.USER_JOBS,
+        		command : Constants.Commands.SX_DOWNLOAD_WITH_IB
         	});
         	
         	$.ajax({
@@ -11637,12 +11460,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         	let downloadType = requestType || this.currentData.type();
         	
             switch( downloadType ){
-                case SX.Constants.PathType.FILE:
-                case SX.Constants.PathType.FILE_CONTENT:
+                case Constants.PathType.FILE:
+                case Constants.PathType.FILE_CONTENT:
                     let fileNames = [this.currentData.name()];
                     this.downloadFiles( fileNames);
                     break;
-                case SX.Constants.PathType.CONTENT:
+                case Constants.PathType.CONTENT:
                 	let downloadFileName = this.currentData.name() || 'textFile.txt'; 
                 	
                 	let textFileAsBlob = new Blob([this.currentData.content()], {type:'text/plain'}); 
@@ -11660,7 +11483,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 
                 	downloadLink.click();
                 	break;
-                case SX.Constants.PathType.URL:
+                case Constants.PathType.URL:
                     if( contextPath ){
 //                        window.location.href = contextPath+this.currentData.content();
                     }
@@ -11721,7 +11544,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         processInitAction( jsonData, launchCanvas, changeAlert ){
         	if( jsonData ){
                 initData = jsonData;
-                initData.type = jsonData.type ? jsonData.type : SX.Constants.PathType.FOLDER;
+                initData.type = jsonData.type ? jsonData.type : Constants.PathType.FOLDER;
                 initData.parent = jsonData.parent ? jsonData.parent : '';
                 initData.name = jsonData.name ? jsonData.name : '';
             }
@@ -11729,7 +11552,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             this.setBaseFolderAndCurrentData();
             // console.log( 'After processInitAction: ', currentData );
             if( launchCanvas ){
-                this.loadCanvas( SX.Util.toJSON(currentData), changeAlert );
+                this.loadCanvas( Util.toJSON(currentData), changeAlert );
             }
         }
 
@@ -11766,7 +11589,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         saveAtServerAs( content ){
             if( content ){
                 let jsonData = {
-                    type: SX.Constants.PathType.FILE_CONTENT,
+                    type: Constants.PathType.FILE_CONTENT,
                     content: content
                 };
 
@@ -11801,8 +11624,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return dataStructure;
 		},
-    	SXIcecapEvents: SXIcecapEvents,
-		SXConstants: SXConstants, 
+    	Events: Events,
+		Constants: Constants, 
     	TermTypes: TermTypes,
     	Term: Term,
     	newTerm: function( termType ){
@@ -11848,10 +11671,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		FormUIUtil: FormUIUtil,
     	Util: Util,
 		AdvancedSearch:AdvancedSearch,
-		Visualizer: Visualizer,
 		Workbench: Workbench,
-		createVisualizer: function(){
-			return new StationX.Visualizer();
+		createVisualizer: function( config ){
+			return new Visualizer( config );
 		}
     };
 }

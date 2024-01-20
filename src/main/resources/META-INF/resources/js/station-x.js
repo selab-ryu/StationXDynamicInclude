@@ -4,6 +4,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	if( AVAILABLE_LANGUAGES.length < 2 ){
 		MULTI_LANGUAGE = false;
 	};
+
+	let Debug = {
+		eventTrace: function(message, event, eventData) {
+            console.log('/+++++++++' + message + '++++++++/');
+            console.log(event);
+            console.log(eventData);
+            console.log('/++++++++++++++++++++++++++/');
+        }
+	};
 	
 	let Util = {
 		isEmptyObject: function(obj){
@@ -27,18 +36,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			return empty;
-		},
-		isEmptyString: function(str){
-			return (typeof str === 'string') && str === '';
-		},
-		isNotNull: function(obj){
-			return obj !== null;
-		},
-		isNull: function(obj){
-			return obj === null;
-		},
-		isObject: function(obj){
-			return typeof obj === 'object';
 		},
 		deepEqualObject: function( obj1, obj2){
 			let result = true;
@@ -106,7 +103,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let minuite = date.getMinutes().toLocaleString(undefined, {minimumIntegerDigits:2});
 			let dateAry = [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')];
 			let timeAry = [String(hour).padStart(2, '0'), String(minuite).padStart(2, '0')];
-			return dateAry.join('. ') + '. ' + timeAry.join(':');
+			return dateAry.join('/') + ' ' + timeAry.join(':');
 		},
 		toDateString: function( value ){
 			if( !value ){
@@ -116,7 +113,34 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let date = new Date( Number( value ) );
 			let dateAry = [date.getFullYear(), String(date.getMonth()+1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')];
 
-			return dateAry.join('. ') + '.';
+			return dateAry.join('/');
+		},
+        isEmpty: function(obj) {
+            if (obj == null || typeof obj === 'undefined' ) return true;
+
+			if( typeof obj === 'string' )	return this.isEmptyString( obj );
+            if( obj instanceof Array )	return !this.isNonEmptyArray(obj);
+            if (typeof obj === 'object') return $.isEmptyObject(obj);
+
+            return false;
+        },
+		isNotEmpty: function(obj){
+			return !this.isEmpty(obj);
+		},
+		isEmptyString: function(str){
+			return (typeof str === 'string') && str === '';
+		},
+		isNotEmptyString: function(str){
+			return (typeof str === 'string') && (str.length > 0);
+		},
+		isNotNull: function(obj){
+			return obj !== null;
+		},
+		isNull: function(obj){
+			return obj === null;
+		},
+		isObject: function(obj){
+			return typeof obj === 'object';
 		},
 		isNonEmptyArray: function( array ){
 			if( Array.isArray(array) && array.length  ){
@@ -135,6 +159,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return false;
 			}
 		},
+		isEmptyArray: function(ary){
+			return !this.isNonEmptyArray(ary);
+		},
 		isSafeNumber: function( value ){
 			return Number(value) === value;
 		},
@@ -144,7 +171,196 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( typeof value !== 'string' || Util.isEmptyString(value) )		return NaN;
 
 			return Number( value );
-		}
+		},
+		guid: function() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(char) {
+                var random = Math.random() * 16 | 0,
+                    value = char === 'x' ? random : (random & 0x3 | 0x8);
+                return value.toString(16);
+            })
+        },
+        safeFloatSum: function(x, y) {
+            return (parseFloat(x) * Constants.MAX_DIGIT +
+                    parseFloat(y) * Constants.MAX_DIGIT) /
+                Constants.MAX_DIGIT;
+        },
+        safeFloatSubtract: function(x, y) {
+            return (parseFloat(x) * Constants.MAX_DIGIT -
+                    parseFloat(y) * Constants.MAX_DIGIT) /
+                Constants.MAX_DIGIT;
+        },
+		isString: function( str ){
+			return typeof str === 'string' && str.length > 0;
+		},
+        isInteger: function(num) {
+            return num % 1 == 0;
+        },
+        isExponetioal: function(numStr) {
+            if (numStr.search(/[eEdD]/i) == -1)
+                return false;
+            else
+                return true;
+        },
+        toFloatString: function(num, exponential) {
+            if (exponential)
+                return num.toExponential();
+            else
+                return num.toString();
+        },
+        toLocalizedXml: function(jsonObject, availableLanguageIds, defaultLanguageId) {
+            if (!availableLanguageIds) availableLanguageIds = '';
+            if (!defaultLanguageId) defaultLanguageId = '';
+
+            var xml = '<?xml version=\'1.0\' encoding=\'UTF-8\'?>';
+            xml += '<root available-locales=\'';
+            xml += availableLanguageIds + '\' ';
+            xml += 'default-locale=\'' + defaultLanguageId + '\'>';
+
+            for (var languageId in jsonObject) {
+                var value = jsonObject[languageId];
+                xml += '<display language-id=\'' + languageId + '\'>' + value +
+                    '</display>';
+            }
+            xml += '</root>';
+
+            return xml;
+        },
+        toJSON: function(obj) {
+            return JSON.parse(JSON.stringify(obj));
+        },
+        convertToPath: function(filePath) {
+            var path = {};
+            if (!filePath) {
+                path.parent_ = '';
+                path.name_ = '';
+                return path;
+            }
+
+            filePath = this.removeEndSlashes(filePath);
+
+            var lastIndexOfSlash = filePath.lastIndexOf('/');
+            if (lastIndexOfSlash < 0) {
+                path.parent_ = '';
+                path.name_ = filePath;
+            } else {
+                path.parent_ = filePath.slice(0, lastIndexOfSlash);
+                path.name_ = filePath.slice(lastIndexOfSlash + 1);
+            }
+
+            return path;
+        },
+        extractFileName: function(filePath) {
+            var path = this.convertToPath(filePath);
+            return path.name();
+        },
+        removeEndSlashes: function(strPath) {
+        	if(!strPath){return strPath;}
+        	
+            while( strPath.startsWith('/') ){
+		        strPath = strPath.slice(1);
+	        }
+	
+	        while( strPath.endsWith('/') ){
+		        strPath = strPath.slice(0, strPath.length-1 );
+	        }
+	
+	        return strPath;
+        },
+        removeArrayElement: function(array, index) {
+            array.splice(index, 1);
+            return array;
+        },
+        isBrowserEdge: function() {
+            var ua = navigator.userAgent,
+                tem, M = ua.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+            if (/trident/i.test(M[1])) {
+                tem = /\brv[ :]+(\d+)/g.exec(ua) || [];
+                //return {name:'IE',version:(tem[1]||'')};
+                return false;
+            }
+
+            return true;
+        },
+        addFirstArgument: function(argument, args) {
+            var newArgs = [];
+            for (var i = 0; i < args.length; i++) {
+                newArgs.push(args[i]);
+            }
+            newArgs.unshift(argument);
+            return newArgs;
+        },
+        mergePath: function(parent, child) {
+            parent = this.removeEndSlashes(parent);
+            child = this.removeEndSlashes(child);
+            if (!parent && !child) return '';
+            if (!parent)
+                return child;
+            if (!child)
+                return parent;
+
+            return parent + '/' + child;
+        },
+        getBaseDir: function(userScreenName) {
+            if (userScreenName === 'edison' || userScreenName === 'edisonadm')
+                return '';
+            else
+                return userScreenName;
+        },
+        blockStart: function($block, $message) {
+            $block.block({
+                message: $message,
+                css: { border: '3px solid #a00' }
+            });
+        },
+        blockEnd: function($block) {
+            $block.unblock();
+        },
+        evalHttpParamSeparator: function(baseURL) {
+            var sep = (baseURL.indexOf('?') > -1) ? '&' : '?';
+            return sep;
+        },
+        getJobStatusValue:function(code){
+        	var map = Enumeration.WorkflowStatus[code.toUpperCase()];
+        	if(typeof map=='undefined'){
+        		console.log('getJobStatusValue_No CODE',code);
+        		return null;
+        	}else{
+        		return map.value;
+        	}
+        },
+        getJobStatusCode:function(value){
+        	var map = Enumeration.WorkflowStatus;
+        	for(var codeKey in map){
+        		if(map[codeKey].value==value){
+        			return map[codeKey].code;
+        		}
+        	}
+        	return null;
+        },
+        getLocalFile: function( anchor ){
+            return $(anchor)[0].files[0];
+        },
+        getLocalFileName: function( anchor ){
+            var fileName = $(anchor).val();
+			
+			var slashIndex = fileName.lastIndexOf('\\');
+			if( slashIndex < 0 )
+                slashIndex = fileName.lastIndexOf('/');
+                 
+			return fileName.slice(slashIndex+1);
+        },
+        randomString: function( length, code ){
+            var mask = '';
+            if (code.indexOf('a') > -1) mask += 'abcdefghijklmnopqrstuvwxyz';
+            if (code.indexOf('A') > -1) mask += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            if (code.indexOf('1') > -1) mask += '0123456789';
+            if (code.indexOf('!') > -1) mask += '~`!@#$%^&*()_+-={}[]:";\'<>?,./|\\';
+            var result = '';
+            for (var i = length; i > 0; --i){
+                result += mask[Math.floor(Math.random() * mask.length)];
+            } 
+            return result;
+        }
 	};
 	
 	let UIUtil = {
@@ -171,6 +387,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				
 			}
 	};
+
+	let Enumeration = {
+        VERSION: '20190228-GA01',
+        
+    };
 	
 	class DataType {
 		static DEFAULT_HAS_DATA_STRUCTURE = false;
@@ -351,7 +572,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		
 		isEmpty(){
-			if( Util.isEmptyString(this.name) ){
+			if( Util.isEmpty(this.name) ){
 				return true;
 			}
 
@@ -359,7 +580,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		isNotEmpty(){
-			if( !(Util.isEmptyString(this.name) || Util.isEmptyString(this.version)) ){
+			if( Util.isNotEmpty(this.name) || Util.isNotEmpty(this.version) ){
 				return true;
 			}
 
@@ -649,9 +870,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $(html);
 		},
-		$getLabelNode: function( controlName, label, mandatory, helpMessage ){
-			let $label = $( '<label class="control-label" for="' + controlName + '">' ); +
-			$label.text( label );
+		$getLabelNode: function( controlName, label, mandatory, helpMessage){
+			let $label = $( '<label class="control-label" for="' + controlName + '">' );
+
+			$label.append( $('<span>'+label+'</span>') );
 
 			if( mandatory ){
 				$label.append( this.$getRequiredLabelMark( 'margin-left:4px; margin-right:2px;' ) );
@@ -694,416 +916,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			return $input;
-		},
-		$getTextInputTag: function( term ){
-			let controlName = NAMESPACE + term.termName;
-			let inputType = term.multipleLine ? 'textarea' : 'text';
-			let placeHolder = term.placeHolder ? term.placeHolder.getText(CURRENT_LANGUAGE) : '';
-			let value = term.value ? term.value : ''
-
-			let $input;
-			
-			if( inputType === 'text'){
-				$input = $( '<input type="text" aria-required="true">' );
-			}
-			else{
-				$input = $( '<textarea aria-required="true">' );
-			}
-
-			$input.prop({
-				class: 'field form-control',
-				id: controlName,
-				name: controlName,
-				value: value ? value : '',
-				placeholder: placeHolder ? placeHolder : ''
-			});
-
-			if( term.disabled ){
-				$input.prop('disabled', true );
-			}
-
-			$input.change(function(event){
-				event.stopPropagation();
-				event.preventDefault();
-
-				term.value = $(this).val();
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term,
-						value: $(this).val()  
-					}
-				};
-
-				Liferay.fire(
-					Events.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
-			});
-
-			return $input;
-		},
-		$getTextSearchTag: function( term ){
-			let controlName = NAMESPACE + term.termName;
-			let placeHolder = Liferay.Language.get('keywords-for-search');
-			let searchKeywords = term.searchKeywords ? term.searchKeywords : ''
-
-			let $input = $( '<input type="text" aria-required="true">' );
-
-			$input.prop({
-				class: 'field form-control',
-				id: controlName,
-				name: controlName,
-				value: searchKeywords,
-				placeholder: placeHolder
-			});
-
-			$input.change(function(event){
-				event.stopPropagation();
-
-				let keywords = $(this).val().trim();
-
-				if( keywords ){
-					term.searchKeywords = Util.getTokenArray(keywords);
-				}
-				else{
-					delete term.searchKeywords;
-				}
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-
-				Liferay.fire(
-					Events.SD_SEARCH_KEYWORD_CHANGED,
-					eventData
-				);
-			});
-
-			return $input;
-		},
-
-		$getDateSearchSection: function( term ){
-			let $dateSearchNode = $('<div class="lfr-ddm-field-group field-wrapper">')
-						.append( this.$getLabelNode(
-							NAMESPACE + term.termName, 
-							term.getLocalizedDisplayName(),
-							term.mandatory ? this.mandatory : false,
-							term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '') )
-						.append( this.$getDateSearchNode(term) );
-
-			return $dateSearchNode;
-		},
-		$getDateSearchNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-			
-			let $searchKeywordSection = $('<div class="form-group">');
-			let $fromSpan = $('<span class="lfr-input-date display-inline-block" style="margin-right: 5px;">');
-			let $curlingSpan = $('<span class="hide" style="margin: 0px 5px;">~</span>');
-			let $toSpan = $('<span class="lfr-input-date hide" style="margin:0px 5px;">');
-			let $rangeCheckbox = $('<input type="checkbox" style="margin-left:5px;">');
-			
-			let $fromInputTag = $('<input type="text">');
-			$fromInputTag.prop({
-				'class': 'field form-control fromDate',
-				'id': controlName+'_from',
-				'name': controlName+'_from',
-				'value': term.fromSearchDate
-			});
-			
-			$fromSpan.append($fromInputTag);
-
-			let $toInputTag = $('<input type="text">');
-			$toInputTag.prop({
-				'class': 'field form-control toDate',
-				'id': controlName+'_to',
-				'name': controlName+'_to',
-				'value': term.toSearchDate
-			});
-
-			$toSpan.append($toInputTag);
-			
-			let options = {
-				lang: 'kr',
-				changeYear: true,
-				changeMonth : true,
-				validateOnBlur: false,
-				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
-				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
-				timepicker: false,
-				format: 'Y. m. d.'
-			};
-
-			$fromInputTag.change( function(e){
-				e.stopPropagation();
-				e.preventDefault();
-
-				if( term.rangeSearch ){
-					let previousDate = null;
-					
-					if( term.hasOwnProperty('fromSearchDate') ){
-						previousDate = term.fromSearchDate;
-					}
-					if( $fromInputTag.val() ){
-
-						term.fromSearchDate = $fromInputTag.datetimepicker("getValue").getTime();
-						
-						if( term.hasOwnProperty('toSearchDate') ){
-							if( term.toSearchDate < term.fromSearchDate ){
-								FormUIUtil.showError(
-									Constants.ERROR,
-									'search-out-of-range-error',
-									'from-date-must-smaller-or-equel-to-to-date',
-									{
-										ok: {
-											text: 'OK',
-											btnClass: 'btn-blue',
-											action: function(){
-												if( previousDate !== null ){
-													term.fromSearchDate = previousDate;
-													$fromInputTag.datetimepicker('setOptions', {defaultDate: new Date(previousDate)});
-													$fromInputTag.val(term.toDateString( term.fromSearchDate ));
-												}
-											}
-										}
-									});
-							}
-						}
-					}
-					else{
-						delete term.fromSearchDate;
-					}
-				}
-				else{
-					if( !$fromInputTag.val() ){
-						delete term.searchDate;
-					}
-					else{
-						term.searchDate = [$fromInputTag.datetimepicker("getValue").getTime()];
-					}
-				};
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-				
-				Liferay.fire(
-					Events.SD_SEARCH_FROM_DATE_CHANGED,
-					eventData
-					);
-			});
-
-			$fromInputTag.datetimepicker(options);
-
-			//options = JSON.parse( JSON.stringify(options) );
-			$toInputTag.change(function( e ){
-				e.stopPropagation();
-				e.preventDefault();
-
-				let previousDate = term.toSearchDate;
-
-				if( $toInputTag.val() ){
-					term.toSearchDate = $toInputTag.datetimepicker("getValue").getTime();
-
-					if( term.toSearchDate < term.fromSearchDate ){
-						FormUIUtil.showError(
-							Constants.ERROR,
-							'search-out-of-range-error',
-							'to-date-must-larger-or-equel-to-from-date',
-							{
-								ok: {
-									text: 'OK',
-									btnClass: 'btn-blue',
-									action: function(){
-										if( previousDate ){
-											term.toSearchDate = previousDate;
-											$toInputTag.datetimepicker('setOptions', {defaultDate: new Date(previousDate)});
-											$toInputTag.val(term.toDateString( term.toSearchDate ));
-										}
-									}
-								}
-							}
-						);
-					}
-				}
-				else{
-					delete term.toSearchDate;
-				}
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-				
-				Liferay.fire(
-					Events.SD_SEARCH_TO_DATE_CHANGED,
-					eventData
-					);
-			});
-
-			$toInputTag.datetimepicker(options);
-
-			$rangeCheckbox = FormUIUtil.$getCheckboxTag( 
-				controlName+'_rangeSearch',
-				controlName+'_rangeSearch',
-				Liferay.Language.get( 'range-search' ),
-				false,
-				'rangeSearch',
-				false
-			);
-			$rangeCheckbox.change(function(event){
-				event.stopPropagation();
-
-				term.rangeSearch = $(this).find('input').prop('checked');
-				if( term.rangeSearch === false ){
-					delete term.rangeSearch;
-				}
-
-				if( term.rangeSearch === true ){
-					$curlingSpan.addClass('display-inline-block');
-					$toSpan.addClass('display-inline-block');
-					$curlingSpan.removeClass('hide');
-					$toSpan.removeClass('hide');
-
-					if( term.hasOwnProperty('searchDate') ){
-						term.fromSearchDate = term.searchDate[0];
-					}
-					delete term.searchDate;
-				}
-				else{
-					$curlingSpan.addClass('hide');
-					$toSpan.addClass('hide');
-					$curlingSpan.removeClass('display-inline-block');
-					$toSpan.removeClass('display-inline-block');
-
-					if( term.hasOwnProperty('fromSearchDate') ){
-						term.searchDate = [term.fromSearchDate];
-					}
-					delete term.fromSearchDate;
-					delete term.toSearchDate;
-					$toInputTag.val('');
-				}
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-				
-				Liferay.fire(
-					Events.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
-					eventData
-					);
-			});
-
-			$searchKeywordSection.append( $fromSpan )
-				 .append( $curlingSpan )
-				 .append( $toSpan )
-				 .append( $rangeCheckbox );
-
-			return $searchKeywordSection;
-		},
-		$getDateInputNode: function( term ){
-			let $dateTimeNode = $('<div class="lfr-ddm-field-group field-wrapper">')
-						.append( this.$getLabelNode(
-							NAMESPACE + term.termName, 
-							term.getLocalizedDisplayName(),
-							term.mandatory,
-							term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '') )
-						.append( this.$getDateTimeInputNode( term ) );
-
-			return $dateTimeNode;
-		},
-		$getDateTimeInputNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-
-			let $tag = $('<span class="lfr-input-date">');
-			
-			let $inputTag = $('<input type="text">');
-			$inputTag.prop({
-				'class': 'field form-control',
-				'id': controlName,
-				'name': controlName
-			});
-
-			let options = {
-				lang: 'kr',
-				changeYear: true,
-				changeMonth : true,
-				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
-				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
-				scrollInput:false,
-				//setDate: new Date(Number(term.value)),
-				value: term.enableTime ? term.toDateTimeString() : term.toDateString(),
-				validateOnBlur: false,
-				id:controlName,
-				onChangeDateTime: function(dateText, inst){
-					term.value = $inputTag.datetimepicker("getValue").getTime();
-
-					if( term.enableTime ){
-						$inputTag.val(term.toDateTimeString());
-					}
-					else{
-						$inputTag.val(term.toDateString());
-					}
-
-					$inputTag.datetimepicker('setDate', $inputTag.datetimepicker("getValue"));
-
-					let eventData = {
-						bubbles: false,
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term,
-							value: term.value  
-						}
-					};
-
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
-					);
-				}
-			};
-
-			/*
-			let thisYear = new Date().getFullYear();
-			options.yearStart = term.startYear ? term.startYear : thisYear;
-			options.yearEnd = term.endYear ? term.endYear : thisYear;
-			*/
-			if( term.enableTime ){
-				options.timepicker = true;
-				options.format = 'Y. m. d. H:i';
-				options.value = term.toDateTimeString(),
-				$inputTag.datetimepicker(options);
-				$inputTag.val(term.toDateTimeString());
-			}
-			else{
-				options.timepicker = false;
-				options.format = 'Y. m. d.';
-				options.value = term.toDateString(),
-				$inputTag.datetimepicker(options);
-				$inputTag.val(term.toDateString());
-			}
-
-			$tag.append($inputTag);
-
-			return $tag;
 		},
 		$getSelectTag: function( controlName, options, value, label, mandatory, helpMessage, disabled=false ){
 			let $label = this.$getLabelNode(controlName, label, mandatory, helpMessage);
@@ -1213,286 +1025,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $('<div aria-multiselectable="true" class="panel-group" role="tablist">')
 								.append( $fieldSet );
 		},
-		$getSelectFieldSetNode: function( term, forWhat ){
-			let controlName = NAMESPACE + term.termName;
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-			let value = term.value;
-			let displayStyle = term.displayStyle;
-			let options = term.options;
-			let disabled = term.disabled;
-
-			let $node;
-
-			if( forWhat === Constants.FOR_SEARCH ){
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, false, helpMessage );
-				let $panelBody = $panelGroup.find('.panel-body');
-
-				options.forEach((option, index)=>{
-					let $option = option.$render( Constants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
-
-					$option.unbind('change').change(function(event){
-						event.stopPropagation();
-						event.preventDefault();
-
-						term.emptySearchKeywords();
-						let $checkedInputs = $('input[name="' + controlName + '"]:checked');
-						if( $checkedInputs.length > 0 && 
-							$checkedInputs.length < term.options.length ){
-							term.searchKeywords = new Array();
-							$.each( $checkedInputs, function(){
-								term.addSearchKeyword( $(this).val() );
-							});
-						}
-
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
-
-						Liferay.fire(
-							Events.SD_SEARCH_KEYWORD_CHANGED, 
-							eventData );
-
-					});
-
-					$panelBody.append( $option );
-				});
-					
-				$node = $('<div class="card-horizontal main-content-card">')
-								.append( $panelGroup );
-			}
-			else if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
-				let $node = $('<div class="form-group input-text-wrapper">')
-								.append( this.$getSelectTag(controlName, options, value[0], label, mandatory, helpMessage, disabled) );
-
-				$node.unbind('change').change(function(event){
-					event.stopPropagation();
-					event.preventDefault();
-	
-					term.value = [$node.find('select').val()];
-
-					let eventData = {
-						sxeventData:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term,
-							controlName: controlName,
-							value: term.value
-						}
-					};
-	
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
-					);
-				});
-
-				return $node;
-	
-			}
-			else{
-				let $panelGroup = this.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
-				let $panelBody = $panelGroup.find('.panel-body');
-
-				if( displayStyle === Constants.DISPLAY_STYLE_RADIO ){
-					options.forEach((option, index)=>{
-							let selected = (value[0] === option.value);
-							$panelBody.append( this.$getRadioButtonTag( 
-														controlName+'_'+(index+1),
-														controlName, 
-														option,
-														selected,
-														disabled ) );
-					});
-
-					$panelBody.unbind('change').change(function(event){
-						event.stopPropagation();
-						event.preventDefault();
-
-						console.log('Panel body changed......');
-
-						let changedVal = $(this).find('input[type="radio"]:checked').val();
-						term.value = [changedVal];
-
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term,
-								value: changedVal
-							}
-						};
-
-						Liferay.fire(
-							Events.DATATYPE_SDE_VALUE_CHANGED,
-							eventData
-						);
-					});
-				}
-				else{ //For Checkbox
-					options.forEach((option, index)=>{
-							$panelBody.append( this.$getCheckboxTag( 
-														controlName+'_'+(index+1),
-														controlName,
-														option.labelMap[CURRENT_LANGUAGE],
-														option.selected || value.includes(option.value),
-														option.value,
-														disabled ) );
-					});
-						
-					$panelBody.unbind('change').change(function(event){
-						event.stopPropagation();
-						event.preventDefault();
-
-						let checkedValues = new Array();
-
-						$.each( $(this).find('input[type="checkbox"]:checked'), function(){
-							checkedValues.push( $(this).val() );
-						});
-
-						term.value = checkedValues;
-						term.valueMode = Constants.ARRAY;
-
-						let eventData = {
-							sxeventData:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term,
-								value: checkedValues
-							}
-						};
-
-						Liferay.fire(
-							Events.DATATYPE_SDE_VALUE_CHANGED,
-							eventData
-						);
-					});
-				}
-
-				$node = $('<div class="card-horizontal main-content-card">')
-								.append( $panelGroup );
-			}
-
-			return $node;
-		},
-		$getTextInputNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let mandatory = term.mandatory ? term.mandatory : false;
-
-			let $node = $('<div class="form-group input-text-wrapper">')
-							.append( this.$getLabelNode(controlName, label, mandatory, helpMessage) );
-			
-			$node.append(this.$getTextInputTag(term));
-			
-			return $node;
-		},
-		$getTextSearchNode: function( term ){
-			let controlName = NAMESPACE + term.termName;
-			let label = term.getLocalizedDisplayName();
-			let helpMessage = term.getLocalizedTooltip() ? term.getLocalizedTooltip() : '';
-			let $node = $('<div class="form-group input-text-wrapper">')
-							.append( this.$getLabelNode(controlName, label, false, helpMessage) );
-
-			let $input = this.$getTextSearchTag( term );
-				
-			$node.append( $input );
-	
-			return $node;
-		},
-		popupMemu: function( $container, options, event ){
-
-			let opts = {
-				x : $container.offset().left,
-				y : $container.offset().top,
-				items : {},
-				callback : null
-			};
-			
-			if (typeof options === 'object') {
-				$.extend(opts, options);
-			} else {
-				alert("Needs options...")
-				return false;
-			}
-			
-			let menu_items = '';
-			
-			for (let item in opts.items) {
-				
-				let name = '';
-				if($.type(opts.items[item].name) === "string") {
-					name = opts.items[item].name + " ";
-				}
-				let icon = '';
-				if($.type(opts.items[item].icon) === "string") {
-					icon = opts.items[item].icon + " ";
-				}
-				let divid = '';
-				if(opts.items[item].divid === true) {
-					divid = "<hr>";
-				} 
-				
-				menu_items += "<li id='" + item + "' name='"+ name +"''>" + icon + opts.items[item].name + "</li>" + divid;
-			}
-			
-			menu_items = "<div role='popmenu-layer'><ul role='popmenu'>" + menu_items + "</ul></div>";
-			
-			$container.append($(menu_items));
-			console.log('popupMenu: ', $container, options, event );
-			
-			console.log( $container.find("[role='popmenu']").css({'left' : opts.x, 'top' : opts.y }) );
-			
-			$container.find("[role='popmenu']>li").on("click",function(e){
-				
-				if($.type(opts.callback) === "function") {
-					var id = $(this).prop('id');
-					this.id = id;
-					opts.callback(this);
-				} else {
-					alert("callback function " + $(this).prop('id')+ " is not presented.");
-				}
-				$(this).parent().hide();
-				$container.find("[role='popmenu-layer']").remove();
-			});
-			
-			/*
-			$container.find("[role='popmenu']").focus();
-		
-			$container.find("[role='popmenu']>li").hover(function() {
-				$(this).addClass('popmenu-hover');
-			}, function() {
-				$(this).removeClass('popmenu-hover');
-			});
-			$container.find(".popmenu-layer").mousedown(function(event) {
-				$container.find("[role='popmenu']").hide();
-				$container.find("[role='popmenu-layer']").remove();
-			});
-			$(window).blur(function(event) {
-				$container.find("[role='popmenu']").hide();
-				$container.find("[role='popmenu-layer']").remove();
-			});
-			
-			$(window).mousedown(function(event){
-				$container.find("[role='popmenu']").hide();
-				$container.find("[role='popmenu-layer']").remove();
-			})
-			
-			$container.find("[role='popmenu']").mousedown(function(event){
-				event.stopPropagation();
-			})
-			$(window).resize(function(event) {
-				$container.find("[role='popmenu']").hide();
-				$container.find("[role='popmenu-layer']").remove();
-			});
-			*/
-		},
 		$getActionButton( popupMenu ){
 			let $actionBtn = $(
 				'<div class="dropdown dropdown-action show" style="width:fit-content;">' +
@@ -1544,33 +1076,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getSearchRowSection: function( $inputSection ){
 			return $inputSection;
 		},
-
-		$getFormStringSection: function( 
-					term, 
-					forWhat ){
-
-
-			let $textInput;
-
-			let $String;
-			if( forWhat === Constants.FOR_PREVIEW ){
-				$textInput = this.$getTextInputNode( term, forWhat );
-				$String = this.$getPreviewRowSection( term, $textInput );
-			}
-			else if(forWhat === Constants.FOR_EDITOR ){
-				$textInput = this.$getTextInputNode( term, forWhat );
-				$String = this.$getEditorRowSection( term, $textInput );
-			}
-			else if( forWhat === Constants.FOR_SEARCH ){
-				$textInput = this.$getTextSearchNode( term );
-				$String = this.$getSearchRowSection( term, $textInput );
-			}
-			else{
-				//PDF printing here
-			}
-
-			return $String;
-		},
 		$getAccordionForGroup: function( title, $body, disabled, extended=true ){
 			let $groupHead = $('<h3>').text(title);
 			let $groupBody = $('<div style="width:100%; padding:3px;">')
@@ -1592,7 +1097,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			if( extended ){
-				$accordion.accordion('option', 'active', false);
 				$accordion.accordion('option', 'active', 0);
 			}
 			else{
@@ -1760,19 +1264,193 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED',
 		STRUCTURED_DATA_CHANGED: 'STRUCTURED_DATA_CHANGED',
 
-		SX_CHECK_MANDATORY: 'SX_CHECK_MANDATORY',
-		SX_DATA_CHANGED: 'SX_DATA_CHANGED',
-		SX_DISABLE_CONTROLS: 'SX_DISABLE_CONTROLS',
-		SX_EVENTS_REGISTERED: 'SX_EVENTS_REGISTERED',
-		SX_HANDSHAKE: 'SX_HANDSHAKE',
-		SX_REGISTER_EVENTS: 'SX_REGISTER_EVENTS',
-		SX_RESPONSE_DATA: 'SX_RESPONSE_DATA',
-		SX_REQUEST_DATA: 'SX_REQUEST_DATA',
-		SX_REQUEST_SAMPLE_CONTENT: 'SX_REQUEST_SAMPLE_CONTENT',
-		SX_REQUEST_SAMPLE_URL: 'SX_REQUEST_SAMPLE_URL',
-		SX_SAMPLE_SELECTED:'SX_SAMPLE_SELECTED',
-		SX_LOAD_DATA:'SX_LOAD_DATA'
-	};
+        SX_CANCEL_CLICKED: 'SX_CANCEL_CLICKED',
+        SX_CANCEL_JOB: 'SX_CANCEL_JOB',
+        SX_CANCEL_SIMULATION: 'SX_CANCEL_SIMULATION',	 
+        SX_COPY_JOB: 'SX_COPY_JOB',
+        SX_REQUEST_COPY_JOB: 'SX_REQUEST_COPY_JOB',
+        SX_RESPONSE_COPY_JOB: 'SX_REQUEST_COPY_JOB',
+        SX_REFRESH_URL_CHANGE: 'SX_REFRESH_URL_CHANGE',
+        SX_CREATE_JOB: 'SX_CREATE_JOB',
+        SX_CREATE_SIMULATION: 'SX_CREATE_SIMULATION',
+        SX_DATA_CHANGED: 'SX_DATA_CHANGED',
+        SX_DATA_LOADED: 'SX_DATA_LOADED',
+        SX_DELETE_JOB: 'SX_DELETE_JOB',
+        SX_DELETE_SIMULATION: 'SX_DELETE_SIMULATION',
+        SX_DOWNLOAD_FILE: 'SX_DOWNLOAD_FILE',
+        SX_ERROR: 'SX_ERROR',
+        SX_EVENTS_REGISTERED: 'SX_EVENTS_REGISTERED',
+        SX_FILE_DESELECTED: 'SX_FILE_DESELECTED',
+        SX_FILE_SAVED_AS: 'SX_FILE_SAVED_AS',
+        SX_FILE_SELECTED: 'SX_FILE_SELECTED',
+        SX_HANDSHAKE: 'SX_HANDSHAKE',
+        SX_INITIALIZE: 'SX_INITIALIZE',
+        SX_JOB_CREATED: 'SX_JOB_CREATED',
+        SX_JOB_DELETED: 'SX_JOB_DELETED',
+        SX_JOB_SAVED: 'SX_JOB_SAVED',
+        SX_JOB_SELECTED: 'SX_JOB_SELECTED',
+        SX_JOB_STATUS_CHANGED: 'SX_JOB_STATUS_CHANGED',
+        SX_LOAD_DATA: 'SX_LOAD_DATA',
+        SX_DISABLE_CONTROLS: 'SX_DISABLE_CONTROLS',
+        SX_CHECK_MANDATORY : 'SX_CHECK_MANDATORY',
+        SX_LOAD_FILE: 'SX_LOAD_FILE',
+        SX_LOAD_HTML: 'SX_LOAD_HTML',
+        SX_OK_CLICKED: 'SX_OK_CLICKED',
+        SX_PORT_SELECTED: 'SX_PORT_SELECTED',
+        SX_PORT_STATUS_CHANGED: 'SX_PORT_STATUS_CHANGED',
+        SX_READ_LOCAL_FILE: 'SX_READ_LOCAL_FILE',
+        SX_READ_SERVER_FILE: 'SX_READ_SERVER_FILE',
+        SX_READ_STRUCTURED_DATA_FILE: 'SX_READ_STRUCTURED_DATA_FILE',
+        SX_REFRESH: 'SX_REFRESH',
+        SX_REFRESH_SIMULATIONS: 'SX_REFRESH_SIMULATIONS',
+        SX_REFRESH_JOBS: 'SX_REFRESH_JOBS',
+        SX_REFRESH_JOB_STATUS: 'SX_REFRESH_JOB_STATUS',
+        SX_REFRESH_OUTPUT_VIEW: 'SX_REFRESH_OUTPUT_VIEW',
+        SX_REFRESH_PORTS_STATUS: 'SX_REFRESH_PORTS_STATUS',
+        SX_REGISTER_EVENTS: 'SX_REGISTER_EVENTS',
+        SX_REPORT_NAMESPACE: 'SX_REPORT_NAMESPACE',
+        SX_REQUEST_APP_INFO: 'SX_REQUEST_APP_INFO',
+        SX_REQUEST_DATA: 'SX_REQUEST_DATA',
+        SX_REQUEST_DATA_STRUCTURE: 'SX_REQUEST_DATA',
+        SX_REQUEST_DOWNLOAD: 'SX_REQUEST_DOWNLOAD',
+        SX_REQUEST_FILE_PATH: 'SX_REQUEST_FILE_PATH',
+        SX_REQUEST_FILE_URL: 'SX_REQUEST_FILE_URL',
+        SX_REQUEST_JOB_UUID: 'SX_REQUEST_JOB_UUID',
+        SX_REQUEST_MONITOR_INFO: 'SX_REQUEST_MONITOR_INFO',
+        SX_REQUEST_OUTPUT_PATH: 'SX_REQUEST_OUTPUT_PATH',
+        SX_REQUEST_PATH: 'SX_REQUEST_PATH',
+        SX_REQUEST_PORT_INFO: 'SX_REQUEST_PORT_INFO',
+        SX_REQUEST_SAMPLE_CONTENT: 'SX_REQUEST_SAMPLE_CONTENT',	 
+        SX_REQUEST_SAMPLE_URL: 'SX_REQUEST_SAMPLE_URL',
+        SX_REQUEST_SIMULATION_UUID: 'SX_REQUEST_SIMULATION_UUID',
+        SX_REQUEST_SPREAD_TO_PORT: 'SX_REQUEST_SPREAD_TO_PORT',
+        SX_REQUEST_UPLOAD: 'SX_REQUEST_UPLOAD',
+        SX_REQUEST_WORKING_JOB_INFO: 'SX_REQUEST_WORKING_JOB_INFO',
+        SX_RESPONSE_APP_INFO: 'SX_RESPONSE_APP_INFO',
+        SX_RESPONSE_DATA: 'SX_RESPONSE_DATA',
+        SX_RESPONSE_JOB_UUID: 'SX_RESPONSE_JOB_UUID',
+        SX_RESPONSE_MONITOR_INFO: 'SX_RESPONSE_MONITOR_INFO',
+        SX_RESPONSE_PORT_INFO: 'SX_RESPONSE_PORT_INFO',
+        SX_RESPONSE_SIMULATION_UUID: 'SX_RESPONSE_SIMULATION_UUID',
+        SX_SAMPLE_SELECTED: 'SX_SAMPLE_SELECTED',
+        SX_SAVEAS_FILE: 'SX_SAVEAS_FILE',
+        SX_SAVE_SIMULATION: 'SX_SAVE_SIMULATION',
+        SX_SELECT_LOCAL_FILE: 'SX_SELECT_LOCAL_FILE',
+        SX_SELECT_SERVER_FILE: 'SX_SELECT_SERVER_FILE',
+        SX_SHOW_JOB_STATUS: 'SX_SHOW_JOB_STATUS',
+        SX_SIMULATION_CREATED: 'SX_SIMULATION_CREATED',
+        SX_SIMULATION_DELETED: 'SX_SIMULATION_DELETED',
+        SX_SIMULATION_SAVED: 'SX_SIMULATION_SAVED',
+        SX_SIMULATION_SELECTED: 'SX_SIMULATION_SELECTED',
+        SX_SUBMIT_SIMULATION: 'SX_SUBMIT_SIMULATION',
+        SX_SUBMIT_JOB: 'SX_SUBMIT_JOB',
+        SX_UPLOAD_FILE: 'SX_UPLOAD_FILE',
+        SX_UPLOAD_SELECTED: 'SX_UPLOAD_SELECTED',
+        SX_RESPONSE_SAVE_SIMULATION_RESULT: 'SX_RESPONSE_SAVE_SIMULATION_RESULT',
+        SX_RESPONSE_CREATE_SIMULATION_RESULT: 'SX_RESPONSE_CREATE_SIMULATION_RESULT',
+        SX_RESPONSE_DELETE_SIMULATION_RESULT: 'SX_RESPONSE_DELETE_SIMULATION_RESULT',
+        SX_RESPONSE_CREATE_SIMULATION_JOB_RESULT: 'SX_RESPONSE_CREATE_SIMULATION_JOB_RESULT',
+        SX_RESPONSE_DELETE_SIMULATION_JOB_RESULT: 'SX_RESPONSE_DELETE_SIMULATION_JOB_RESULT',
+        SX_RESPONSE_CANCLE_SIMULATION_JOB_RESULT: 'SX_RESPONSE_CANCLE_SIMULATION_JOB_RESULT',
+        SX_REQUEST_SIMULATION_MODAL: 'SX_REQUEST_SIMULATION_MODAL',
+        SX_RESPONSE_SIMULATION_MODAL: 'SX_RESPONSE_SIMULATION_MODAL',
+        SX_REQUEST_SIMULATION_EDIT_VIEW: 'SX_REQUEST_SIMULATION_EDIT_VIEW',
+        SX_RESPONSE_SIMULATION_EDIT_VIEW: 'SX_RESPONSE_SIMULATION_EDIT_VIEW',
+        SX_REQUEST_DELETE_JOB_VIEW: 'SX_REQUEST_DELETE_JOB_VIEW',
+        SX_REPONSE_DELETE_JOB_VIEW: 'SX_REPONSE_DELETE_JOB_VIEW',
+        SX_REQUEST_JOB_EDIT_VIEW: 'SX_REQUEST_JOB_EDIT_VIEW',
+        SX_RESPONSE_JOB_EDIT_VIEW: 'SX_RESPONSE_JOB_EDIT_VIEW',
+        SX_REQUEST_JOB_RESULT_VIEW: 'SX_REQUEST_JOB_RESULT_VIEW',
+        SX_RESPONSE_JOB_RESULT_VIEW: 'SX_RESPONSE_JOB_RESULT_VIEW',
+        SX_REQUEST_NEW_JOB_VIEW: 'SX_REQUEST_NEW_JOB_VIEW',
+        SX_RESPONSE_NEW_JOB_VIEW: 'SX_RESPONSE_NEW_JOB_VIEW',
+        SX_REQUEST_FLOW_LAYOUT_CODE_UPDATE: 'SX_FLOW_LAYOUT_CODE_UPDATE',
+        SX_RESPONSE_FLOW_LAYOUT_CODE_UPDATE: 'SX_FLOW_LAYOUT_CODE_UPDATE',
+        SX_RESPONSE_SUBMIT_JOB_RESULT: 'SX_RESPONSE_SUBMIT_JOB_RESULT',
+        SX_REQUEST_JOB_LOG_VIEW: 'SX_REQUEST_JOB_LOG_VIEW',
+        SX_RESPONSE_JOB_LOG_VIEW: 'SX_RESPONSE_JOB_LOG_VIEW',
+        SX_REQUEST_COLLECTION_VIEW: 'SX_REQUEST_COLLECTION_VIEW',
+        SX_RESPONSE_COLLECTION_VIEW: 'SX_RESPONSE_COLLECTION_VIEW',
+        SX_REQUEST_JOB_KEY: 'SX_REQUEST_JOB_KEY',
+        SX_RESPONSE_JOB_KEY: 'SX_RESPONSE_JOB_KEY',
+        SX_FROM_EDITOR_EVENT: 'SX_FROM_EDITOR_EVENT',
+        SX_FROM_ANALYZER_EVENT: 'SX_FROM_ANALYZER_EVENT',
+        SX_REQUEST_JOB_CONTROLL_RESET: 'SX_REQUEST_JOB_CONTROLL_RESET',
+        SX_RESPONSE_JOB_CONTROLL_RESET: 'SX_RESPONSE_JOB_CONTROLL_RESET',
+        SX_RESPONSE_CANCLE_JOB_RESULT: 'SX_RESPONSE_CANCLE_JOB_RESULT',
+        SX_REQUEST_JOB_INPUT_VALIDATION: 'SX_REQUEST_JOB_INPUT_VALIDATION',
+        SX_RESPONSE_JOB_INPUT_VALIDATION: 'SX_RESPONSE_JOB_INPUT_VALIDATION',
+		SX_PORTLET_READY:'SX_PORTLET_READY',
+        
+
+        reportProcessStatus: function(portletId, event, srcEvent, srcEventData, status) {
+            var eventData = {
+                portletId: portletId,
+                targetPortlet: srcEventData.portletId,
+                sourceEvent: srcEvent,
+                sourceData: srcEventData,
+                processStatus: status,
+            };
+
+            Liferay.fire(event, eventData);
+        },
+        reportDataChanged: function(portletId, targetId, data) {
+            var eventData = {
+                portletId: portletId,
+                targetPortlet: targetId,
+                data: data
+            };
+
+            Liferay.fire(Event.SX_DATA_CHANGED, eventData);
+        },
+
+        reportFileSelected: function(portletId, targetId, data) {
+            var eventData = {
+                portletId: portletId,
+                targetPortlet: targetId,
+                data: data
+            };
+
+            Liferay.fire(Event.SX_FILE_SELECTED, eventData);
+        },
+
+        reportFileDeselected: function(portletId, targetId, data) {
+            var eventData = {
+                portletId: portletId,
+                targetPortlet: targetId,
+                data: data
+            };
+
+            Liferay.fire(Event.SX_FILE_DESELECTED, eventData);
+        },
+
+        responseDataToRequest: function(portletId, data, srcEventData) {
+            var eventData = {
+                portletId: portletId,
+                targetPortlet: srcEventData.portletId,
+                sourceEvent: Event.SX_REQUEST_DATA,
+                sourceData: srcEventData,
+                data: data
+            };
+
+            Liferay.fire(Event.SX_RESPONSE_DATA, eventData);
+        },
+        reportError: function(portletId, targetPortlet, message) {
+            var eventData = {
+                portletId: portletId,
+                targetPortlet: targetPortlet,
+                message: message
+            };
+
+            Liferay.fire(Event.SX_ERROR, eventData);
+        },
+        stripNamespace: function(namespace) {
+            var id = namespace.slice(namespace.indexOf('_') + 1);
+            return id.slice(0, id.lastIndexOf('_'));
+        },
+        getNamespace: function(instanceId) {
+            return '_' + instanceId + '_';
+        }	};
 
 	const Constants = {
 		FOR_NOTHING: 0,
@@ -1808,20 +1486,144 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			SX_GET_COPIED_TEMP_FILE_PATH: 'SX_GET_COPIED_TEMP_FILE_PATH',
 			SX_GET_FILE_INFO: 'SX_GET_FILE_INFO'
 		},
-		PathType:{
-			CONTENT: 'CONTENT',
-			EXT: 'EXT',
-			FILE: 'FILE',
-			FILE_CONTENT: 'FILE_CONTENT',
-			FOLDER: 'FOLDER',
-			FOLDER_CONTENT: 'FOLDER_CONTENT',
-			URL: 'URL'
-		},
-		RepositoryTypes:{
-			USER_JOBS: 'USER_JOBS'
-		},
-		Events:{
-		}
+		WorkbenchType: {
+            SIMULATION_WITH_APP: 'SIMULATION_WITH_APP',
+            SIMULATION_RERUN: 'SIMULATION_RERUN',
+            SIMULATION_WORKFLOW: 'SIMULATION_WORKFLOW',
+            SIMULATION_APP_TEST: 'SIMULATION_APP_TEST',
+            SIMULATION_WORKFLOW_TEST: 'SIMULATION_WORKFLOW_TEST',
+            SIMULATION_WITH_WORKFLOW: 'SIMULATION_WITH_WORKFLOW',
+            ANALYSIS_RERUN_APP: 'SIMULATION_APP',
+            ANALYSIS_RERUN_WORKFLOW: 'SIMULATION_WORKFLOW',
+            MONITORING_ANALYSIS: 'MONITORING_ANALYSIS',
+            MONITORING_RERUN_WORKFLOW: 'MONITORING_RERUN_WORKFLOW',
+            ANALYSYS: 'ANALYSYS',
+            CURRICULUM: 'CURRICULUM',
+            VIRTUAL_LAB: 'VIRTUAL_LAB',
+        },
+        ClusterKey:{
+        	CLUSTER:'_cluster',
+        	IS_DEFAULT:'_isDefault',
+        },
+        LayoutKey: {
+        	LAYOUT: 'LAYOUT',
+        	SYSTEM: 'SYSTEM',
+        	INPUT: 'INPUT',
+        	LOG: 'LOG',
+        	OUTPUT: 'OUTPUT'
+        },
+        Action: {
+            SELECT: 'SELECT',
+            DEFAULT: 'DEFAULT'
+        },
+        PayloadType: {
+            NONE: 'none',
+            DL_FILE_ENTRY: 'dlFileEntry',
+            FILE_CONTENT: 'fileContent',
+            STRUCTURED_DATA_ID: 'structuredDataId',
+			STRUCTURED_DATA: 'structuredData',
+			DATA_STRUCTURE: 'DATA_STRUCTURE',
+            URL: 'url',
+            FILE_PATH: 'filePath',
+            FOLDER_PATH: 'folderPath',
+            EXTENSION_PATH: 'extensionPath',
+            SAMPLE: 'sample'
+        },
+        SweepMethod: {
+            BY_SLICE: 'slice',
+            BY_VALUE: 'value'
+        },
+        DivSection: {
+            SWEEP_SLICE_VALUE: 'sweepSliceValue'
+        },
+        OpenStatus: {
+            PUBLIC: 'pb',
+            RESTRICT: 'rs',
+            PRIVATE: 'pr'
+        },
+        RepositoryTypes: {
+            USER_HOME: 'USER_HOME',
+            USER_JOBS: 'USER_JOBS',
+            SPYGLASS: 'SPYGLASS',
+            ICECAP: 'ICECAP',
+            ICEBUG: 'ICEBUG',
+            MERIDIAN: 'MERIDIAN',
+            ICEBREAKER: 'ICEBREAKER'
+        },
+        ProcessStatus: {
+            SUCCESS: 0,
+            FAIL: -1
+        },
+        PortType: {
+            FILE: 'FILE',
+            FOLDER: 'FOLDER',
+            EXT: 'EXT',
+            INPUT: 'input',
+            LOG: 'log',
+            OUTPUT: 'output'
+        },
+        PortStatus: {
+            EMPTY: 'empty',
+            READY: 'ready',
+            INVALID: 'invalid',
+            LOG_VALID: 'logValid',
+            LOG_INVALID: 'logInvalid',
+            OUTPUT_VALID: 'outputValid',
+            OUTPUT_INVALID: 'outputInvalid'
+        },
+        JobStatus: {
+            PROLIFERATED: 'PROLIFERATED',
+            CLEAN: 'CLEAN',
+            DIRTY: 'DIRTY',
+            SAVED: 'SAVED',
+            INITIALIZE_FAILED: 'INITIALIZE_FAILED',
+            INITIALIZED: 'INITIALIZED',
+            SUBMISSION_FAILED: 'SUBMISSION_FAILED',
+            QUEUED: 'QUEUED',
+            SUSPEND_REQUESTED: 'SUSPEND_REQUESTED',
+            SUSPENDED: 'SUSPENDED',
+            CANCEL_REQUESTED: 'CANCEL_REQUESTED',
+            CANCELED: 'CANCELED',
+            SUCCESS: 'SUCCESS',
+            RUNNING: 'RUNNING',
+            FAILED: 'FAILED'
+        },
+        Location: {
+            AT_LOCAL: 'local',
+            AT_SERVER: 'server',
+            AT_REMOTE: 'remote'
+        },
+        DataStatus: {
+            UNCHECK: 'uncheck',
+            EMPTY: 'empty',
+            SAVED: 'saved',
+            INVALID: 'invalid',
+            VALID: 'valid',
+            SAVING: 'saving',
+            DIRTY: 'dirty',
+            CLEAN: 'clean',
+            READY: 'ready'
+        },
+        AppType: {
+            STATIC_SOLVER: 'STATIC_SOLVER',
+            DYNAMIC_SOLVER: 'DYNAMIC_SOLVER',
+            STATIC_CONVERTER: 'STATIC_CONVERTER',
+            DYNAMIC_CONVERTER: 'DYNAMIC_CONVERTER',
+            CALCULATOR: 'CALCULATOR',
+            VISUALIZER: 'VISUALIZER'
+        },
+        WorkflowStatus:{
+        	INITIALIZE:{code:"INITIALIZE",value:1702001},
+        	CREATED:{code:"CREATED",value:1702002},
+        	UPLOAD:{code:"UPLOAD",value:1702003},
+        	QUEUED:{code:"QUEUED",value:1702004},
+        	RUNNING:{code:"RUNNING",value:1702005},
+        	TRANSFER:{code:"TRANSFER",value:1702006},
+        	PAUSED:{code:"PAUSED",value:1702009},
+        	CANCELED:{code:"CANCELED",value:1702010},
+        	SUCCESS:{code:"SUCCESS",value:1702011},
+        	FAILED:{code:"FAILED",value:1702012}
+        }
 	};
 	
 	class LocalizedObject {
@@ -1952,7 +1754,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					event.stopPropagation();
 					
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							option: self
@@ -1966,7 +1768,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					event.stopPropagation();
 					
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							option: self
@@ -2069,7 +1871,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$row.remove();
 
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: activeTerm
@@ -2086,7 +1888,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$row.addClass('highlight-border');
 					
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: activeTerm
@@ -2169,6 +1971,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.termType = termType;
 
 			this.dirty = false;
+			this.$rendered = undefined;
+			this.$label = undefined;
 		}
 
 		static validateTermVersion( updated, previous ){
@@ -2219,6 +2023,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		activate( active=true ){
 			this.active = active;
+
+			if( !this.isRendered() )	return;
+
 			if( active ){
 				this.$rendered.show();
 			}
@@ -2241,7 +2048,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				},
 				callback: function( item ){
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: self
@@ -2273,7 +2080,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				event.stopPropagation();
 				
 				const eventData = {
-					sxeventData:{
+					sxeventdata:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: self
@@ -2285,7 +2092,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		getTermId(){
-			if( !(Util.isEmptyString( this.termName ) || Util.isEmptyString( this.termVersion )) ){
+			if( Util.isNotEmpty( this.termName ) || Util.isNotEmpty( this.termVersion ) ){
 				return new TermId(this.termName,this.termVersion);
 			}
 			else{
@@ -2304,6 +2111,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		isRendered(){
 			return !this.$rendered ? false : true;
+		}
+
+		displayInputStatus( status=true, labelColor ){
+			if( !this.isRendered() )	return;
+
+			let color = labelColor ? labelColor : '#454545';
+
+			if( status ){
+				color = labelColor ? labelColor : '#ef6f6f';
+			}
+
+			if( this.$label ){
+				this.$label.css('color', color);
+			}
 		}
 
 		isOrdered(){
@@ -2330,21 +2151,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		clearDirty(){
 			this.setDirty();
-		}
-
-		getPrimaryKey( termName='', termVersion='' ){
-			if( !(Util.isEmptyString(termName) || Util.isEmptyString(termVersion)) ){
-				return {
-					name: this.termName,
-					version: this.termVersion
-				};
-			}
-			else{
-				return {
-					name: termName,
-					version: termVersion
-				};
-			}
 		}
 
 		isHighlighted(){
@@ -2488,7 +2294,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.hasOwnProperty('tooltip') ) 		json.tooltip = this.tooltip.getLocalizedMap();
 			if( this.hasOwnProperty('synonyms') ) 		json.synonyms = this.synonyms;
 			if( this.hasOwnProperty('mandatory') )		json.mandatory = this.mandatory;
-			if( this.hasOwnProperty('value') )			json.value = this.value;
 			if( this.hasOwnProperty('disabled') )		json.disabled = this.disabled;
 
 			if( this.hasOwnProperty('order') )			json.order = this.order;
@@ -2523,7 +2328,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'order':
 					case 'state':
 					case 'disabled':
-					case 'value':
 					case 'masterTerm':
 						self[key] = json[key];
 						break;
@@ -2641,7 +2445,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName', valueMap );
 			}
 			else if( this.hasOwnProperty('displayName') ){
-				console.log( 'displayName: ' + this.getLocalizedDisplayName() );
 				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.displayName.getLocalizedMap() );
 			}
 			else{
@@ -2848,31 +2651,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getValueFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.VALUE );
-			if( save ){
-				this.value = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setValueFormValue ( value ){
-			if( value !== null && typeof value === 'undefined' && value !== '' ){
-				this.value = value;
-				FormUIUtil.setFormValue( TermAttributes.VALUE, value );
-			}
-			else if( this.hasOwnProperty('value') ){
-				FormUIUtil.setFormValue( TermAttributes.VALUE, this.value );
-			}
-			else{
-				delete this.value;
-				FormUIUtil.clearFormValue( TermAttributes.VALUE );
-			}
-		}
-		
-
-		setAllFormValues(){
+		setPropertyFormValues(){
 			this.setDefinitionFormValue();
 			this.setDisplayNameFormValue();
 			this.setDownloadableFormValue();
@@ -2887,25 +2666,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.setTooltipFormValue();
 		}
 
-		initAllAttributes(){
-
+		initPropertyValues(){
 			// Audit properties
-			if( !this.abstractKey ) 	this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
-			if( !this.definition ) 	this.definition = null;
-			if( !this.displayName ) this.displayName = null;
-			if( !this.downloadable === false ) 	this.downloadable = Term.DEFAULT_DOWNLOADABLE;
-			if( !this.mandatory ) 	this.mandatory = Term.DEFAULT_MANDATORY;
-			if( !this.hasOwnProperty('searchable') ) 	this.searchable = Term.DEFAULT_SEARCHABLE;
-			if( !this.state )		this.state = Term.STATE_INIT;
-			if( !this.synonyms ) 	this.synonyms = '';
-			if( !this.termName ) 	this.termName = '';
-			if( !this.termVersion ) this.termVersion = Term.DEFAULT_TERM_VERSION;
-			if( !this.tooltip ) 	this.tooltip = null;
-			if( !this.hasOwnProperty('value') ) 		this.value = '';
+			delete this.definition;
+			delete this.displayName;
+			this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
+			this.downloadable = Term.DEFAULT_DOWNLOADABLE;
+			this.mandatory = Term.DEFAULT_MANDATORY;
+			this.searchable = Term.DEFAULT_SEARCHABLE;
+			this.state = Term.STATE_INIT;
+			delete this.synonyms;
+			delete this.termName;
+			this.termVersion = Term.DEFAULT_TERM_VERSION;
+			delete this.tooltip;
 			
-			// These are special properties for term manipulation
-			if( !this.valueMode )	this.valueMode = Term.DEFAULT_VALUE_MODE;
-			if( !this.isMemberOfGroup() ) 	this.groupTermId = new TermId();
+			if( !this.isMemberOfGroup() ) 	delete this.groupTermId;
 			this.standard = false;
 		}
 
@@ -2933,13 +2708,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_MULTIPLE_LINE = false;
 		static DEFAULT_VALIDATION_RULE = '^[\w\s!@#\$%\^\&*\)\(+=._-]*$';
 
+		#value;
+
 		constructor( jsonObj ){
 			super( 'String' );
 
 			if( jsonObj ) this.parse( jsonObj );
 
-			this.setAllFormValues();
+			this.setPropertyFormValues();
 		}
+
+		/**************************************************
+		 * getters and setters
+		 **************************************************/
+		get value(){ return this.#value; }
+		set value(val){ this.#value = val; }
 		
 		removeActiveTerm( term ){
 			return null;
@@ -3016,6 +2799,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return searchField;
 		}
+
+		hasValue(){
+			return !!this.value;
+		}
 		
 		toJSON(){
 			let json = super.toJSON();
@@ -3030,6 +2817,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				json.multipleLine = this.multipleLine;
 			if( this.validationRule !== StringTerm.DEFAULT_VALIDATION_RULE )
 				json.validationRule = this.validationRule;
+			if( this.inputSize ) json.inputSize = this.inputSize;
+			json.lineBreak = this.lineBreak;
+			if( this.hasValue() ) json.value = this.value;
 			
 			return json;
 		}
@@ -3045,6 +2835,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'maxLength':
 					case 'multipleLine':
 					case 'validationRule':
+					case 'value':
+					case 'inputSize':
+					case 'lineBreak':
 						self[key] = unparsed[key];
 						break;
 					case 'placeHolder':
@@ -3070,7 +2863,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let placeHolder = this.getLocalizedPlaceHolder();
 
 			let $section = $('<div class="form-group input-text-wrapper">');
-			FormUIUtil.$getLabelNode(id, label, required, helpMessage).appendTo( $section );
+			let $labelNode = FormUIUtil.$getLabelNode(id, label, required, helpMessage).appendTo( $section );
+
+			this.$label = $labelNode.find('span').first();
 			
 			let self = this;
 			let eventFuncs = {
@@ -3080,7 +2875,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					self.value = FormUIUtil.getFormValue(self.termName);
 
 					const eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: self
@@ -3118,7 +2913,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					let keywords = FormUIUtil.getFormValue(self.termName);
 
-					if( Util.isEmptyString(keywords) ){
+					if( Util.isEmpty(keywords) ){
 						delete self.searchKeywords;
 					}
 					else{
@@ -3126,7 +2921,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 
 					const eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: self
@@ -3277,7 +3072,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.clearFormValue( TermAttributes.MAX_LENGTH );
 			}
 		}
-		
+	
+		getValueFormValue ( save=true ){
+			let value = FormUIUtil.getFormValue( TermAttributes.VALUE );
+			if( save ){
+				this.value = value;
+				this.setDirty( true );
+			}
+			
+			return value;
+		}
+		setValueFormValue ( value ){
+			if( value !== null && typeof value === 'undefined' && value !== '' ){
+				this.value = value;
+				FormUIUtil.setFormValue( TermAttributes.VALUE, value );
+			}
+			else if( this.hasOwnProperty('value') ){
+				FormUIUtil.setFormValue( TermAttributes.VALUE, this.value );
+			}
+			else{
+				delete this.value;
+				FormUIUtil.clearFormValue( TermAttributes.VALUE );
+			}
+		}
+
 		getMultipleLineFormValue ( save ){
 			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MULTIPLE_LINE );
 			if( save ){
@@ -3320,23 +3138,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 		
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 			
 			this.setPlaceHolderFormValue();
 			this.setMinLengthFormValue();
 			this.setMaxLengthFormValue();
 			this.setMultipleLineFormValue();
 			this.setValidationRuleFormValue();
+			this.setValueFormValue();
 		}
 
-		initAllAttributes(){
-			super.initAllAttributes( 'String' ); 
-			if( !this.minLength )	this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
-			if( !this.maxLength )	this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
-			if( !this.multipleLine ) this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
-			if( !this.validationRule ) this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
-			if( !this.placeHolder ) this.placeHolder = '';
+		initPropertyValues(){
+			super.initPropertyValues(); 
+			
+			this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
+			this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
+			this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
+			this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
+			delete this.placeHolder;
 		}
 
 		disableAllFormControls(){
@@ -3349,12 +3169,85 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 2. NumericTerm */
 	class NumericTerm extends Term{
+		#value;
+		#uncertaintyValue;
+		#minValue;
+		#maxValue;
+
 		constructor( jsonObj ){
 			super('Numeric');
 
 			if( jsonObj )	this.parse( jsonObj );
 			
-			this.setAllFormValues();
+			this.setPropertyFormValues();
+		}
+
+		/**************************************************
+		 * getters and setters
+		 **************************************************/
+		get value(){ return this.#value; }
+		set value(value){ 
+			if( Util.isEmpty(value) ){
+				this.#value = undefined;
+				return;
+			}
+
+			let prevValue = this.hasValue() ? '' : this.#value;
+			let safeValue = Util.toSafeNumber( value );
+
+			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
+				$.alert('Not proper number: ' + safeValue);
+				return;
+			}
+
+			this.#value = safeValue;
+		}
+		get uncertaintyValue(){ return this.#uncertaintyValue; }
+		set uncertaintyValue(value){ 
+			if( Util.isEmpty(value) ){
+				this.#uncertaintyValue = undefined;
+				return;
+			}
+
+			let prevValue = Util.isEmpty(this.#uncertaintyValue) ? '' : this.#uncertaintyValue;
+			let safeValue = Util.toSafeNumber( value );
+
+			if( isNaN(safeValue) ){
+				$.alert('Not proper number: ' + safeValue);
+				return;
+			}
+
+			this.#uncertaintyValue = safeValue;
+		}
+		get minValue(){ return this.#minValue; }
+		set minValue(value){ 
+			if( Util.isEmpty(value) ){
+				this.#minValue = undefined;
+				return;
+			}
+
+			let safeValue = Util.toSafeNumber( value );
+
+			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
+				return;
+			}
+
+			this.#minValue = safeValue;
+		}
+		get maxValue(){ return this.#maxValue; }
+		set maxValue(value){ 
+			if( Util.isEmpty(value) ){
+				this.#maxValue = undefined;
+				return;
+			}
+
+			let safeValue = Util.toSafeNumber( value );
+
+			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
+				return;
+			}
+
+			this.#maxValue = safeValue;
 		}
 
 		removeActiveTerm( term ){
@@ -3417,7 +3310,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					//event.stopPropagation();
 					
 					term.rangeSearch = $(this).prop('checked');
-					console.log('SDFASDFASDFASD: ', term );
 					if( !term.rangeSearch ){
 						delete term.rangeSearch;
 					}
@@ -3449,7 +3341,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 	
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -3472,7 +3364,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											false,
 											eventFuncs
 										).appendTo( $controlSection );
-			$rangeCheckbox.css( 'max-width', '28%' );
+			// $rangeCheckbox.css( 'max-width', '28%' );
 			
 			let $fromInputTag = $('<input type="text">');
 			$fromInputTag.prop({
@@ -3489,7 +3381,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let previousValue;
 				let valueChanged = true;
 				if( term.rangeSearch === true ){
-					previousValue = Util.isSafeNumber(term.fromSearchValue) ? term.fromSearchValue : '';
+					previousValue = Util.isSafeNumber(term.fromSearchValue) ? term.fromSearchValue : undefined;
+					console.log( 'term.fromSearchValue: ' + term.fromSearchValue);
 					if( term.setFromSearchValue( Number($(this).val()) ) === false ){
 						$(this).val( previousValue );
 						valueChanged = false;
@@ -3513,7 +3406,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				if( valueChanged === true ){
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -3542,11 +3435,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				event.preventDefault();
 
 				if( term.setToSearchValue( Number( $(this).val() ) ) === false ){
+					console.log( 'term.toSearchValue: ' + term.toSearchValue );
 					$(this).val( term.toSearchValue );
 				}
 				else{
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -3587,8 +3481,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $node = $('<div class="form-group input-text-wrapper">');
 			
-			let $label = FormUIUtil.$getLabelNode( valueName, label, mandatory, helpMessage ).appendTo( $node );
-			
+			let $labelNode = FormUIUtil.$getLabelNode( valueName, label, mandatory, helpMessage ).appendTo( $node );
+			this.$label = $labelNode.find('span').first();
+
 			let $controlSection = 
 					$('<div style="display:flex; align-items:center;justify-content: center; width:100%; margin:0; padding:0;">')
 					.appendTo( $node );
@@ -3613,17 +3508,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				change: function( event ){
 					event.stopPropagation();
 
-					if( !term.setValue( FormUIUtil.getFormValue(term.termName+'_value') ) ){
-						if( Util.isSafeNumber(term.value) ){
-							FormUIUtil.setFormValue( term.termName+'_value', term.value );
-						}
-						else{
-							FormUIUtil.clearFormValue( term.termName+'_value' );
-						}
+					term.value = FormUIUtil.getFormValue(term.termName+'_value');
+
+					if( Util.isNotEmpty(term.value) ){
+						FormUIUtil.setFormValue( term.termName+'_value', term.value );
+					}
+					else{
+						FormUIUtil.clearFormValue( term.termName+'_value' );
 					};
 
 					const eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -3633,7 +3528,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
 				}
 			};
-			FormUIUtil.$getTextInput( valueName, valueName, 'text',  placeHolder, mandatory, disabled, value, eventFuncs ).appendTo($inputCol);
+			this.$input = FormUIUtil.$getTextInput( valueName, valueName, 'text',  placeHolder, mandatory, disabled, value, eventFuncs ).appendTo($inputCol);
 
 			if( uncertainty ){
 				$('<div style="display:inline-block;width:3%;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>')
@@ -3645,16 +3540,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					change: function( event ){
 						event.stopPropagation();
 	
-						if( !term.setUncertaintyValue( FormUIUtil.getFormValue(term.termName+'_uncertainty') ) ){
-							if( Util.isSafeNumber(term.uncertaintyValue) ){
-								FormUIUtil.setFormValue( term.termName+'_uncertainty', term.uncertaintyValue );
-							}
-							else{
-								FormUIUtil.clearFormValue( term.termName+'_uncertainty' );
-							}
+						term.uncertaintyValue = FormUIUtil.getFormValue(term.termName+'_uncertainty');
+
+						if( Util.isNotEmpty(term.uncertaintyValue) ){
+							FormUIUtil.setFormValue( term.termName+'_uncertainty', term.uncertaintyValue );
+						}
+						else{
+							FormUIUtil.clearFormValue( term.termName+'_uncertainty' );
 						};
+						
 						const eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term
@@ -3767,7 +3663,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( Util.isSafeNumber(this.minValue) ){
 				let errorMsg;
 				if( !!this.minBoundary ){
-					console.log( 'new value: ', value);
 					if( value < this.minValue  ){
 						validation = false;
 						errorMsg = Liferay.Language.get('keyword-must-larger-than-or-equal-to-the-minimum-value') +
@@ -3785,7 +3680,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( validation === false ){
 					FormUIUtil.showError(
 						Constants.ERROR,
-						Liferay.Language.get('search-out-of-range-error'),
+						Liferay.Language.get('out-of-range-error'),
 						errorMsg,
 						{
 							ok: {
@@ -3844,42 +3739,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.minValidation( value ) && this.maxValidation( value );
 		}
 
-		setValue( value ){
-			if( Util.isEmptyString(value) ){
-				delete this.value;
-				return true;
-			}
-
-			let safeValue = Util.toSafeNumber( value );
-
-			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
-				return false;
-			}
-
-			this.value = safeValue;
-			return true;
-		}
-
-		setUncertaintyValue( value ){
-			console.log('value: ', value );
-			if( Util.isEmptyString(value) ){
-				delete this.uncertaintyValue;
-				return true;
-			}
-
-			let safeValue = Util.toSafeNumber( value );
-			console.log('safeValue: ', safeValue );
-
-			if( isNaN(safeValue) ){
-				return false;
-			}
-
-			this.uncertaintyValue = safeValue;
-			return true;
-		}
-
 		setSearchValues( values ){
 			let properValues = values.filter( value => {
+				if( !Util.isSafeNumber(value) ){
+					$.alert( Liferay.Language.get('only-number-allowed')+':'+value );
+					return Constants.FILTER_SKIP;
+				}
+
 				if( Util.isSafeNumber(this.minValue) ){
 					if( this.minValue > value ){
 						FormUIUtil.showError(
@@ -3938,6 +3804,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setFromSearchValue( fromValue ){
+			if( !Util.isSafeNumber(fromValue) ){
+				$.alert(Liferay.Language.get('only-number-allowed'));
+				return false;
+			}
 			// Validate if the search value is larger than or equal to minimum value
 			if( this.minmaxValidation( fromValue ) === false ){
 				return false;
@@ -3974,6 +3844,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setToSearchValue( toValue ){
+			if( !Util.isSafeNumber(toValue) ){
+				$.alert(Liferay.Language.get('only-number-allowed'));
+				return false;
+			}
 			// Validate if the search value is larger than or equal to minimum value
 			if( this.minmaxValidation( toValue ) === false ){
 				return false;
@@ -4008,7 +3882,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setMinValue( value ){
-			if( Util.isEmptyString(value) ){
+			if( Util.isEmpty(value) ){
 				delete this.minValue;
 				return true;
 			}
@@ -4024,7 +3898,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setMaxValue( value=NaN ){
-			if( Util.isEmptyString(value) ){
+			if( Util.isEmpty(value) ){
 				delete this.maxValue;
 				return true;
 			}
@@ -4225,9 +4099,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER );
 			}
 		}
+
+		hasValue(){
+			return Util.isSafeNumber(this.#value);
+		}
+
+		hasUncertainty(){
+			return Util.isSafeNumber(this.#uncertaintyValue);
+		}
 		
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 			this.setMinValueFormValue();
 			this.setMinBoundaryFormValue();
 			this.setMaxValueFormValue();
@@ -4245,14 +4127,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let self = this;
 			Object.keys( unparsed ).forEach((key, index)=>{
 				switch( key ){
-					case 'minValue':
 					case 'minBoundary':
-					case 'maxValue':
 					case 'maxBoundary':
 					case 'unit':
 					case 'uncertainty':
-					case 'uncertaintyValue':
 					case 'sweepable':
+					case 'minValue':
+					case 'maxValue':
+					case 'uncertaintyValue':
+					case 'value':
+					case 'inputSize':
+					case 'lineBreak':
 						self[key] = json[key];
 						break;
 					case 'placeHolder':
@@ -4273,11 +4158,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !!this.maxBoundary )	json.maxBoundary = true;
 			if( !!this.unit )	json.unit = this.unit;
 			if( !!this.uncertainty )	json.uncertainty = true;
-			if( Util.isSafeNumber(this.uncertaintyValue) )	json.uncertaintyValue = this.uncertaintyValue;
+			if( this.hasValue() )	json.value = this.value;
+			if( this.hasUncertaintyValue )	json.uncertaintyValue = this.uncertaintyValue;
 			if( this.sweepable )	json.sweepable = true;
 			if( this.placeHolder ){
 				json.placeHolder = this.placeHolder.getLocalizedMap();
 			}
+			json.inputSize = this.inputSize;
+			json.lineBreak = this.lineBreak;
 
 			return json;
 
@@ -4297,12 +4185,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static $BTN_NEW_OPTION = $('#'+NAMESPACE+'btnNewOption');
 		static $BTN_CHOOSE_ACTIVE_TERMS = $('#'+NAMESPACE+'btnListChooseActiveTerms');
 
+		#value;
+
 		constructor( jsonObj ){
 			super('List');
 
 			if( jsonObj ) this.parse(jsonObj);
 
-			this.setAllFormValues();
+			this.setPropertyFormValues();
+		}
+
+		get value() { return this.#value; }
+		set value(value){ 
+			if( Util.isNotEmptyString(value) ){
+				this.#value = JSON.parse(value);
+			}
+			else if( Util.isNonEmptyArray(value) ){
+				this.#value = value;
+			}
+			else{
+				this.#value = undefined;
+			}
 		}
 
 		highlightOptionPreview(){
@@ -4486,15 +4389,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		hasSlaves(){
 			let hasSlaves = false;
-			this.options.every( option => {
-				if( option.hasOwnProperty('activeTerms') ){
-					hasSlaves = true;
-
-					return Constants.STOP_EVERY;
-				}
-
-				return Constants.CONTINUE_EVERY;
-			});
+			if( Util.isNonEmptyArray(this.options) ){
+				this.options.every( option => {
+					if( option.hasOwnProperty('activeTerms') ){
+						hasSlaves = true;
+	
+						return Constants.STOP_EVERY;
+					}
+	
+					return Constants.CONTINUE_EVERY;
+				});
+			}
 
 			return hasSlaves;
 		}
@@ -4648,7 +4553,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 
 						let eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: term
@@ -4669,8 +4574,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
 				let optionValue = value ? value[0] : '';
-				let $node = $('<div class="form-group input-text-wrapper">')
-								.append( FormUIUtil.$getSelectTag(controlName, options, optionValue, label, mandatory, helpMessage, disabled) );
+				//let $node = $('<div class="form-group input-text-wrapper">')
+				//				.append( FormUIUtil.$getSelectTag(controlName, options, optionValue, label, mandatory, helpMessage, disabled) );
+				let $node = FormUIUtil.$getSelectTag(controlName, options, optionValue, label, mandatory, helpMessage, disabled);
+				this.$label = $node.find('span').first();
 
 				$node.change(function(event){
 					event.stopPropagation();
@@ -4678,12 +4585,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					term.value = [$node.find('select').val()];
 
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
-							term: term,
-							controlName: controlName,
-							value: term.value
+							term: term
 						}
 					};
 
@@ -4699,6 +4604,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{
 				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
+				this.$label = $panelGroup.find('span').first();
 
 				let optionValue = value ? value[0] : '';
 				if( displayStyle === Constants.DISPLAY_STYLE_RADIO ){
@@ -4719,11 +4625,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						term.value = [changedVal];
 
 						let eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
-								value: changedVal
+								term: term
 							}
 						};
 
@@ -4760,11 +4665,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						term.valueMode = Constants.ARRAY;
 
 						let eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
-								term: term,
-								value: checkedValues
+								term: term
 							}
 						};
 
@@ -4906,8 +4810,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 
 			this.setDisplayStyleFormValue();
 			this.renderOptions();
@@ -4927,6 +4831,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.highlightOptionPreview();
 		}
 
+		hasValue(){
+			return Util.isNonEmptyArray(this.value);
+		}
+
 		parse( json ){
 			let unparsed = super.parse( json );
 			let unvalid = new Object();
@@ -4934,8 +4842,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let self = this;
 			Object.keys( unparsed ).forEach((key)=>{
 				switch(key){
+					case 'value':
+						self.value = json.value;
+						break;
 					case 'displayStyle':
-						self.displayStyle = unparsed[key];
+						self.displayStyle = json.displayStyle;
 						break;
 					case 'options':
 						if( typeof json.options === 'string' ){
@@ -4958,6 +4869,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let json = super.toJSON();
 			
 			json.displayStyle = this.displayStyle;
+			if( this.hasValue() ){
+				json.value = this.value;
+			}
 
 			if( this.options ){
 				json.options = this.options.map(option=>option.toJSON());
@@ -4977,14 +4891,57 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			'msn.com'
 		];
 
+		#value;
+
 		constructor( jsonObj ){
 			super( 'EMail' );
 
 			if( jsonObj ){
 				this.parse( jsonObj );
 			}
+		}
 
-			super.setAllFormValues();
+		get value(){
+			if( Util.isNonEmptyArray(this.#value) ){
+				return this.#value.join('@');
+			}
+		}
+		set value( value ){
+			if( Util.isNotEmptyString(value) ){
+				let parts = value.split('@');
+				if( parts.length === 2 ){
+					this.#value = parts;
+					return;
+				}
+			}
+			else if( Util.isNonEmptyArray(value) && value.length === 2 ){
+				this.#value = value;
+				return;
+			}
+			
+			this.#value = undefined;
+		}
+
+		get emailId(){ 
+			if( this.#value instanceof Array )	return this.#value[0];
+		};
+		set emailId( id ){
+			if( !(this.#value instanceof Array) ){
+				this.#value = new Array(2);
+			}
+
+			this.#value[0] = id;
+		}
+
+		get server(){ 
+			if( this.#value instanceof Array )	return this.#value[1];
+		};
+		set server( server ){
+			if( !this.#value instanceof Array ){
+				this.#value = new Array(2);
+			}
+
+			this.#value[1] = server;
 		}
 
 		$emailFormSection( forWhat ){
@@ -4996,11 +4953,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				mandatory = false;
 			}
 
-			let $label = FormUIUtil.$getLabelNode( 
+			let $labelNode = FormUIUtil.$getLabelNode( 
 				controlId + '_id',
 				this.getLocalizedDisplayName(),
 				mandatory,
 				this.getLocalizedTooltip() ).appendTo($section);
+			this.$label = $labelNode.find('span').first();
 			
 			let self = this;
 			if( forWhat === Constants.FOR_EDITOR ||
@@ -5016,12 +4974,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$inputEmailId.prop('disabled', true);
 				}
 
-				if( this.hasOwnProperty('value') ){
-					$inputEmailId.val( this.value[0] );
+				if( this.hasValue() ){
+					$inputEmailId.val( this.emailId );
 				}
 
 				let eventData = {
-					sxeventData:{
+					sxeventdata:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: this  
@@ -5033,13 +4991,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					let emailId = $(this).val();
 
-					if( emailId ){
-						if( !self.value )	self.value = new Array();
-						self.value[0] = emailId;
-					}
-					else{
-						delete self.value[0];
-					}
+					self.emailId = emailId;
 
 					Liferay.fire(
 						Events.DATATYPE_SDE_VALUE_CHANGED,
@@ -5067,8 +5019,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$inputServers.prop('disabled', true);
 				}
 
-				if( this.hasOwnProperty('value') ){
-					$inputServers.val( this.value[1] );
+				if( this.hasValue() ){
+					$inputServers.val( this.#value[1] );
 				}
 
 				$inputServers.change( function(event){
@@ -5076,13 +5028,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					let serverName = $(this).val();
 
-					if( serverName ){
-						if( !self.value )	self.value = new Array();
-						self.value[1] = serverName;
-					}
-					else{
-						delete self.value[1];
-					}
+					self.server = serverName;
 
 					Liferay.fire(
 						Events.DATATYPE_SDE_VALUE_CHANGED,
@@ -5111,7 +5057,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 					
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: self
@@ -5151,19 +5097,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+		hasValue(){
+			return this.#value instanceof Array && this.#value[0] && this.#value[1];
+		}
+
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
 
-			if( jsonObj.value ){
-				this.value = jsonObj.value.split('@');
-			}
+			this.value = jsonObj.value;
 		}
 
 		toJSON(){
 			let json = super.toJSON();
 
-			if( this.value && this.value[0] && this.value[1] ){
-				json.value = this.value.join('@');
+			if( this.hasValue() ){
+				json.value = this.value;
 			}
 
 			return json;
@@ -5172,14 +5120,66 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 5. AddressTerm */
 	class AddressTerm extends Term{
+		#value;
+
 		constructor( jsonObj ){
 			super( 'Address' );
 
 			if( jsonObj ){
 				this.parse( jsonObj );
 			}
+		}
 
-			this.setAllFormValues();
+		get value(){
+			if( Util.isNonEmptyArray(this.#value) ){
+				return this.#value.join(', ');
+			}
+			
+			return '';
+		}
+		set value( value ){
+			if( Util.isNotEmptyString(value) ){
+				this.#value = value.split(', ')
+				return;
+			}
+			else if( Util.isNonEmptyArray(value) ){
+				this.#value = value;
+				return;
+			}
+			
+			this.#value = undefined;
+		}
+
+		get zonecode(){	
+			if( Array.isArray(this.#value) )
+				return this.#value[0]; 
+		}
+		set zonecode( code ){
+			if( !Array.isArray(this.#value) ){
+				this.#value = new Array(3);
+			}
+			this.#value[0] = code; 
+		}
+		get street(){	
+			if( Array.isArray(this.#value) )
+				return this.#value[1]; 
+		}
+		set street( street ){
+			if( !Array.isArray(this.#value) ){
+				this.#value = new Array(3);
+			}
+			this.#value[1] = street; 
+		}
+		get detailAddr(){	
+			if( Array.isArray(this.#value) )
+				return this.#value[2]; 
+		}
+		set detailAddr( addr ){
+			if( !Array.isArray(this.#value) ){
+				this.#value = new Array(3);
+			}
+
+			this.#value[2] = addr; 
 		}
 
 		$getAddressSection( forWhat ){
@@ -5191,11 +5191,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				mandatory = false;
 			}
 
-			let $label = FormUIUtil.$getLabelNode( 
+			let $labelNode = FormUIUtil.$getLabelNode( 
 				controlId + '_id',
 				this.getLocalizedDisplayName(),
 				mandatory,
 				this.getLocalizedTooltip() ).appendTo($section);
+			this.$label = $labelNode.find('span').first();
 			
 			let self = this;
 			if( forWhat === Constants.FOR_EDITOR ||
@@ -5209,8 +5210,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											'disabled '+
 											'/>' ).appendTo( $inputSection );
 
-				if( this.hasOwnProperty('value') && this.value[0] ){
-					$inputZipcode.val( this.value[0] );
+				if( this.hasValue() ){
+					$inputZipcode.val( this.zipcode );
 				}
 
 				let $searchZipcodeBtn = $('<button id="' + NAMESPACE + 'searchZipcode" class="btn btn-default">' + 
@@ -5226,8 +5227,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										'name="' + controlId + '_address" ' +
 										'disabled '+
 										'/>' ).appendTo( $inputSection );
-				if( this.hasOwnProperty('value') && this.value[1] ){
-					$address.val( this.value[1] );
+				if( this.hasValue() ){
+					$address.val( this.street );
 				}
 
 				let $detailNode = $('<div>').appendTo( $inputSection );
@@ -5240,8 +5241,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											'style="display:inline-block;max-width:76%;" '+
 											'disabled '+
 											'/>' ).appendTo( $detailNode );
-				if( this.hasOwnProperty('value') && this.value[2] ){
-					$detailAddr.val( this.value[2] );
+				if( this.hasValue() ){
+					$detailAddr.val( this.detailAddr );
 					$detailAddr.prop('disabled', false);
 				}
 
@@ -5255,8 +5256,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					event.stopPropagation();
 					event.preventDefault();
 
-					delete self.value;
-					self.setAddressValue();
+					self.value = undefined;
 
 					$inputZipcode.val('');
 					$address.val('');
@@ -5273,9 +5273,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						width: 500,
 						height: 600,
 						oncomplete: function(data) {
-							self.value = new Array(4);
+							self.value = new Array(3);
 							$inputZipcode.val( data.zonecode );
-							self.value[0] = data.zonecode;
+							self.zonecode = data.zonecode;
 
 							let address;
 
@@ -5287,7 +5287,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 
 							$address.val( address );
-							self.value[1] = address;
+							self.street = address;
 							
 							$detailAddr.prop('disabled', false).focus();
 						}
@@ -5297,12 +5297,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$detailAddr.change( function(event){
 					event.stopPropagation();
 
-					if( self.value ){
-						self.value[2] = $(this).val().replaceAll(',', ' ');
-					}
+					self.detailAddr = $(this).val().replaceAll(',', ' ');
 
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: self  
@@ -5354,7 +5352,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				let eventData = {
-					sxeventData:{
+					sxeventdata:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: self
@@ -5396,29 +5394,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		setAddressValue( value ){
-			if( typeof value === 'string' ){
-				this.value = value.split(', ');
-			}
-			else if( value instanceof Array ){
-				this.value = value;
-			}
-			else{
-				delete this.value;
-			}
+		hasValue(){
+			return Util.isNonEmptyArray( this.#value ) &&
+					this.#value[0] && this.#value[1] && this.#value[2];
 		}
 
 		parse( jsonObj ){
 			super.parse( jsonObj );
 
-			this.setAddressValue( jsonObj.value );
+			this.value = jsonObj.value ? jsonObj.value : undefined;
 		}
 
 		toJSON(){
 			let json = super.toJSON();
 
-			if( json.value instanceof Array ){
-				json.value = json.value.join(', ');
+			if( this.hasValue() ){
+				json.value = this.value;
 			}
 			
 			return json;
@@ -5431,26 +5422,116 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_COLUMNS = 3;
 		static DEFAULT_COLUMN_WIDTH = 2;
 
+		#value;
+		#rows;
+		#columns;
+		#columnWidth;
+
 		constructor( jsonObj ){
 			super( 'Matrix' );
 			
 			if( jsonObj ){
 				this.parse( jsonObj );
 			}
-
-			super.setAllFormValues();
-
-			this.setRowsFormValue();
-			this.setColumnsFormValue();
-			this.setColumnWidthFormValue();
 		}
 
-		isEmptyValue(){
-			if( !(this.value instanceof Array) )	return true;
+		get value(){
+			return this.#value;
+		}
+		set value( value ){
+			if( Util.isNotEmptyString(value) ){
+				this.#value = JSON.parse(value);
+				return;
+			}
+			else if( Util.isNonEmptyArray(value) ){
+				this.#value = value;
+				return;
+			}
+			
+			this.#value = undefined;
+		}
+
+		get rows(){ return this.#rows; }
+		set rows( rows ){
+			let safeRows = Util.toSafeNumber( rows );
+
+			if( Util.isSafeNumber(safeRows) ){
+				if( safeRows < 1 ){
+					$.alert(Liferay.Language.get('matrix-rows-should-be-lager-than-0'));
+					return;
+				}
+				else{
+					this.#rows = safeRows;
+
+					return;
+				}
+			}
+
+			if( Util.isEmpty(rows) ){
+				this.#rows = 3;
+			}
+		}
+
+		get columns(){ return this.#columns; }
+		set columns( columns ){
+			let safeColumns = Util.toSafeNumber( columns );
+
+			if( Util.isSafeNumber(safeColumns) ){
+				if( safeColumns < 1 ){
+					$.alert(Liferay.Language.get('matrix-columns-should-be-lager-than-0'));
+					return;
+				}
+				else{
+					this.#columns = safeColumns;
+
+					return;
+				}
+			}
+
+			if( Util.isEmpty(columns) ){
+				this.#columns = 3;
+			}
+		}
+
+		get columnWidth(){ return this.#columnWidth; }
+		set columnWidth( width ){
+			let safeWidth = Util.toSafeNumber( width );
+
+			if( Util.isSafeNumber(safeWidth) ){
+				if( safeWidth < 1 ){
+					$.alert(Liferay.Language.get('matrix-column-width-should-be-lager-than-0'));
+					return;
+				}
+				else{
+					this.#columnWidth = width;
+
+					return;
+				}
+			}
+
+			if( Util.isEmpty(width) ){
+				this.#columnWidth = 2;
+			}
+		}
+
+		getCell( row, col ){
+			return this.#value[row][col];
+		}
+
+		setCell( row, col, value ){
+			let safeVal = Util.toSafeNumber( value );
+			if( !isNaN(safeVal) ){
+				this.#value[row][col] = safeVal;
+			}
+		}
+
+		hasValue(){
+			if( !Util.isNonEmptyArray(this.value) )	return false;
 
 			for( let r=0; r<this.rows; r++ ){
+				if( !Util.isNonEmptyArray(this.value[r]) )	return false;
 				for( let c=0; c<this.columns; c++ ){
-					if( Util.isSafeNumber(this.value[r][c]) ){
+					if( !Util.isSafeNumber(this.value[r][c]) ){
 						return false;
 					}
 				}
@@ -5462,29 +5543,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getFormMatrixSection( forWhat ){
 			let $matrixSection = $('<div class="form-group input-text-wrapper">');
 			
-			FormUIUtil.$getLabelNode( NAMESPACE+this.termName, 
+			let $labelNode = FormUIUtil.$getLabelNode( NAMESPACE+this.termName, 
 									this.getLocalizedDisplayName(),
 									this.mandatory, 
 									this.getLocalizedTooltip() ).appendTo($matrixSection);
+			this.$label = $labelNode.find('span').first();
 
 			let $table = $('<table>').appendTo( $matrixSection );
-			for( let r=0; r < this.rows; r++ ){
+			for( let r=0; r < this.#rows; r++ ){
 				let $tr = $('<tr style="line-height:1.8rem;">').appendTo( $table ) ;
 				if( r === 0 ){
 					$tr.append( $('<td><span style="font-size:1rem;">&#9121;</span></td>') );
 				}
-				else if( r > 0 && r < this.rows - 1 ){
+				else if( r > 0 && r < this.#rows - 1 ){
 					$tr.append( $('<td><span style="font-size:1rem;">&#9122;</span></td>') );
 				}
 				else{
 					$tr.append( $('<td><span style="font-size:1rem;">&#9123;</span></td>') );
 				}
 
-				for( let c=0; c<this.columns; c++){
+				for( let c=0; c<this.#columns; c++){
 					let $td = $('<td>').appendTo( $tr );
 					$td.css({
-						'width': this.columnWidth+'rem',
-						'max-width': (100 / (this.columns + 2)) + '%'
+						'width': this.#columnWidth+'rem',
+						'max-width': (100 / (this.#columns + 2)) + '%'
 					});
 					let $input = $('<input type="text" ' + 
 										'name="' + NAMESPACE + this.termName+'_'+r+'_'+c+'" ' + 
@@ -5497,8 +5579,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						'margin-right':'3px'
 					});
 
-					if( Util.isSafeNumber(this.value[r][c]) ){
-						$input.val( this.value[r][c] );
+					if( Util.isSafeNumber(this.#value[r][c]) ){
+						$input.val( this.#value[r][c] );
 					}
 					else{
 						$input.val('');
@@ -5515,17 +5597,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							let strVal = $(this).val();
 							let safeVal = Util.toSafeNumber( strVal );
 							if( Util.isSafeNumber(safeVal) ){
-								matrixTerm.value[r][c] = safeVal ;
+								matrixTerm.setCell(r, c, safeVal) ;
 							}
 							else{
 								$.alert( Liferay.Language.get('matix-allowed-only-numbers') );
-								if( Util.isSafeNumber(matrixTerm.value[r][c]) )
-									$(this).val(matrixTerm.value[r][c]);
+								if( Util.isSafeNumber(matrixTerm.getCell(r, c)) )
+									$(this).val(matrixTerm.getCell(r, c));
 								else	$(this).val('');
 							}
 
 							let eventData = {
-								sxeventData:{
+								sxeventdata:{
 									sourcePortlet: NAMESPACE,
 									targetPortlet: NAMESPACE,
 									term: matrixTerm  
@@ -5560,11 +5642,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			if( this.isEmptyValue() ){
-				this.value = new Array( this.rows );
+			if( !this.hasValue() ){
+				this.#value = new Array( this.#rows );
 				
 				for( let r=0; r<this.rows; r++){
-					this.value[r] = new Array(this.columns);
+					this.#value[r] = new Array(this.#columns);
 				}
 			}
 
@@ -5586,81 +5668,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		setRows( rows ){
-			let safeRows = Util.toSafeNumber( rows );
-
-			if( Util.isSafeNumber(safeRows) ){
-				if( safeRows < 1 ){
-					$.alert(Liferay.Language.get('matrix-rows-should-be-lager-than-0'));
-					return 0;
-				}
-				else{
-					this.rows = safeRows;
-
-					return this.rows;
-				}
-			}
-
-			if( Util.isEmptyString(rows) || typeof rows === 'undefined' ){
-				this.rows = 3;
-
-				return this.rows;
-			}
-
-			return 0;
-		}
-
-		setColumns( columns ){
-			let safeColumns = Util.toSafeNumber( columns );
-
-			if( Util.isSafeNumber(safeColumns) ){
-				if( safeColumns < 1 ){
-					$.alert(Liferay.Language.get('matrix-columns-should-be-lager-than-0'));
-					return 0;
-				}
-				else{
-					this.columns = safeColumns;
-
-					return this.columns;
-				}
-			}
-
-			if( Util.isEmptyString(columns) || typeof columns === 'undefined' ){
-				this.columns = 3;
-
-				return this.columns;
-			}
-
-			return 0;
-		}
-
-		setColumnWidth( width ){
-			let safeWidth = Util.toSafeNumber( width );
-
-			if( Util.isSafeNumber(safeWidth) ){
-				if( safeWidth < 1 ){
-					$.alert(Liferay.Language.get('matrix-column-width-should-be-lager-than-0'));
-					return 0;
-				}
-				else{
-					this.columnWidth = safeWidth;
-
-					return this.columnWidth;
-				}
-			}
-
-			if( Util.isEmptyString(width) || typeof width === 'undefined' ){
-				this.columnWidth = 2;
-
-				return this.columnWidth;
-			}
-
-			return 0;
-		}
-
-
 		setRowsFormValue( value ){
-			this.setRows( value );
+			this.rows = value;
 
 			FormUIUtil.setFormValue( 'rows', this.rows );
 		}
@@ -5668,7 +5677,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getRowsFormValue( save=true ){
 			let value = FormUIUtil.getFormValue( 'rows' );
 			if( save ){
-				this.setRows( value );
+				this.rows = value;
 				this.dirty = true;
 			}
 			
@@ -5676,7 +5685,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setColumnsFormValue( value ){
-			this.setColumns( value );
+			this.columns = value;
 			
 			FormUIUtil.setFormValue( 'columns', this.columns );
 		}
@@ -5685,7 +5694,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let value = FormUIUtil.getFormValue( 'columns' );
 
 			if( save ){
-				this.setColumns( value );
+				this.columns = value;
 				this.dirty = true;
 			}
 			
@@ -5693,13 +5702,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setColumnWidthFormValue( value ){
-			this.setColumnWidth( value );
+			this.columnWidth = value;
 			FormUIUtil.setFormValue( 'columnWidth', this.columnWidth );
 		}
 
 		getColumnWidthFormValue( save=true ){
 			if( save ){
-				this.setColumnWidth( FormUIUtil.getFormValue( 'columnWidth' ) );
+				this.columnWidth = FormUIUtil.getFormValue( 'columnWidth' );
 				this.dirty = true;
 
 				return this.columnWidth;
@@ -5716,13 +5725,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			Object.keys(unparsed).forEach( key => {
 				switch( key ){
 					case 'rows':
-						self.setRows( unparsed[key] );
-						break;
 					case 'columns':
-						self.setColumns( unparsed[key] );
-						break;
 					case 'columnWidth':
-						self[key] = self.setColumnWidth( unparsed[key] );
+					case 'value':
+						self[key] = jsonObj[key];
 						break;
 					default:
 						console.log( 'Un-recognizable attribute: ' + key );
@@ -5738,8 +5744,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			json.columns = this.columns;
 			json.columnWidth = this.columnWidth;
 			
-			if( this.isEmptyValue() ){
-				delete json.value;
+			if( this.hasValue() ){
+				json.value = this.value;
 			}
 
 			return json;
@@ -5748,12 +5754,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 7. PhoneTerm */
 	class PhoneTerm extends Term{
+		#value;
+
 		constructor( jsonObj ){
 			super( "Phone" );
 
 			if( jsonObj )	this.parse( jsonObj );
+		}
 
-			super.setAllFormValues();
+		get value(){
+			if( Util.isNonEmptyArray(this.#value) ){
+				return this.#value.join('-');
+			}
+		}
+		set value( value ){
+			if( Util.isNotEmptyString(value) ){
+				this.#value = value.split('-');
+				return;
+			}
+			else if( Util.isNonEmptyArray(value) ){
+				this.#value = value;
+				return;
+			}
+			
+			this.#value = undefined;
 		}
 
 		checkDigit( $control, val ){
@@ -5768,7 +5792,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return true;
 		}
 
-		checkValue(){
+		hasValue(){
+			if( !Util.isNonEmptyArray( this.#value ) )	return false;
 
 			if( this.value[0] && this.value[1] && this.value[2] )	return true;
 			
@@ -5776,15 +5801,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		setValue( value, index ){
-			if( !this.value ){
-				this.value = new Array( 3 );
+			if( Util.isEmpty(this.#value) ){
+				this.#value = new Array( 3 );
 			}
 
-			this.value[index] = value;
+			this.#value[index] = value;
 
-			if( this.checkValue() ){
+			if( this.hasValue() ){
 				let eventData = {
-					sxeventData:{
+					sxeventdata:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: this
@@ -5805,8 +5830,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $phoneSection = $('<div>');
 
-			FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage)
+			let $labelNode = FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage)
 							.appendTo($phoneSection);
+			this.$label = $labelNode.find('span').first();
 
 			if( forWhat === Constants.FOR_SEARCH ){
 				let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
@@ -5818,7 +5844,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self.searchKeywords = $(this).val().split(' ');
 
 						let eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: self  
@@ -5983,14 +6009,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		parse( jsonObj ){
 			super.parse( jsonObj );
 
-			if( typeof this.value === 'string' )	this.value = this.value.split( '-' );
+			this.value = jsonObj.value;
 		}
 
 		toJSON(){
 			let json = super.toJSON();
 
-			if( this.value instanceof Array ){
-				json.value = this.value.join('-');
+			if( this.hasValue() ){
+				json.value = this.value;
 			}
 
 			return json;
@@ -6012,12 +6038,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static OUT_OF_RANGE = -2;
 		static SUCCESS = 1;
 
+		#value;
+
 		constructor( jsonObj ){
 			super('Date');
 
 			if( jsonObj ) 	this.parse( jsonObj );
 			
-			this.setAllFormValues();
+		}
+
+		get value(){
+			return this.#value;
+		}
+
+		set value( value ){
+			if( Util.isEmpty(value) ){
+				this.#value = undefined;
+				return;
+			}
+
+			let safeValue = Util.toSafeNumber( value );
+
+			if( Util.isSafeNumber(safeValue) ){
+				this.#value = safeValue;
+				return;
+			}
 		}
 
 		$getDateTimeInputNode(){
@@ -6037,8 +6082,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let eventFuncs = {
 				change: function(event){
-					if( Util.isEmptyString( $(this).val() ) ){
-						delete term.value;
+					if( Util.isEmpty( $(this).val() ) ){
+						term.value = undefined;
 					}
 				}
 			};
@@ -6079,7 +6124,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					let eventData = {
 						bubbles: false,
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term 
@@ -6119,13 +6164,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$getDateInputSection(){
-			let $dateTimeSection = $('<div class="lfr-ddm-field-group field-wrapper">')
-					.append( FormUIUtil.$getLabelNode(
-						NAMESPACE + this.termName, 
-						this.getLocalizedDisplayName(),
-						this.mandatory,
-						this.getLocalizedTooltip() ) )
-					.append( this.$getDateTimeInputNode() );
+			let $dateTimeSection = $('<div class="lfr-ddm-field-group field-wrapper">');
+			let $labelNode = FormUIUtil.$getLabelNode(
+									NAMESPACE + this.termName, 
+									this.getLocalizedDisplayName(),
+									this.mandatory,
+									this.getLocalizedTooltip() ).appendTo( $dateTimeSection );
+			this.$label = $labelNode.find('span').first();
+			
+			$dateTimeSection.append( this.$getDateTimeInputNode() );
 
 			return $dateTimeSection;
 		}
@@ -6202,7 +6249,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					};
 
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -6263,7 +6310,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -6296,7 +6343,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				yearStart: term.startYear ? term.startYear : new Date().getFullYear(),
 				yearEnd: term.endYear ? term.endYear : new Date().getFullYear(),
 				timepicker: false,
-				format: 'Y. m. d.'
+				format: 'Y/m/d'
 			};
 
 			$fromInputTag.datetimepicker(options);
@@ -6306,11 +6353,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let rangeEventFuncs = {
 				change: function(event){
-					console.log('asdkfjchaskljdhvcasdkhlfvhj', term);
-					//event.stopPropagation();
+					event.stopPropagation();
 
 					term.rangeSearch = $(this).prop('checked');
-					console.log('rangeSearch: ', term );
+					
 					if( term.rangeSearch === false ){
 						delete term.rangeSearch;
 					}
@@ -6342,7 +6388,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: term
@@ -6367,7 +6413,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				rangeEventFuncs
 			).appendTo( $searchKeywordSection );
 
-			$rangeCheckbox.css('max-width', '28%' );
+			//$rangeCheckbox.css('max-width', '28%' );
 
 			return $dateSection;
 		}
@@ -6419,22 +6465,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			} 
 		}
 
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 
 			this.setEnableTimeFormValue();
 			this.setStartYearFormValue();
 			this.setEndYearFormValue();
 		}
 
-		initAllAttributes(){
-			super.initAllAttributes( 'Date' );
+		initPropertyValues(){
+			super.initPropertyValues();
 
 			this.$rendered = null;
 
-			if( !this.enableTime ) 	this.enableTime = DateTerm.DEFAULT_ENABLE_TIME;
-			if( !this.startYear )	this.startYear = DateTerm.DEFAULT_START_YEAR;
-			if( !this.endYear )		this.endYear = DateTerm.DEFAULT_END_YEAR;
+			this.enableTime = DateTerm.DEFAULT_ENABLE_TIME;
+			this.startYear = DateTerm.DEFAULT_START_YEAR;
+			this.endYear = DateTerm.DEFAULT_END_YEAR;
 		}
 
 		/**
@@ -6615,7 +6661,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let minuite = date.getMinutes().toLocaleString(undefined, {minimumIntegerDigits:2});
 			let dateAry = [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')];
 			let timeAry = [String(hour).padStart(2, '0'), String(minuite).padStart(2, '0')];
-			return dateAry.join('. ') + '. ' + timeAry.join(':');
+			return dateAry.join('/') + '/' + timeAry.join(':');
 		}
 
 		toDateString( value=this.value){
@@ -6626,11 +6672,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let date = new Date( Number( value ) );
 			let dateAry = [date.getFullYear(), String(date.getMonth()+1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')];
 
-			return dateAry.join('. ') + '.';
+			return dateAry.join('/');
 		}
 
 		toDate(){
 			return Util.isSafeNumber(this.value) ? new Date( this.value ) : new Date();
+		}
+
+		hasValue(){
+			return Util.isSafeNumber( this.#value );
 		}
 
 		parse( json ){
@@ -6638,18 +6688,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unvalid = new Object();
 
 			let self = this;
-			Object.keys( json ).forEach(function(key, index){
+			Object.keys( unparsed ).forEach(function(key, index){
 				switch( key ){
 					case 'enableTime':
 					case 'startYear':
 					case 'endYear':
-						self[key] = json[key];
-						break;
 					case 'value':
-						let safeValue = Util.toSafeNumber( json[key] );
-
-						if( Util.isSafeNumber(safeValue) )
-							self.value = Util.toSafeNumber( json.value );
+						self[key] = json[key];
 						break;
 					default:
 						if( unparsed.hasOwnProperty(key) ){
@@ -6667,7 +6712,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			if( this.enableTime )	json.enableTime = this.enableTime;
 			if( this.startYear )	json.startYear = this.startYear;
-			if( this.endYear )	json.endYear = this.endYear;
+			if( this.endYear )		json.endYear = this.endYear;
+			if( this.hasValue() )	json.value = this.value;
 
 			return json;
 		}
@@ -6675,23 +6721,40 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 9. FileTerm */
 	class FileTerm extends Term{
+		#deleteFileURL;
+		#value;
+
 		constructor( jsonObj ){
 			super( 'File' );
 
 			this.searchable = false;
 
-			if( jsonObj )	this.parse( jsonObj );
+			if( !$.isEmptyObject(jsonObj) )	this.parse( jsonObj );
+		}
 
-			this.setAllFormValues();
+		get deleteFileURL(){return this.#deleteFileURL;}
+		set deleteFileURL(url){ this.#deleteFileURL = url; }
+
+		get value(){
+			return this.getJsonValue();
+		}
+
+		set value( value ){
+			if( Util.isNotEmptyString(value) ){
+				this.#value = JSON.parse( value );
+			}
+			else if( !$.isEmptyObject(value) ){
+				this.#value = value;
+			}
 		}
 		
 		addFile( parantFolderId, fileId, file ){
-			if( !this.hasOwnProperty('value') ){
-				this.value = new Object();
+			if( $.isEmptyObject(this.#value) ){
+				this.#value = new Object();
 			}
 
 			let $fileListTable = this.$rendered.find('table');
-			if( this.value.hasOwnProperty(file.name) ){
+			if( this.#value.hasOwnProperty(file.name) ){
 				console.log('File already selected: ' + file.name );
 			}
 			else{
@@ -6706,13 +6769,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( file instanceof File ){
 				newFile.file = file;
 			
-				this.value[newFile.name] = newFile;
+				this.#value[newFile.name] = newFile;
 
 				let dt = new DataTransfer();
-				let files = Object.keys( this.value );
+				let files = Object.keys( this.#value );
 				for( let i=0; i<files.length; i++){
-					if( this.value[files[i]].file ){
-						dt.items.add( this.value[files[i]].file );
+					if( this.#value[files[i]].file ){
+						dt.items.add( this.#value[files[i]].file );
 					}
 				}
 	
@@ -6722,18 +6785,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{
 				newFile.parantFolderId = file.parantFolderId,
 				newFile.fileId = fileId;
-				this.value[newFile.name] = newFile;
+				this.#value[newFile.name] = newFile;
 			};
 
 		}
 
+		clearFile( fileName ){
+			delete this.#value[fileName];
+			//this.#value[fileName] = undefined;
+		}
+
 		removeFile( parentFolderId, fileId, fileName ){
-			if( !this.value ){
+			if( $.isEmptyObject(this.#value) ){
 				return;
 			}
 
 			if( fileId === undefined ){
-				delete this.value[fileName];
+				this.clearFile(fileName);
 
 				let input = this.$rendered.find('input')[0];
 				let files = input.files;
@@ -6750,8 +6818,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{
 				let params = new Object();
 				params[NAMESPACE+'fileId'] = fileId;
-				let value = this.value;
+				let self = this;
 				let deleteFileURL = this.deleteFileURL;
+				console.log('deleteFileURL: ' + deleteFileURL );
 				$.ajax({
 					url: deleteFileURL,
 					method: 'post',
@@ -6759,7 +6828,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					dataType: 'text',
 					success: function( result ){
 						alert( result );
-						delete value[fileName];
+						self.clearFile[fileName];
 					},
 					error: function( data, e ){
 						console.log(data);
@@ -6768,8 +6837,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 			}
 
-			if( Object.keys( this.value ).length === 0 ){
-				delete this.value;
+			if( $.isEmptyObject(this.#value ) ){
+				this.#value = undefined;
 			}
 		}
 
@@ -6806,8 +6875,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchField;
 		}
 
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 
 			FormUIUtil.clearFormValue( 'value' );
 		}
@@ -6828,7 +6897,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			if( save ){
-				this.value = value;
+				this.#value = value;
 			}
 			
 			return value;
@@ -6887,7 +6956,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				self.removeFile( parentFolderId, fileId, name );
 
 				let eventData = {
-					sxeventData:{
+					sxeventdata:{
 						sourcePortlet: NAMESPACE,
 						targetPortlet: NAMESPACE,
 						term: self
@@ -6905,7 +6974,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getFileUploadNode(){
 			let controlName = NAMESPACE + this.termName;
-			let files = this.value;
+			let files = this.#value;
 
 			let $node = $('<div class="file-uploader-container">');
 
@@ -6916,6 +6985,35 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				id: controlName,
 				name: controlName,
 				disabled: !!this.disabled ? true : false
+			});
+
+			let term = this;
+			$input.change(function(event){
+				event.stopPropagation();
+
+				let files = $(this)[0].files;
+			
+				if( files.length > 0 ){
+					let $fileListTable = $node.find('table');
+					$fileListTable.show();
+					
+					for( let i=0; i<files.length; i++){
+						term.addFile( undefined, undefined, files[i]);
+					};
+				}
+
+				let eventData = {
+					sxeventdata:{
+						sourcePortlet: NAMESPACE,
+						targetPortlet: NAMESPACE,
+						term: term
+					}
+				};
+
+				Liferay.fire(
+					Events.DATATYPE_SDE_VALUE_CHANGED,
+					eventData
+				);
 			});
 
 			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">')
@@ -6945,43 +7043,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $uploadSection = $('<div class="form-group input-text-wrapper">');
 			
-			let $label = FormUIUtil.$getLabelNode( controlName, label, mandatory, helpMessage )
+			let $labelNode = FormUIUtil.$getLabelNode( controlName, label, mandatory, helpMessage )
 							.appendTo( $uploadSection );
+			this.$label = $labelNode.find('span').first();
 
 			let $uploadNode = this.$getFileUploadNode().appendTo( $uploadSection );
 			
-			let term = this;
-			$uploadNode.change(function(event){
-				event.stopPropagation();
-
-				let files = $('#'+controlName)[0].files;
 			
-				if( files.length > 0 ){
-					if( !term.value ){
-						term.value = new Object();
-					}
-
-					let $fileListTable = $uploadNode.find('table');
-					$fileListTable.show();
-					
-					for( let i=0; i<files.length; i++){
-						term.addFile( undefined, undefined, files[i]);
-					};
-				}
-
-				let eventData = {
-					sxeventData:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-
-				Liferay.fire(
-					Events.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
-			});
 
 			return $uploadSection;
 		}
@@ -7021,14 +7089,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		getJsonValue(){
-			if( !this.value ){
-				return undefined;
+			if( $.isEmptyObject(this.#value) ){
+				return {};
 			}
 
 			let json = new Object();
-			let fileNames = Object.keys(this.value);
+			let fileNames = Object.keys(this.#value);
 			fileNames.forEach( fileName => {
-				let file = this.value[fileName];
+				let file = this.#value[fileName];
 				json[fileName] = {
 					parentFolderId: file.parentFolderId,
 					fileId: file.fileId,
@@ -7041,15 +7109,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return json;
 		}
 
+		hasValue(){
+			return !$.isEmptyObject( this.getJsonValue() );
+		}
+
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
 			let unvalid = new Object();
 			
 			let self = this;
+			console.log( 'file JSON: ', jsonObj, unparsed);
 			Object.keys( unparsed ).forEach( (key, index) => {
 				switch( key ){
 					case 'deleteFileURL':
-						self.deleteFileURL = jsonObj.deleteFileURL;
+						this.deleteFileURL = jsonObj.deleteFileURL;
+						console.log('key: '+key, this.deleteFileURL );
+						break;
+					case 'value':
+						this.value = jsonObj.value;
 						break;
 					default:
 						unvalid[key] = unparsed[key];
@@ -7062,28 +7139,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = super.toJSON();
 			
-			let jsonValue = new Object();
-			if( this.value ){
-				let files = Object.keys(this.value);
-				for( let i=0; i<files.length; i++ ){
-					let fileName = files[i];
-					jsonValue[fileName] = {
-						parentFolderId: this.value[fileName].parentFolderId,
-						fileId: this.value[fileName].fileId,
-						name: this.value[fileName].name,
-						type: this.value[fileName].type,
-						size: this.value[fileName].size
-					};
-				}
+			if( this.hasValue() ){
+				json.value = this.value; 
 			}
 			
-			if( Object.keys(jsonValue).length > 0 ){
-				json.value = jsonValue;
-			}
-			else{
-				delete json.value;
-			}
-
 			return json;
 		}
 	}
@@ -7106,6 +7165,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static OPTION_FOR_TRUE = 0;
 		static OPTION_FOR_FALSE = 1;
 
+		#value;
+
 		constructor( jsonObj ){
 			super('Boolean');
 
@@ -7120,9 +7181,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				// for false
 				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
 			}
-
-			this.setAllFormValues();
 		}
+
+		get value(){ return this.#value; }
+		set value( value ){
+			if( Util.isEmpty(value) ){
+				this.#value = undefined;
+				return;
+			}
+
+			if( Util.isNotEmptyString(value) ){
+				this.#value = JSON.parse(value);
+			}
+		};
 
 		setSearchKeywords( keywords ){
 			this.searchKeywords = keywords.toString();
@@ -7169,6 +7240,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				$node = $('<div class="form-group input-text-wrapper">')
 							.append( FormUIUtil.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled) );
+				this.$label = $node.find('span').first();
 
 				$node.change(function(event){
 					event.stopPropagation();
@@ -7177,7 +7249,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					self.value = $node.find('select').val();
 	
 					let eventData = {
-						sxeventData:{
+						sxeventdata:{
 							sourcePortlet: NAMESPACE,
 							targetPortlet: NAMESPACE,
 							term: self
@@ -7193,6 +7265,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{ // Radio fieldset. Boolean terms don't provide checkbox display style. 
 				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
+				this.$label = $panelGroup.find('span').first();
 
 				options.forEach((option, index)=>{
 					let selected = ( forWhat === Constants.FOR_SEARCH ) ? false : (value === option.value);
@@ -7235,7 +7308,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 
 						let eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: self
@@ -7260,11 +7333,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							self.value = changedVal;
 						}
 						else{
-							delete self.value;
+							self.value = undefined;
 						}
 
 						let eventData = {
-							sxeventData:{
+							sxeventdata:{
 								sourcePortlet: NAMESPACE,
 								targetPortlet: NAMESPACE,
 								term: self
@@ -7366,11 +7439,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 			this.setDisplayStyleFormValue();
 			this.setTrueLabelFormValue();
 			this.setFalseLabelFormValue();
+		}
+
+		hasValue(){
+			return typeof this.value === 'boolean';
 		}
 
 		toJSON(){
@@ -7378,6 +7455,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			json.displayStyle = this.displayStyle;
 			json.options = this.options.map(option=>option.toJSON());
+			if( this.hasValue() )	json.value = this.value;
 
 			return json;
 		}
@@ -7390,7 +7468,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			Object.keys(unparsed).forEach( key => {
 				switch(key){
 					case 'displayStyle':
-						self.displayStyle = jsonObj.displayStyle;
+					case 'value':
+						self[key] = jsonObj[key];
 						break;
 					case 'options':
 						self.options = new Array();
@@ -7424,6 +7503,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	class GroupTerm extends Term{
 		static $BTN_CHOOSE_GROUP_TERMS = $('#'+NAMESPACE+'btnChooseGroupTerms');
 
+		static ActiveNonFullColor = '#ef6f6f';
+		static ActiveFullColor = '#dfdfdf';
+		static InactiveFullColor = '#555555';
+		static InactiveNonFullColor = '#ef6f6f';
+
 		constructor( jsonObj ){
 			super('Group');
 
@@ -7432,6 +7516,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			this.tempMembers = new Array();
+
+			this.inputFull = true;
 		}
 
 		$newGroupPanel(){
@@ -7540,6 +7626,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											$container,
 											disabled,
 											extended );
+			
+			this.$label = $accordion.find('h3').first().css({'font-size':'1rem', 'font-weight':'600'});
+			this.$accordion = $accordion;
+
+			if( forWhat !== Constants.FOR_SEARCH ){
+				let self = this;
+				$accordion.find('h3').first().click(function(event){
+					event.stopPropagation();
+					event.preventDefault();
+
+					if( self.isSelected() ){
+						if( self.inputFull )
+							self.$label.css('color', GroupTerm.ActiveFullColor);
+						else
+							self.$label.css('color', GroupTerm.ActiveNonFullColor);
+					}
+					else{
+						console.log('self.inputFull: ' + self.inputFull, GroupTerm.InactiveFullColor);
+						if( self.inputFull )
+							self.$label.css('color', GroupTerm.InactiveFullColor);
+						else
+							self.$label.css('color', GroupTerm.InactiveNonFullColor);
+					}
+				});
+			}
 
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
@@ -7560,8 +7671,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+		setInputFull( full ){
+			this.inputFull = full;
+		}
+
+		displayInputStatus( status, headColor ){
+			super.displayInputStatus(status, headColor);
+
+			this.headColor = headColor;
+		}
+
 		isRendered(){
 			return this.$rendered ? true : false;
+		}
+
+		isSelected(){
+			return this.$accordion.find('h3').hasClass('ui-state-active') ;
 		}
 
 		disable( disable ){
@@ -7572,8 +7697,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$groupPanel.find('.sx-form-item-group.highlight').removeClass('highlight');
 		}
 
-		setAllFormValues(){
-			super.setAllFormValues();
+		setPropertyFormValues(){
+			super.setPropertyFormValues();
 
 			FormUIUtil.setFormCheckboxValue('extended', this.extended);
 		}
@@ -7588,8 +7713,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self[key] = unparsed[key];
 						//FormUIUtil.setFormCheckboxValue( 'extended', self[key] );
 						break;
+					case 'value':
+						break;
 					default:
-						console.log('Group Term has unparsed attributes: '+ self.termName, unparsed[key]);
+						console.log('Group Term has unparsed attributes: '+ self.termName, key, unparsed[key]);
 				}
 			});
 		}
@@ -7628,6 +7755,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_FIELD_OPERATOR = 'or';
 		static DEFAULT_INFIELD_OPERATOR = 'or';
 
+		#inputStatusDisplay;
+
 		constructor( jsonObj ){
 			if( !Util.isEmptyObject(jsonObj) ){
 				this.parse( jsonObj );
@@ -7655,6 +7784,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.selectedTerm = null;
 		}
 		
+		/***********************************************************************
+		 *  getters and setters
+		 ***********************************************************************/
+
+		get inputStatusDisplay(){
+			return this.#inputStatusDisplay;
+		}
+		set inputStatusDisplay( val ){
+			this.#inputStatusDisplay = val;
+		}
+
 		/***********************************************************************
 		 *  APIs for form controls
 		 ***********************************************************************/
@@ -7758,6 +7898,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.clearFormValue( 'matrixElementDelimiter' );
 			}
 		}
+
+		getInputStatusDisplayFormValue ( save=true ){
+			let value = FormUIUtil.getFormCheckboxValue( 'displayInputStatus' );
+			if( save ){
+				this.#inputStatusDisplay = value;
+				this.dirty = true;
+			}
+			
+			return value;
+		}
+		setInputStatusDisplayFormValue ( value ){
+			FormUIUtil.setFormCheckboxValue( 'displayInputStatus', !!value );
+		}
+
 		
 		getCommentCharFormValue ( save=true ){
 			let value = FormUIUtil.getFormValue( 'commentChar' );
@@ -7868,7 +8022,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 			}
 
-			//copied.setAllFormValues();
+			//copied.setPropertyFormValues();
 			//copied.$rendered.trigger('click');
 			
 			return copied;
@@ -8293,11 +8447,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					{
 						text: 'Confirm', 
 						click: function(){
-							targetOption.activeTerms.forEach( termName => {
-								let term = self.getTermByName( termName );
-								delete term.masterTerm;
-							});
-							delete targetOption.activeTerms;
+							if( Util.isNonEmptyArray(targetOption.activeTerms) ){
+								targetOption.activeTerms.forEach( termName => {
+									let term = self.getTermByName( termName );
+									delete term.masterTerm;
+								});
+								delete targetOption.activeTerms;
+							}
 
 							let selectedTerms = FormUIUtil.getFormCheckedArray('activeTermsSelector');
 							if( selectedTerms.length > 0 ){
@@ -8731,28 +8887,108 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			*/
 		}
 
-		toFileContent(){
-			let fileContent = {};
+		countGroupInputItems( groupId ){
+			if( !groupId ){
+				groupId = this.getTopLevelTermId();
+			}
 
-			this.terms.every( (term) => {
-				if( !term.isGroupTerm() ){
-					if( term.value || term.value === 0 ){
-						if( term.termType === 'File' ){
-							let termValue = term.getJsonValue();
-							if( Object.keys(termValue).length > 0 ){
-								fileContent[term.termName] = termValue;
-							}
-						}
-						else if( term.termType === 'EMail' ){
-							fileContent[term.termName] = term.value.join('@');
-						}
-						else{
-							fileContent[term.termName] = term.value;
-						}
+			let members = this.getGroupMembers( groupId );
+
+			let inputCount = 0;
+			members.forEach( member => {
+				if( member.isGroupTerm() ){
+					inputCount += this.countGroupInputItems( member.getTermId() );
+				}
+				else{
+					inputCount++;
+				}
+			});
+
+			return inputCount;
+		}
+
+		displayGroupInputStatus( groupTerm ){
+			let groupId = groupTerm instanceof GroupTerm ? groupTerm.getTermId() : this.getTopLevelTermId();
+			let $statusBar;
+
+			let members = this.getGroupMembers( groupId );
+
+			let inputItemCount = this.countGroupInputItems( groupId );
+			let inputedCount = 0;
+			members.forEach( member => {
+				if( member.isGroupTerm() ){
+					inputedCount += this.displayGroupInputStatus( member );
+				}
+				else{
+					if( member.hasValue() ){
+						inputedCount++;
+						member.displayInputStatus(false);
+					}
+					else{
+						member.displayInputStatus(this.#inputStatusDisplay);
 					}
 				}
-				
-				return Constants.CONTINUE_EVERY;
+			});
+			
+			let $status = $( '<span class="input-status" style="margin-left:5px;">(' + inputedCount + '/' + inputItemCount + ')</span>' );
+
+			if( Util.isEmpty(groupTerm) ){
+				$statusBar = $('#'+NAMESPACE+'inputStatusBar');
+			}
+			else{
+				$statusBar = groupTerm.$rendered.find('.ui-accordion-header').first();
+			}
+			let $inputStatus = $statusBar.find('.input-status').first();
+
+			if( $inputStatus.length > 0 ){
+				$inputStatus.remove();
+			}
+
+			if( this.#inputStatusDisplay )
+				$statusBar.append( $status );
+			
+			
+			if( groupTerm instanceof GroupTerm ){
+				if( this.#inputStatusDisplay ){
+					if(inputedCount !== inputItemCount ){
+						groupTerm.displayInputStatus(true, GroupTerm.InactiveNonFullColor);
+						groupTerm.setInputFull( false );
+					}
+					else{
+						if( groupTerm.isSelected() ){
+							groupTerm.displayInputStatus(true, GroupTerm.ActiveFullColor);	
+						}
+						else{
+							groupTerm.displayInputStatus(true, GroupTerm.InactiveFullColor);
+						}
+						
+						groupTerm.setInputFull( true );
+					}
+				}
+				else{
+					if( groupTerm.isSelected() ){
+						groupTerm.displayInputStatus(true, GroupTerm.ActiveFullColor);	
+					}
+					else{
+						groupTerm.displayInputStatus(true, GroupTerm.InactiveFullColor);
+					}
+				}
+			}  
+			
+
+			return inputedCount;
+		}
+
+		toFileContent(){
+			if( !Util.isNonEmptyArray(this.terms) )	return '{}';
+			
+			let fileContent = new Object();
+			this.terms.forEach( (term) => {
+				if( !term.isGroupTerm() ){
+					if( term.hasValue() ){
+						fileContent[term.termName] = term.value;
+					}
+				}
 			});
 
 			return JSON.stringify( fileContent );
@@ -8787,6 +9023,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'termValueDelimiter':
 					case 'matrixBracketType':
 					case 'matrixElementDelimiter':
+					case 'inputStatusDisplay':
 					case 'commentChar':
 						self[key] = jsonObj[key];
 						break;
@@ -8814,6 +9051,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			json.termDelimiterPosition = this.termDelimiterPosition;
 			json.matrixBracketType = this.matrixBracketType;
 			json.matrixElementDelimiter = this.matrixElementDelimiter;
+			json.inputStatusDisplay = this.inputStatusDisplay;
 
 			if( this.commentString ){
 				json.commentString = this.commentString;
@@ -8947,10 +9185,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.getGroupMembers( group ).length;
 		}
 
-		$renderTermEditor(){
-			return null;
+		displayInputStatus(){
+			this.#inputStatusDisplay ? 
+						$('#'+NAMESPACE+'inputStatusBar').show() :
+						$('#'+NAMESPACE+'inputStatusBar').hide();
+			this.displayGroupInputStatus( null );
 		}
-		
+
 		/**
 		 * Render all of terms in the term list 
 		 * no matter what those terms alredy have render images
@@ -8959,6 +9200,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
 		 */
 		render( forWhat=Constants.FOR_PREVIEW, $canvas ){
+			if( forWhat === Constants.FOR_PREVIEW ){
+				this.setTermDelimiterFormValue( this.termDelimiter );
+				this.setTermDelimiterPositionFormValue( this.termDelimiterPosition );
+				this.setTermValueDelimiterFormValue( this.termValueDelimiter );
+				this.setMatrixBracketTypeFormValue( this.matrixBracketType );
+				this.setMatrixElementDelimiterFormValue( this.matrixElementDelimiter );
+				this.setCommentCharFormValue( this.commentChar );
+				this.setInputStatusDisplayFormValue( this.#inputStatusDisplay );
+			}
+
 			$canvas = this.$setCanvas( forWhat, $canvas );
 			
 			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
@@ -8970,16 +9221,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			topLevelTerms.forEach(term=>{
 				self.renderTerm(term, forWhat);
 			});
-			
-			/*
-			// Extend groups which are 'extended' attribute is true
-			this.terms.forEach(term=>{
-				if( term.isGroupTerm() ){
-					self.extendGroup( term, term.extended ? true : false );
-				}
-			});
-			*/
 
+			if( this.#inputStatusDisplay && forWhat !== Constants.FOR_SEARCH ){
+				this.displayInputStatus();
+			}
+			
 			if( forWhat === Constants.FOR_EDITOR ){
 				this.terms.forEach(term=>{
 					if( term.termType === 'List' ){
@@ -9672,7 +9918,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let firstTerm = this.terms[0];
 
 			const eventData = {
-				sxeventData:{
+				sxeventdata:{
 					sourcePortlet: NAMESPACE,
 					targetPortlet: NAMESPACE,
 					term: firstTerm
@@ -10295,14 +10541,124 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 
+	class DataPacket{
+		#payloadType;
+		#payload;
+		#dataTypeName;
+		#dataTypeVersion;
+
+		constructor( dataTypeName, dataTypeVersion ){
+			this.#dataTypeName = dataTypeName;
+			this.#dataTypeVersion = dataTypeVersion;
+		}
+
+		get url(){
+			if( this.#payloadType === Constants.PayloadType.URL )
+				return this.#payload.url; 
+		}
+
+		set url( url ){
+			if( this.#payloadType !== Constants.PayloadType.URL )
+				delete this.#payload.url;
+			else
+				this.#payload.url = url; 
+		}
+
+		get payloadType(){
+			return this.#payloadType;
+		}
+
+		get payload(){
+			return this.#payload;
+		}
+
+		get dataType(){
+			return {
+				name: this.#dataTypeName,
+				version: this.#dataTypeVersion
+			};
+		}
+
+		createUrlPayload( url ){
+			this.#payloadType = Constants.PayloadType.URL;
+			this.#payload = {
+				url: url
+			};
+		}
+
+		createFilePathPayload( path, fileName ){
+			this.#payloadType = Constants.PayloadType.FILE_PATH;
+			this.#payload = {
+				path: path,
+				name: fileName
+			};
+		}
+
+		createFolderPathPayload( path, folderName ){
+			this.#payloadType = Constants.PayloadType.FOLDER_PATH;
+			this.#payload = {
+				path: path,
+				name: folderName
+			};
+		}
+
+		createExtensionPathPayload( path, extension ){
+			this.#payloadType = Constants.PayloadType.EXTENSION_PATH;
+			this.#payload = {
+				path: path,
+				name: extension
+			};
+		}
+
+		createDLFileEntryPayload( parentFolderId, fileEntryId ){
+			this.#payloadType = Constants.PayloadType.DL_FILE_ENTRY;
+			this.#payload = {
+				parentFolderId: parentFolderId,
+				fileEntryId: fileEntryId
+			};
+		}
+
+		createDataStructurePayload( dataStructure ){
+			this.#payloadType = Constants.PayloadType.DATA_STRUCTURE;
+			this.#payload = {
+				dataStructure: dataStructure
+			};
+		}
+
+		parse( jsonObj ){
+			this.#payloadType = jsonObj.payloadType;
+			this.#payload = jsonObj.payload;
+		}
+
+		toJSON(){
+			return {
+				payloadType: this.#payloadType,
+				payload: this.#payload
+			}
+		}
+	}
+
 	class Visualizer {
         #menus;
         #namespace;
         #portletId;
         #resourceURL;
-        #connector;
+        #employer;
         #eventHandlers;
+		#loadCanvasFunc;
+		#canvas;
+		#menuOptions;
+		#disabled;
+		#initData;
+		#currentData;
+		#baseFolder;
+		#procFuncs;
+		#attachedEventHandlers;
+		#fileExplorerId;
+		#fileExplorerDialog;
+		#dirDirty;
 
+		/*
         get menus(){
             return this.#menus;
         }
@@ -10327,58 +10683,83 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.#namespace = ns;
 		}
 
+		get canvas(){
+			return this.#canvas;
+		}
+
+		set canvas( canvasTag ){
+			this.#canvas = canvasTag;
+		}
+
+		get disabled(){
+			return this.#disabled;
+		}
+
+		set disabled( disabled ){
+			this.#disabled = disabled;
+		}
+
+		get employer(){
+			return this.#employer;
+		}
+
+		set employer( employer ){
+			this.#employer = employer;
+		}
+		*/
+
         constructor( config ){
-			console.log( 'visualizeer config: ', config );
+			
             this.#portletId = config.portletId;
             this.#namespace  = config.namespace;
             this.#resourceURL = config.resourceURL;
-            this.#connector = config.connector;
+            this.#employer = config.employer;
             this.#eventHandlers = config.eventHandlers;
     
-            this.loadCanvasFunc = config.loadCanvas;
-            this.canvas = config.displayCanvas;
-            this.menuOptions = config.menuOptions;
+            this.#loadCanvasFunc = config.loadCanvas;
+            this.#canvas = config.displayCanvas;
+            this.#menuOptions = config.menuOptions;
             
-            this.disabled = config.disabled;
-            this.initData = null;
+            this.#disabled = config.disabled;
+            this.#initData = null;
     
-            this.currentData = null;
-            this.baseFolder = '';
-            this.procFuncs = {};
+            this.#currentData = null;
+            this.#baseFolder = '';
+            this.#procFuncs = {};
     
-            this.attachedEventHandlers = {};
-            this.fileExplorerId;
-            this.fileExplorerDialog;
-            this.dirDirty = false;
+            this.#attachedEventHandlers = {};
+            this.#fileExplorerId;
+            this.#fileExplorerDialog;
+            this.#dirDirty = false;
 
             //Add custom proc funcs
             for( let funcName in config.procFuncs ){
                 let funcs;
-                if( this.procFuncs.hasOwnProperty(funcName) ){
-                    funcs = this.procFuncs[funcName];
+                if( this.#procFuncs.hasOwnProperty(funcName) ){
+                    funcs = this.#procFuncs[funcName];
                 }
                 else{
                     funcs = [];
-                    this.procFuncs[funcName] = funcs;
+                    this.#procFuncs[funcName] = funcs;
                 }
                 funcs.push( config.procFuncs[funcName] );
             }
            
             //Set currentData and baseFolder if initData exists
-            if( !$.isEmptyObject(this.initData) ){
+            if( !$.isEmptyObject(this.#initData) ){
                 this.setBaseFolderAndCurrentData();
             }
 
             //Hides un-needed menu
-            if( !$.isEmptyObject(this.menuOptions ) ){
-                if( this.menuOptions.menu === false )           $('#'+this.#namespace+'menu').remove();
-                if( this.menuOptions.sample === false )         $('#'+this.#namespace+'sample').remove();
-                if( this.menuOptions.upload === false )         $('#'+this.#namespace+'upload').remove();
-                if( this.menuOptions.download === false )       $('#'+this.#namespace+'download').remove();
-                if( this.menuOptions.openLocalFile === false )  $('#'+this.#namespace+'openLocalFile').remove();
-                if( this.menuOptions.openServerFile === false ) $('#'+this.#namespace+'openServerFile').remove();
-                if( this.menuOptions.saveAtLocal === false )    $('#'+this.#namespace+'saveAtLocal').remove();
-                if( this.menuOptions.saveAtServer === false ){
+            if( !$.isEmptyObject(this.#menuOptions ) ){
+                if( this.#menuOptions.menu === false )           $('#'+this.#namespace+'menu').remove();
+                if( this.#menuOptions.sample === false )         $('#'+this.#namespace+'sample').remove();
+                if( this.#menuOptions.upload === false )         $('#'+this.#namespace+'upload').remove();
+                if( this.#menuOptions.download === false )       $('#'+this.#namespace+'download').remove();
+                if( this.#menuOptions.openLocalFile === false )  $('#'+this.#namespace+'openLocalFile').remove();
+                if( this.#menuOptions.openServerFile === false ) $('#'+this.#namespace+'openServerFile').remove();
+                if( this.#menuOptions.saveAtLocal === false )    $('#'+this.#namespace+'saveAtLocal').remove();
+                if( this.#menuOptions.saveAtServer === false ){
                         $('#'+this.#namespace+'save').remove();
                         $('#'+this.#namespace+'saveAs').remove();
                 }
@@ -10386,38 +10767,38 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
             // Set namespace on iframe if canvas is iframe
             
-            if( this.canvas.tagName.toLowerCase() === 'iframe' ){
-                console.log('Visualizer setNamespace!!', this.canvas );
-                if(this.canvas.contentWindow['setNamespace']){
-                    this.canvas.contentWindow['setNamespace']( this.#namespace );
+            if( this.#canvas.tagName.toLowerCase() === 'iframe' ){
+                console.log('Visualizer setNamespace!!', this.#canvas );
+                if(this.#canvas.contentWindow['setNamespace']){
+                    this.#canvas.contentWindow['setNamespace']( this.#namespace );
                 }else{
 					let self = this;
 					let count = 0;
                     setTimeout(function(){
 						console.log( 'Try to set namespace: ' + ++count );
-                        self.canvas.contentWindow['setNamespace']( self.namespace );
+                        self.#canvas.contentWindow['setNamespace']( self.#namespace );
                     }, 500)
                 }
                 
-                if( this.disabled )
-                	this.canvas.contentWindow['disable']( this.disabled );
+                if( this.#disabled )
+                	this.#canvas.contentWindow['disable']( this.#disabled );
             }
 
             this.#attachEventHandlers();
 
             //Attach default proc functions
-            this.procFuncs.readServerFile = [
+            this.#procFuncs.readServerFile = [
                 this.readServerFile
             ];
-            this.procFuncs.saveAtServerAs = [
+            this.#procFuncs.saveAtServerAs = [
                 this.saveAtServerAs
             ];
-            this.procFuncs.readServerFileURL = [
+            this.#procFuncs.readServerFileURL = [
                 this.readServerFileURL
             ];
 
             /**
-             * The following block will be enabled after OSP_HANDSHAKE event is deprecated.  
+             * The following block will be enabled after SX_HANDSHAKE event is deprecated.  
              *  
             if( connector ){
                 let events = [];
@@ -10429,12 +10810,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             }
             */
             /*	SDE Mandatory Check Event	*/
+
+			console.log( 'visualizeer construction: ', this );
         }
 
         getPortletSection(){
-            let portlet = $('#p_p_id'+this.#namespace);
+            let portlet = $('#p_p_id'+this.namespace);
             if( !portlet[0] ){
-                portlet = $('#'+this.#namespace).parent();
+                portlet = $('#'+this.namespace).parent();
             }
 
             //portlet = $('#workbench-layout-area');
@@ -10564,7 +10947,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         			let fileInfoStr = selectedFilePath.split("\\");
         			
         			let fileInfoObj = {};
-        			fileInfoObj.type = OSP.Enumeration.PathType.FILE;
+        			fileInfoObj.type = Enumeration.PathType.FILE;
         			let parentStr = "";
         			fileInfoStr.forEach(function(eachStr, i){
         				if( i < fileInfoStr.length -1 ){
@@ -10611,7 +10994,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 success : function(data) {
                     // console.log( 'currentData after readFile: ', currentData );
                         let result = {
-                            type: OSP.Enumeration.PathType.FILE_CONTENT,
+                            type: Enumeration.PathType.FILE_CONTENT,
                             content_: data
                         };
                         loadCanvas( result, changeAlert );
@@ -10656,7 +11039,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                            return;
                        }
                         let result = {
-                            type: OSP.Enumeration.PathType.STRUCTURED_DATA,
+                            type: Enumeration.PathType.STRUCTURED_DATA,
                             dataType_:{
                                 name: data.dataTypeName,
                                 version:data.dataTypeVersion
@@ -10716,7 +11099,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                         this.setCurrentData( result );
 
                         successFunc();
-                        //loadCanvas( OSP.Util.toJSON(currentData), false);
+                        //loadCanvas( Util.toJSON(currentData), false);
                 },
                 error: function(data, e ){
                     console.log('Error read first server file name ( function name : getFirstFileName ) : ', data, e);
@@ -11047,62 +11430,63 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         attachEventHandler( event, handler ){
-            if( this.attachedEventHandlers[event] ){
-                Liferay.detach( event, this.attachedEventHandlers[event] );
+            if( this.#attachedEventHandlers[event] ){
+                Liferay.detach( event, this.#attachedEventHandlers[event] );
+				delete this.#attachedEventHandlers[event];
             }
             else{
-                this.attachedEventHandlers[event] = function( e ){
-                	if( e.targetPortlet !== this.portletId ) return;
-            		if(event === Constants.Events.CHECK_MANDATORY){
-                    	let isPassed = handler( e.data, e.params );
-                    	return isPassed;
-                    }else{
-                    	handler( e.data, e.params );
-                    }
+				console.log('attachEventHandler()');
+                this.#attachedEventHandlers[event] = function( e ){
+					console.log('In visualizer: ', event, e );
+					let eventData = e.sxeventdata;
+                	if( eventData.targetPortlet !== this.portletId ) return;
+                    	
+					handler( eventData.data );
                 };
+
+				Liferay.on( event, this.#attachedEventHandlers[event] );
             }
-            Liferay.on( event, this.attachedEventHandlers[event] );
         }
 
         setBaseFolderAndCurrentData(){
-            this.currentData = new InputData( this.initData );
-            this.currentData.dirty(false);
-            this.baseFolder = new InputData();
+            this.#currentData = new InputData( this.#initData );
+            this.#currentData.dirty(false);
+            this.#baseFolder = new InputData();
 
-            for( let key in this.initData ){
+            for( let key in this.#initData ){
                 switch( key ){
                     case Constants.TYPE:
-                        if( this.initData[key] !== Constants.PathType.FOLDER && 
-                            this.initData[key] !== Constants.PathType.EXT ){
-                            this.baseFolder.type( Constants.PathType.FOLDER );
+                        if( this.#initData[key] !== Constants.PathType.FOLDER && 
+                            this.#initData[key] !== Constants.PathType.EXT ){
+                            this.#baseFolder.type( Constants.PathType.FOLDER );
                         }
                         else{
-                            this.baseFolder.type( this.initData[key] );
+                            this.#baseFolder.type( this.#initData[key] );
                         }
                         break;
                     default:
-                        this.baseFolder[key] = this.initData[key];
+                        this.#baseFolder[key] = this.#initData[key];
                         break;
                 }
             }
 
-            if( !this.baseFolder.repositoryType() ){
-                console.log('[WARNING] Portlet '+this.portletId+' baseFolder has no repositoryType!');
+            if( !this.#baseFolder.repositoryType() ){
+                console.log('[WARNING] Portlet '+this.#portletId+' baseFolder has no repositoryType!');
             }
 
         }
 
         defaultHandshakeEventHandler( data, params ){
             //connector, disabled, and Base folder information
-           this.connector = config.connector = params.connector;
-           this.disabled = params.disabled;
+           this.#employer = params.employer;
+           this.#disabled = params.disabled;
 
            this.processInitAction(data, false);
             // console.log('baseFolder: ', baseFolder );
             
             let eventData = {
-                        portletId: this.portletId,
-                        targetPortlet: params.connector,
+                        portletId: this.#portletId,
+                        targetPortlet: params.employer,
                         data: [],
                         params: params
             };
@@ -11114,9 +11498,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         } 
 
         defaultDisableControlsEventHandler( data, params ){
-            this.disabled = data;
-            if( this.canvas.tagName.toLowerCase() === 'iframe' && this.canvas.contentWindow['disable']){
-                this.canvas.contentWindow['disable']( this.disabled );
+            this.#disabled = data;
+            if( this.#canvas.tagName.toLowerCase() === 'iframe' && this.#canvas.contentWindow['disable']){
+                this.#canvas.contentWindow['disable']( this.#disabled );
             }
         }
         
@@ -11128,8 +11512,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         #attachEventHandlers(){
-           // console.log( 'Event Handlers: ', eventHandlers);
-            for( let event in this.#eventHandlers){
+            console.log( 'Event Handlers: ', this.#eventHandlers);
+            for( let event in this.#eventHandlers ){
             	let handler = this.#eventHandlers[event];
                 this.attachEventHandler( event, handler);
             }
@@ -11432,7 +11816,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         loadCanvas( jsonData, changeAlert ){
             // console.log('loadCanvas data: ', jsonData, changeAlert );
         	this.setCurrentData( jsonData );
-            this.loadCanvasFunc( Util.toJSON(currentData), changeAlert);
+            this.#loadCanvasFunc( Util.toJSON(currentData), changeAlert);
         }
 
         downloadResultFile(){
@@ -11660,6 +12044,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	    			return null;
     		}
     	},
+		createDataPacket: function( dataTypeName, dataTypeVersion ){
+			return new DataPacket( dataTypeName, dataTypeVersion );
+		},
     	StringTerm: StringTerm,
     	NumericTerm: NumericTerm,
 		ListTerm: ListTerm,
@@ -11668,6 +12055,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		FileTerm: FileTerm,
 		DateTerm: DateTerm,
 		MatrixTerm: MatrixTerm,
+		DataPacket: DataPacket,
 		FormUIUtil: FormUIUtil,
     	Util: Util,
 		AdvancedSearch:AdvancedSearch,

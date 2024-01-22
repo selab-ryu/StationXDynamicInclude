@@ -845,7 +845,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getRequiredLabelMark: function( style ){
 			let html = 
 				'<span class="reference-mark text-warning" style="' + style + '">' +
-					'<span>' +
+					'<span style="font-size:0.5rem;">' +
 						'<svg class="lexicon-icon lexicon-icon-asterisk" focusable="false" role="presentation" viewBox="0 0 512 512">' +
 							'<path class="lexicon-icon-outline" d="M323.6,190l146.7-48.8L512,263.9l-149.2,47.6l93.6,125.2l-104.9,76.3l-96.1-126.4l-93.6,126.4L56.9,435.3l92.3-123.9L0,263.8l40.4-122.6L188.4,190v-159h135.3L323.6,190L323.6,190z"></path>' +
 						'</svg>' +
@@ -871,7 +871,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $(html);
 		},
 		$getLabelNode: function( controlName, label, mandatory, helpMessage){
-			let $label = $( '<label class="control-label" for="' + controlName + '">' );
+			//let $label = !!controlName ? $( '<label class="control-label" for="' + controlName + '">' ) :
+			//							 $( '<label class="control-label">' );
+
+			let $label = $( '<div class="control-label">' );
 
 			$label.append( $('<span>'+label+'</span>') );
 
@@ -4533,7 +4536,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $node;
 
 			if( forWhat === Constants.FOR_SEARCH ){
-				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, false, helpMessage );
+				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( null, label, false, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
@@ -4602,7 +4605,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			}
 			else{
-				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
+				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( null, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 				this.$label = $panelGroup.find('span').first();
 
@@ -4954,7 +4957,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			let $labelNode = FormUIUtil.$getLabelNode( 
-				controlId + '_id',
+				null,
 				this.getLocalizedDisplayName(),
 				mandatory,
 				this.getLocalizedTooltip() ).appendTo($section);
@@ -5192,7 +5195,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			let $labelNode = FormUIUtil.$getLabelNode( 
-				controlId + '_id',
+				null,
 				this.getLocalizedDisplayName(),
 				mandatory,
 				this.getLocalizedTooltip() ).appendTo($section);
@@ -5232,7 +5235,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				let $detailNode = $('<div>').appendTo( $inputSection );
-				let $detailLabel = $('<span style="margin-right: 5px;display:inline-block;">'+Liferay.Language.get('detail-address')+':</span>').appendTo($detailNode);
+				let $detailLabel = $('<span style="margin-right: 5px;display:inline-block;font-size:0.8rem;">'+Liferay.Language.get('detail-address')+':</span>').appendTo($detailNode);
 
 				let $detailAddr = $('<input class="form-control" ' + 
 											'id="' + controlId + '_detailAddr" ' +
@@ -5543,7 +5546,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$getFormMatrixSection( forWhat ){
 			let $matrixSection = $('<div class="form-group input-text-wrapper">');
 			
-			let $labelNode = FormUIUtil.$getLabelNode( NAMESPACE+this.termName, 
+			let $labelNode = FormUIUtil.$getLabelNode( null, 
 									this.getLocalizedDisplayName(),
 									this.mandatory, 
 									this.getLocalizedTooltip() ).appendTo($matrixSection);
@@ -5830,7 +5833,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $phoneSection = $('<div>');
 
-			let $labelNode = FormUIUtil.$getLabelNode( NAMESPACE + 'mobile', this.getLocalizedDisplayName(), this.mandatory, helpMessage)
+			let $labelNode = FormUIUtil.$getLabelNode( null, this.getLocalizedDisplayName(), this.mandatory, helpMessage)
 							.appendTo($phoneSection);
 			this.$label = $labelNode.find('span').first();
 
@@ -7263,7 +7266,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 			}
 			else{ // Radio fieldset. Boolean terms don't provide checkbox display style. 
-				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( controlName, label, mandatory, helpMessage );
+				let $panelGroup = FormUIUtil.$getFieldSetGroupNode( null, label, mandatory, helpMessage );
 				let $panelBody = $panelGroup.find('.panel-body');
 				this.$label = $panelGroup.find('span').first();
 
@@ -8397,6 +8400,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			let availableTerms = this.getGroupMembers( targetTerm.getGroupId() );
+			availableTerms = availableTerms.filter( term => term !== targetTerm );
 									 
 			console.log( 'available Terms: ', availableTerms );
 
@@ -8639,6 +8643,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				click: function(){
 					self.moveTermGroupUp( targetTerm );
 					self.render(Constants.FOR_PREVIEW);
+					self.highlightTerm( targetTerm );
 
 					$(this).dialog('destroy');
 				}
@@ -10752,17 +10757,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
             //Hides un-needed menu
             if( !$.isEmptyObject(this.#menuOptions ) ){
-                if( this.#menuOptions.menu === false )           $('#'+this.#namespace+'menu').remove();
-                if( this.#menuOptions.sample === false )         $('#'+this.#namespace+'sample').remove();
-                if( this.#menuOptions.upload === false )         $('#'+this.#namespace+'upload').remove();
-                if( this.#menuOptions.download === false )       $('#'+this.#namespace+'download').remove();
-                if( this.#menuOptions.openLocalFile === false )  $('#'+this.#namespace+'openLocalFile').remove();
-                if( this.#menuOptions.openServerFile === false ) $('#'+this.#namespace+'openServerFile').remove();
-                if( this.#menuOptions.saveAtLocal === false )    $('#'+this.#namespace+'saveAtLocal').remove();
-                if( this.#menuOptions.saveAtServer === false ){
-                        $('#'+this.#namespace+'save').remove();
-                        $('#'+this.#namespace+'saveAs').remove();
-                }
+                if( !this.#menuOptions.menu ){
+					$('#'+this.#namespace+'menu').remove();
+				}
+				else{
+					if( !this.#menuOptions.sample )         $('#'+this.#namespace+'sample').remove();
+					if( !this.#menuOptions.download )       $('#'+this.#namespace+'download').remove();
+					if( !this.#menuOptions.openLocalFile )  $('#'+this.#namespace+'openLocalFile').remove();
+					if( !this.#menuOptions.openServerFile ) $('#'+this.#namespace+'openServerFile').remove();
+					if( !this.#menuOptions.saveAsLocalFile )    $('#'+this.#namespace+'saveAsLocalFile').remove();
+					if( !this.#menuOptions.saveAsServerFile )	$('#'+this.#namespace+'saveAsServerFile').remove();
+					if( !this.#menuOptions.saveAsDBRecord )	$('#'+this.#namespace+'saveAsDBRecord').remove();
+				}
+                
             }
 
             // Set namespace on iframe if canvas is iframe

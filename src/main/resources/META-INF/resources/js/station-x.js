@@ -2840,7 +2840,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.#value = safeVal;
 				}
 				else{
-					$.alert('Not proper number for [ ' + this.termName + ' ]: ' + safeVal);
+					$.alert('Not proper number for [ ' + this.getLocalizedDisplayName() + ' ]: ' + safeVal);
 				}
 			}
 			else{

@@ -6,33 +6,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 
 	let Debug = {
-		eventTrace: function(message, event, eventData) {
+		eventTrace: function(message, event, dataPacket) {
             console.log('/+++++++++' + message + '++++++++/');
             console.log(event);
-            console.log(eventData);
+            console.log(dataPacket);
             console.log('/++++++++++++++++++++++++++/');
         }
 	};
 	
 	let Util = {
 		isEmptyObject: function(obj){
-			if( !obj )	return true;
-			let keys = Object.keys(obj);
-			if( keys.length === 0 )	return true;
+			if( typeof obj === 'number' || typeof obj === 'boolean' )	return false;
+			if( Util.isNotEmptyString(obj) )	return false;
 
-			let self = this;
+			if( $.isEmptyObject(obj) )	return true;
+
+			if( typeof obj.isEmpty === 'function' )	return obj.isEmpty();
+
 			let empty = true;
-			keys.every(key=>{
-				if( !obj[key] ){
-					empty = true;
+			Object.keys(obj).every(key=>{
+				empty = Util.isEmptyObject(obj[key]);
+				if( !empty ){
+					return Constants.STOP_EVERY;
 				}
-				else if( typeof obj[key] === 'object' ){
-					empty = self.isEmptyObject( obj[key] );
-				}
-				else if( typeof obj[key] === 'string' ){
-					empty = self.isEmptyString(obj[key]);
-				}
-				return empty;
+				return Constants.CONTINUE_EVERY;
 			});
 
 			return empty;
@@ -116,16 +113,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return dateAry.join('/');
 		},
         isEmpty: function(obj) {
-            if (obj == null || typeof obj === 'undefined' ) return true;
-
-			if( typeof obj === 'string' )	return this.isEmptyString( obj );
-            if( obj instanceof Array )	return !this.isNonEmptyArray(obj);
-            if (typeof obj === 'object') return $.isEmptyObject(obj);
-
-            return false;
+            return Util.isEmptyObject(obj);
         },
 		isNotEmpty: function(obj){
-			return !this.isEmpty(obj);
+			return !Util.isEmptyObject(obj);
 		},
 		isEmptyString: function(str){
 			return (typeof str === 'string') && str === '';
@@ -165,12 +156,52 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		isSafeNumber: function( value ){
 			return Number(value) === value;
 		},
-		toSafeNumber: function( value ){
+		isSafeBoolean: function( value){
+			return typeof value === 'boolean';
+		},
+		isSafeLocalizedObject: function(val){
+			return (val instanceof LocalizedObject) ? true : false;
+		},
+		toSafeNumber: function( value, defaultVal ){
 			if( this.isSafeNumber( value ) )	return value;
 
-			if( typeof value !== 'string' || Util.isEmptyString(value) )		return NaN;
+			if( Util.isEmptyString(value) )	return undefined;
 
-			return Number( value );
+			let number = Number(value);
+			if( isNaN(number) )	return defaultVal;
+
+			return number;
+		},
+		toSafeBoolean: function( val, defaultVal ){
+			let bool =  Util.isNotEmptyString(val) ? JSON.parse(val) : val;
+
+			return (typeof bool === 'boolean') ?  bool : defaultVal;
+		},
+
+		toSafeObject: function( val, defaultVal ){
+			if( !$.isEmptyObject(val) )	return val;
+
+			return defaultVal;
+		},
+		toSafeLocalizedObject: function( val){
+			let obj;
+			if( val instanceof LocalizedObject ){
+				return val;
+			}
+			else{
+				obj = Util.isNotEmptyString(val) ? JSON.parse(val) : val;
+				return new LocalizedObject(obj);
+			}
+		},
+		toSafeTermId: function( val ){
+			let obj;
+			if( val instanceof TermId ){
+				return val;
+			}
+			else{
+				obj = Util.isNotEmptyString(val) ? JSON.parse(val) : val;
+				return new TermId(obj.name, obj.version);
+			}
 		},
 		guid: function() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(char) {
@@ -341,26 +372,136 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             return $(anchor)[0].files[0];
         },
         getLocalFileName: function( anchor ){
-            var fileName = $(anchor).val();
+            let fileName = $(anchor).val();
 			
-			var slashIndex = fileName.lastIndexOf('\\');
+			let slashIndex = fileName.lastIndexOf('\\');
 			if( slashIndex < 0 )
                 slashIndex = fileName.lastIndexOf('/');
                  
 			return fileName.slice(slashIndex+1);
         },
         randomString: function( length, code ){
-            var mask = '';
+            let mask = '';
             if (code.indexOf('a') > -1) mask += 'abcdefghijklmnopqrstuvwxyz';
             if (code.indexOf('A') > -1) mask += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             if (code.indexOf('1') > -1) mask += '0123456789';
             if (code.indexOf('!') > -1) mask += '~`!@#$%^&*()_+-={}[]:";\'<>?,./|\\';
-            var result = '';
-            for (var i = length; i > 0; --i){
+            let result = '';
+            for (let i = length; i > 0; --i){
                 result += mask[Math.floor(Math.random() * mask.length)];
             } 
             return result;
-        }
+        },
+		createFormData: function( jsonData ){
+            let formData = new FormData();
+            for( let key in jsonData ){
+                formData.append( NAMESPACE+key, jsonData[key] );
+            }
+
+            return formData;
+        },
+		readFile( file ){
+			let loader = new FileReader();
+			let def = $.Deferred();
+			let promise = def.promise();
+
+			//--- provide classic deferred interface
+			loader.onload = function (e) { def.resolve(e.target.result); };
+			loader.onprogress = loader.onloadstart = function (e) { def.notify(e); };
+			loader.onerror = loader.onabort = function (e) { def.reject(e); };
+			promise.abort = function () { return loader.abort.apply(loader, arguments); };
+
+			loader.readAsBinaryString(file);
+
+			return promise;
+		},
+		buildMultipart( formData ){
+			let partKey, crunks = [], bound = false;
+			while (!bound) {
+				bound = $.md5 ? $.md5(new Date().valueOf()) : (new Date().valueOf());
+				for (partKey in formData){
+					console.log('formData[partKey]:', partKey, formData[partKey]);
+					if (~formData[partKey].indexOf(bound)) { 
+						bound = false;
+						continue; 
+					}
+				} 
+			}
+		
+			for (let partKey = 0, l = formData.length; partKey < l; partKey++){
+				if (typeof(formData[partKey].value) !== "string") {
+					crunks.push("--"+bound+"\r\n"+
+						"Content-Disposition: form-data; name=\""+formData[partKey].name+"\"; filename=\""+formData[partKey].value[1]+"\"\r\n"+
+						"Content-Type: application/octet-stream\r\n"+
+						"Content-Transfer-Encoding: binary\r\n\r\n"+
+						formData[partKey].value[0]);
+				}else{
+					crunks.push("--"+bound+"\r\n"+
+						"Content-Disposition: form-data; name=\""+formData[partKey].name+"\"\r\n\r\n"+
+						formData[partKey].value);
+				}
+			}
+		
+			return {
+				bound: bound,
+				data: crunks.join("\r\n")+"\r\n--"+bound+"--"
+			};
+		},
+		uploadFile( url, file, dataObj=null, asTempFile=false ){
+			let deferred = $.Deferred(), promise = deferred.promise();
+
+			Util.readFile( file ).done( fileData => {
+				if( Util.isEmpty(dataObj) )	dataObj = new Object();
+				dataObj.asTempFile = asTempFile;
+				dataObj.file = [fileData, file.name];
+				console.log('Finish read a file: ', dataObj );
+
+				let _formData = Util.createFormData( dataObj );
+
+				
+				console.log('_formData:', _formData);
+				let multiPart = Util.buildMultipart(_formData);
+				
+				let req = $.ajax({
+						url: url,
+						type: 'POST',
+						dataType: 'json',
+						data:_formData,
+						processData: false,
+						contentType: "multipart/form-data; boundary="+multiPart.bound,
+						xhr: function() {
+							let xhr = $.ajaxSettings.xhr();
+							if (xhr.upload) {
+								xhr.upload.addEventListener('progress', function(event) {
+									let percent = 0;
+									//let position = event.loaded || event.position; /*event.position is deprecated*/
+									let position = event.loaded;
+									let total = event.total;
+									if (event.lengthComputable) {
+										percent = Math.ceil(position / total * 100);
+										deferred.notify(percent);
+									}                    
+								}, false);
+							}
+							return xhr;
+						}
+				});
+
+				req.done(function(){ deferred.resolve.apply(deferred, arguments); })
+				.fail(function(){ deferred.reject.apply(deferred, arguments); });
+
+				promise.abort = function(){ return req.abort.apply(req, arguments); }
+
+			});
+
+			return promise;
+        },
+		createEventDataPacket(sourcePortlet, targetPortlet){
+			return new EventDataPacket( sourcePortlet, targetPortlet );
+		},
+		fire: function( event, dataPacket ){
+			Liferay.fire( event, {dataPacket: dataPacket} );
+		}
 	};
 	
 	let UIUtil = {
@@ -397,7 +538,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_HAS_DATA_STRUCTURE = false;
 		static DEFAULT_SHOW_TOOLTIP = true;
 		
-		constructor( dataTypeName, dataTypeVersion ){
+		#dataTypeId;
+		#dataTypeName;
+		#dataTypeVersion;
+		#dataStructure;
+
+		get dataTypeId(){return this.#dataTypeId;}
+		set dataTypeId( id ){
+			let safeId = Util.toSafeNumber(id, this.dataTypeId);
+			if( isNaN(safeId) )	return;
+
+			this.#dataTypeId = safeId;
+		}
+		get dataTypeName(){return this.#dataTypeName;}
+		set dataTypeName( name ){this.#dataTypeName=name;}
+
+		constructor( dataTypeId, dataTypeName, dataTypeVersion ){
+			this.dataTypeId = dataTypeId;
 			this.dataTypeName = dataTypeName;
 			this.dataTypeVersion = dataTypeVersion;
 			this.hasDataStructure = DataType.DEFAULT_HAS_DATA_STRUCTURE;
@@ -441,8 +598,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return new ListTerm( jsonTerm );
 			case 'Boolean':
 				return new BooleanTerm( jsonTerm );
-			case 'Array':
-				return new ArrayTerm( jsonTerm );
 			case 'EMail':
 				return new EMailTerm( jsonTerm );
 			case 'Date':
@@ -453,20 +608,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return new PhoneTerm( jsonTerm );
 			case 'Matrix':
 				return new MatrixTerm( jsonTerm );
-			case 'Object':
-				return new ObjectTerm( jsonTerm );
-			case 'ObjectArray':
-				return new ObjectArrayTerm( jsonTerm );
 			case 'File':
 				return new FileTerm( jsonTerm );
-			case 'FileArray':
-				return new FileArrayTerm( jsonTerm );
 			case 'DataLink':
 				return new FileTerm( jsonTerm );
-			case 'DataLinkArray':
-				return new DataLinkArrayTerm( jsonTerm );
-			case 'Comment':
-				return new CommentTerm( jsonTerm );
 			case 'Group':
 				return new GroupTerm( jsonTerm );
 			default:
@@ -496,6 +641,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'Comment'
 			]
 	};
+
+	const DataStructureAttributes = {
+		TERM_DELIMITER: 'termDelimiter',
+		TERM_DELIMITER_POSITION: 'termDelimiterPosition',
+		TERM_VALUE_DELIMITER: 'termValueDelimiter',
+		MATRIX_BRACKET_TYPE: 'matrixBracketType',
+		MATRIX_ELEMENT_DELIMITER: 'matrixElementDelimiter',
+		COMMENT_CHAR: 'commentChar',
+		TERMS: 'terms',
+		INPUT_STATUS_DISPLAY: 'inputStatusDisplay'
+	};
 	
 	const TermAttributes = {
 		 ABSTRACT_KEY: 'abstractKey',
@@ -516,13 +672,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 ELEMENT_TYPE : 'elementType',
 		 FILE_ID : 'fileId',
 		 FORMAT : 'format',
-		 ID : 'id',
+		 INPUT_SIZE: 'inputSize',
 		 ITEM_DISPLAY_NAME : 'itemDisplayName',
+		 LINE_BREAK: 'lineBreak',
 		 LIST_ITEM : 'listItem',
 		 LIST_ITEM_VALUE : 'listItemValue',
 		 LIST_ITEMS : 'listItems',
 		 MANDATORY : 'mandatory',
-		 NAME : 'name',
 		 MAX_BOUNDARY : 'maxBoundary',
 		 MAX_LENGTH :'maxLength',
 		 MAX_VALUE :'maxValue',
@@ -544,6 +700,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 SEARCHABLE: 'searchable',
 		 SWEEPABLE : 'sweepable',
 		 SYNONYMS : 'synonyms',
+		 TERM_ID : 'termId',
 		 TERM_NAME : 'termName',
 		 TERM_TYPE : 'termType',
 		 TERM_VERSION : 'termVersion',
@@ -562,37 +719,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 
 	class TermId{
-		static getEmptyTermId(){
-			return new TermId('', '');
-		}
+		#name;
+		#version;
+
+		get name(){ return this.#name; }
+		set name(val){ this.#name = val; }
+		get version(){ return this.#version; }
+		set version(val){ this.#version = val; }
 
 		constructor( name, version ){
-			this.name = name ? name : '';
-			this.version = version ? version : '';
+			this.name = Util.isNotEmptyString(name) ? name : '';
+			this.version = Util.isNotEmptyString(version) ? version : '';
 		}
 		
 		isEmpty(){
-			if( Util.isEmpty(this.name) ){
-				return true;
-			}
-
-			return false;
+			return Util.isEmptyString(this.name);
 		}
-
+		
 		isNotEmpty(){
-			if( Util.isNotEmpty(this.name) || Util.isNotEmpty(this.version) ){
-				return true;
-			}
-
-			return false;
+			return Util.isNotEmptyString(this.name);
 		}
 
 		sameWith( anotherId ) {
-			if( Util.isEmptyObject(anotherId) && this.isEmpty() ){
+			if( anotherId.isEmpty() && this.isEmpty() ){
 				return true;
-			}
-			else if( Util.isEmptyObject(anotherId) && this.isNotEmpty() ){
-				return false;
 			}
 			else if( anotherId.name === this.name && anotherId.version === this.version ){
 				return true;
@@ -667,7 +817,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static setLocalizedInputValue( inputId, valueMap ){
 			const selectedLocale = LocalizationUtil.getSelectedLanguage( inputId ).trim();
 			
-			if( valueMap ){
+			if( !$.isEmptyObject(valueMap) ){
 				$('#'+NAMESPACE+inputId).val( valueMap[selectedLocale]);
 				
 				AVAILABLE_LANGUAGES.forEach(function(locale, index){
@@ -678,19 +828,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 			}
 			else{
-				$('#'+NAMESPACE+inputId).val('');
-				
-				AVAILABLE_LANGUAGES.forEach(function(locale, index){
-					let $localizedInput = $('#'+NAMESPACE+inputId+'_'+locale);
-					if( $localizedInput ){
-						$localizedInput.val( '' );
-					}
-				});
+				LocalizationUtil.clearLocaliedInputValue( inputId );
 			}
 		}
 		
 		static clearLocaliedInputValue( inputId ){
-			LocalizationUtil.setLocalizedInputValue( inputId );
+			$('#'+NAMESPACE+inputId).val('');
+				
+			AVAILABLE_LANGUAGES.forEach(function(locale, index){
+				let $localizedInput = $('#'+NAMESPACE+inputId+'_'+locale);
+				if( $localizedInput ){
+					$localizedInput.val( '' );
+				}
+			});
 		}
 	}
 
@@ -874,7 +1024,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			//let $label = !!controlName ? $( '<label class="control-label" for="' + controlName + '">' ) :
 			//							 $( '<label class="control-label">' );
 
-			let $label = $( '<div class="control-label">' );
+			let $label = $( '<div class="control-label" style="font-size:0.875rem;font-weight:600;">' );
 
 			$label.append( $('<span>'+label+'</span>') );
 
@@ -925,16 +1075,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $select = $( '<select class="form-control" id="' + controlName + '" name="' + controlName + '">' );
 
 			options.forEach( (option)=>{
-				let $option = option.$render( Constants.DISPLAY_STYLE_SELECT, controlName+'_'+option.value, controlName);
+				let selected = value ? (option.value === value) : option.selected;
+				let $option = option.$render( 
+									Constants.DISPLAY_STYLE_SELECT, 
+									controlName+'_'+option.value, 
+									controlName, 
+									selected );
 				
 				$option.text(option.labelMap[CURRENT_LANGUAGE]);
 
 				$select.append( $option );
-
-				if( option.selected === true || option.value === value ){
-					$option.prop( 'selected', true );
-				};
-
 			});
 
 			$select.prop('disabled', disabled );
@@ -945,9 +1095,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		},
 		$getRadioButtonTag: function (controlId, controlName, option, selected, disabled=false ){
-			let $radio = option.$render( Constants.DISPLAY_STYLE_RADIO, controlId, controlName );
+			let $radio = option.$render( Constants.DISPLAY_STYLE_RADIO, controlId, controlName, selected );
 			$radio.find('input[type="radio"]').prop({
-				checked: selected,
 				disabled: disabled
 			});
 
@@ -985,11 +1134,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">').appendTo($node);
 
 			if( files ){
-				let fileNames = Object.keys( files );
-				fileNames.forEach( fileName => {
+				for( let fileName in files ){
 					let file = files[fileName];
 					$fileListTable.append( FormUIUtil.$getFileListTableRow( fileTerm, file.parentFolderId, file.fileId, file.name, file.size, file.type, file.downloadURL ) );
-				});
+				};
 
 				$fileListTable.show();
 			}
@@ -1074,10 +1222,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $previewRow;
 		},
 		$getEditorRowSection: function( $inputSection ){
-			return $('<span style="width:100%; border:none;">').append( $inputSection );
+			return $('<span class="sx-form-item-group" style="width:100%; border:none;">').append( $inputSection );
 		},
 		$getSearchRowSection: function( $inputSection ){
-			return $inputSection;
+			return $('<span class="sx-form-item-group" style="width:100%; border:none;">').append($inputSection);
 		},
 		$getAccordionForGroup: function( title, $body, disabled, extended=true ){
 			let $groupHead = $('<h3>').text(title);
@@ -1166,7 +1314,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		setFormValue: function( attrName, value, focus ){
 			let $control = $('#'+NAMESPACE+attrName);
 			
-			if( value ){
+			if( Util.isNotEmpty(value) ){
 				$control.val( value );
 			}
 			else{
@@ -1174,20 +1322,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			if( focus ){
-				$control.focus();
+				$control.trigger('focus');
 			}
-
 		},
 		clearFormValue: function( attrName ){
 			FormUIUtil.setFormValue( attrName );
 		},
 		getFormLocalizedValue: function( attrName ){
-			return LocalizationUtil.getLocalizedInputValue( attrName );
+			let valueMap = LocalizationUtil.getLocalizedInputValue( attrName );
+
+			if( !$.isEmptyObject(valueMap) ){
+				return new LocalizedObject( valueMap );
+			}
 		},
-		setFormLocalizedValue: function( attrName, localizedMap, focus ){
+		setFormLocalizedValue: function( attrName, localizedObj, focus=false ){
 			let $control = $('#'+NAMESPACE+attrName);
+
+			let localizedMap = localizedObj instanceof LocalizedObject ? localizedObj.localizedMap : undefined;
 			
-			if( localizedMap ){
+			if( !$.isEmptyObject(localizedMap) ){
 				LocalizationUtil.setLocalizedInputValue( attrName, localizedMap );
 			}
 			else{
@@ -1197,6 +1350,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( focus ){
 				$control.trigger('focus');
 			}
+		},
+		$getControl( controlId ){
+			return $('#'+NAMESPACE+controlId);
 		},
 		$getRenderedFormControl: function( renderUrl, params ){
 			return new Promise( function(resolve, reject){
@@ -1240,19 +1396,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 	
 	const Events = {
-		DATATYPE_PREVIEW_TERM_DELETED: 'DATATYPE_PREVIEW_TERM_DELETED',
 		DATATYPE_PREVIEW_REMOVE_TERM: 'DATATYPE_PREVIEW_REMOVE_TERM',
 		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELETE_TERM',
 		DATATYPE_PREVIEW_COPY_TERM: 'DATATYPE_PREVIEW_COPY_TERM',
 		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
 		DATATYPE_FORM_UI_CHECKBOX_CHANGED: 'DATATYPE_FORM_UI_CHECKBOX_CHANGED',
-		DATATYPE_SDE_VALUE_CHANGED: 'DATATYPE_SDE_VALUE_CHANGED',
-		LIST_OPTION_ACTIVE_TERM_SELECTED: 'LIST_OPTION_ACTIVE_TERM_SELECTED',
 		LIST_OPTION_PREVIEW_REMOVED: 'LIST_OPTION_PREVIEW_REMOVED',
+		LIST_OPTION_PREVIEW_ADDED:'LIST_OPTION_PREVIEW_ADDED',
+		LIST_OPTION_PREVIEW_CHANGED:'LIST_OPTION_PREVIEW_CHANGED',
+		LIST_DISPLAY_STYLE_CHANGED:'LIST_DISPLAY_STYLE_CHANGED',
 		LIST_OPTION_PREVIEW_SELECTED: 'LIST_OPTION_PREVIEW_SELECTED',
-
-
+		LIST_OPTION_CHOOSE_SLAVE_TERMS: 'LIST_OPTION_CHOOSE_SLAVE_TERMS',
+		
 		SD_SEARCH_FROM_DATE_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
 		SD_SEARCH_TO_DATE_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
 		SD_SEARCH_FROM_NUMERIC_CHANGED: 'SD_SEARCH_FROM_NUMERIC_CHANGED',
@@ -1265,7 +1421,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_SEARCH_KEYWORD_CHANGED: 'SD_SEARCH_KEYWORD_REMOVED',
 		SD_SEARCH_KEYWORDS_CHANGED: 'SD_SEARCH_KEYWORDS_REMOVED',
 		SD_SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED',
-		STRUCTURED_DATA_CHANGED: 'STRUCTURED_DATA_CHANGED',
 
         SX_CANCEL_CLICKED: 'SX_CANCEL_CLICKED',
         SX_CANCEL_JOB: 'SX_CANCEL_JOB',
@@ -1276,8 +1431,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         SX_REFRESH_URL_CHANGE: 'SX_REFRESH_URL_CHANGE',
         SX_CREATE_JOB: 'SX_CREATE_JOB',
         SX_CREATE_SIMULATION: 'SX_CREATE_SIMULATION',
-        SX_DATA_CHANGED: 'SX_DATA_CHANGED',
         SX_DATA_LOADED: 'SX_DATA_LOADED',
+        SX_DATA_STRUCTURE_CHANGED: 'SX_DATA_STRUCTURE_CHANGED',
         SX_DELETE_JOB: 'SX_DELETE_JOB',
         SX_DELETE_SIMULATION: 'SX_DELETE_SIMULATION',
         SX_DOWNLOAD_FILE: 'SX_DOWNLOAD_FILE',
@@ -1315,6 +1470,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         SX_REQUEST_APP_INFO: 'SX_REQUEST_APP_INFO',
         SX_REQUEST_DATA: 'SX_REQUEST_DATA',
         SX_REQUEST_DATA_STRUCTURE: 'SX_REQUEST_DATA',
+		SX_REQUEST_DELETE_FILE: 'SX_REQUEST_DELETE_FILE',
         SX_REQUEST_DOWNLOAD: 'SX_REQUEST_DOWNLOAD',
         SX_REQUEST_FILE_PATH: 'SX_REQUEST_FILE_PATH',
         SX_REQUEST_FILE_URL: 'SX_REQUEST_FILE_URL',
@@ -1347,6 +1503,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         SX_SIMULATION_SELECTED: 'SX_SIMULATION_SELECTED',
         SX_SUBMIT_SIMULATION: 'SX_SUBMIT_SIMULATION',
         SX_SUBMIT_JOB: 'SX_SUBMIT_JOB',
+        SX_STRUCTURED_DATA_CHANGED: 'SX_STRUCTURED_DATA_CHANGED',
+        SX_TERM_VALUE_CHANGED: 'SX_TERM_VALUE_CHANGED',
         SX_UPLOAD_FILE: 'SX_UPLOAD_FILE',
         SX_UPLOAD_SELECTED: 'SX_UPLOAD_SELECTED',
         SX_RESPONSE_SAVE_SIMULATION_RESULT: 'SX_RESPONSE_SAVE_SIMULATION_RESULT',
@@ -1383,11 +1541,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         SX_RESPONSE_CANCLE_JOB_RESULT: 'SX_RESPONSE_CANCLE_JOB_RESULT',
         SX_REQUEST_JOB_INPUT_VALIDATION: 'SX_REQUEST_JOB_INPUT_VALIDATION',
         SX_RESPONSE_JOB_INPUT_VALIDATION: 'SX_RESPONSE_JOB_INPUT_VALIDATION',
-		SX_PORTLET_READY:'SX_PORTLET_READY',
+		SX_VISUALIZER_READY:'SX_VISUALIZER_READY',
+		SX_VISUALIZER_DATA_CHANGED: 'SX_VISUALIZER_DATA_CHANGED',
+		SX_VISUALIZER_DATA_LOADED: 'SX_VISUALIZER_DATA_LOADED',
+		SX_VISUALIZER_WAITING: 'SX_VISUALIZER_WAITING',
         
-
+		
         reportProcessStatus: function(portletId, event, srcEvent, srcEventData, status) {
-            var eventData = {
+			var eventData = {
                 portletId: portletId,
                 targetPortlet: srcEventData.portletId,
                 sourceEvent: srcEvent,
@@ -1487,7 +1648,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			SX_DOWNLOAD: 'SX_DOWNLOAD',
 			SX_DOWNLOAD_WITH_IB: 'SX_DOWNLOAD_WITH_IB',
 			SX_GET_COPIED_TEMP_FILE_PATH: 'SX_GET_COPIED_TEMP_FILE_PATH',
-			SX_GET_FILE_INFO: 'SX_GET_FILE_INFO'
+			SX_GET_FILE_INFO: 'SX_GET_FILE_INFO',
+			UPLOAD_TEMP_FILE: 'UPLOAD_TEMP_FILE',
+			UPLOAD_FILE: 'UPLOAD_TEMP_FILE',
+			DELETE_DATA_FILE: 'DELETE_DATA_FILE',
+			UPLOAD_DATA_FILE: 'UPLOAD_DATA_FILE'
 		},
 		WorkbenchType: {
             SIMULATION_WITH_APP: 'SIMULATION_WITH_APP',
@@ -1520,18 +1685,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             DEFAULT: 'DEFAULT'
         },
         PayloadType: {
-            NONE: 'none',
-            DL_FILE_ENTRY: 'dlFileEntry',
-            FILE_CONTENT: 'fileContent',
-            STRUCTURED_DATA_ID: 'structuredDataId',
-			STRUCTURED_DATA: 'structuredData',
+			VISUALIZER_READY: 'VISUALIZER_READY',
 			DATA_STRUCTURE: 'DATA_STRUCTURE',
-            URL: 'url',
-            FILE_PATH: 'filePath',
-            FOLDER_PATH: 'folderPath',
-            EXTENSION_PATH: 'extensionPath',
-            SAMPLE: 'sample'
+			TERM: 'TERM',
+            URL: 'URL',
+            FILE: 'FILE',
+			SDEDITOR:'SDEDITOR'
         },
+		PathType: {
+			FULL_PATH: 'FULL_PATH',
+			RELATIVE_PATH: 'RELATIVE_PATH',
+			DL_ENTRY: 'DL_ENTRY'
+		},
+		FileType:{
+			DL_ENTRY: 'DL_ENTRY',
+			FILE_NAME: 'FILE_NAME',
+			CONTENT: 'CONTENT',
+			EXTENSION: 'EXTENSION',
+		},
         SweepMethod: {
             BY_SLICE: 'slice',
             BY_VALUE: 'value'
@@ -1630,32 +1801,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 	
 	class LocalizedObject {
+		#localizedMap;
+
+		get localizedMap(){ return this.#localizedMap; }
+		set localizedMap(val){ this.#localizedMap = val; }
+
 		constructor( localizedMap  ){
-			if( localizedMap ){
-				this.localizedMap = localizedMap;
+			if( $.isEmptyObject(localizedMap) ){
+				this.localizedMap = new Object();
 			}
 			else{
-				this.localizedMap = new Object();
+				this.localizedMap = localizedMap;
 			}
 		}
 		
 		isEmpty(){
-			return Object.keys( this.localizedMap ).length ? false : true;
+			return $.isEmptyObject(this.localizedMap);
 		}
-		
-		getLocalizedMap(){
-			return this.localizedMap;
-		}
-		
-		setLocalizedMap( map ){
-			if( Object.keys( map ).length <= 0 ){
-				if( this.localizedMap ){
-					delete this.localizedMap;
-				}
-			}
-			else{
-				this.localizedMap = map;
-			}
+
+		isNotEmpty(){
+			return !this.isEmpty();
 		}
 		
 		getText( locale ){
@@ -1701,122 +1866,108 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class ListOption{
-		constructor( optionLabelMap, optionValue, selected, disabled, activeTerms ){
+		#label;
+		#value;
+		#$rendered;
+		#$defined;
+		#slaveTerms;
+		#disabled;
+		#selected;
+
+		get label(){ return this.#label; }
+		set label(val){
+			this.#label = Util.toSafeLocalizedObject(val);
+		}
+		get value(){ return this.#value; }
+		set value(val){ this.#value = val; }
+		get $rendered(){ return this.#$rendered; }
+		set $rendered(val){ this.#$rendered = val; }
+		get $defined(){ return this.#$defined; }
+		set $defined(val){ this.#$defined = val; }
+		get slaveTerms(){ return this.#slaveTerms; }
+		set slaveTerms(val){ this.#slaveTerms = val; }
+		get disabled(){ return this.#disabled; }
+		set disabled(val){ this.#disabled = val; }
+		get selected(){ return this.#selected; }
+		set selected(val){ this.#selected = val; }
+
+		get labelMap(){ return this.label.localizedMap; }
+
+		constructor( optionLabel, optionValue, selected, slaveTerms, disabled ){
 			this.value = optionValue;
-			this.labelMap = optionLabelMap;
-			if( activeTerms ){
-				this.activeTerms = activeTerms;
+			this.label = optionLabel;
+			if( Util.isNotEmpty(slaveTerms) ){
+				this.slaveTerms = slaveTerms;
 			}
 
 			this.selected = selected;
 			this.disabled = disabled;
-			this.$rendered = null;
 		}
 
-		getLabelMap(){
-			return this.labelMap;
+		addSlaveTerm( term ){
+			this.slaveTerms.push( term );
 		}
 
-		setLabelMap( map ){
-			this.labelMap = map;
+		removeSlaveTerm( termName ){
+			this.slaveTerms = this.slaveTerms.filter(( slaveTerm ) => slaveTerm !== termName );
 		}
 
-		addActiveTerm( term ){
-			this.activeTerms.push( term );
+		hasSlaves(){
+			return (this.#slaveTerms instanceof Array) && this.#slaveTerms.length > 0;
 		}
 
-		removeActiveTerm( term ){
-			this.activeTerms = this.activeTerms.filter(( activeTerm ) => {
-				return !(activeTerm.termName === term.termName);
-			});
-		}
-
-		$renderPreview(rerender=true){
-			if( rerender === false && this.$rendered ){
-				return this.$rendered;
-			}
-			else{
-				let html = '<tr>' +
-				'<td class="option-label" style="width:50%;">' + this.labelMap[CURRENT_LANGUAGE] + '</td>' +
-				'<td class="option-value" style="width:30%;">' + this.value + '</td>' +
-				'<td class="option-selected" style="width:10%;">';
-				if( this.selected ){
-					html += '&#10004;';
-				}
-				html += '</td>';
-				html += '<td>' +
-				'<button type="button" class="btn btn-default">' +
-				'<i class="icon-remove" />' +
-				'</button>' +
-				'</td> </tr>';
-				
-				let $row = $( html );
-				
-				let self = this;
-				$row.find('button').click(function(event){
-					event.stopPropagation();
-					
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							option: self
-						}
-					};
-					
-					Liferay.fire( Events.LIST_OPTION_PREVIEW_REMOVED, eventData );
-				});
-				
-				$row.click(function(event){
-					event.stopPropagation();
-					
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							option: self
-						}
-					};
-					
-					Liferay.fire( Events.LIST_OPTION_PREVIEW_SELECTED, eventData );
-				});
-
-				this.$rendered = $row;
-				return $row;
-			}
-		}
-
-		$render( renderStyle, optionId, optionName ){
+		$render( renderStyle, optionId, optionName, selected ){
 			if( renderStyle === Constants.DISPLAY_STYLE_SELECT ){
 				let $option = $( '<option>' );
 				
 				$option.prop('value', this.value);
-				if( this.selected === true ){
+				if( selected === true ){
 					$option.prop( 'selected', true );
 				};
 
-				$option.text(this.labelMap[CURRENT_LANGUAGE]);
+				$option.text(this.label.getText(CURRENT_LANGUAGE));
 
 				return $option;
 			}
 			else if( renderStyle === Constants.DISPLAY_STYLE_RADIO ){
-				let $label = $( '<label>' );
+				let $label = $( '<label style="font-weight:400;">' );
 				let $input = $( '<input type="radio">')
 										.prop({
 											class: "field",
 											id: optionId,
 											name: optionName,
 											value: this.value,
-											checked: this.selected,
+											checked: selected,
 											disabled: this.disabled
 										});
-				
+
 				$label.prop('for', optionId )
-					.append( $input )
-					.append( this.labelMap[CURRENT_LANGUAGE] );
+						.append($input)
+						.append( '<span>'+this.label.getText(CURRENT_LANGUAGE)+'</span>' );
 
 				let $radio = $( '<div class="radio" style="display:inline-block; margin-left:10px; margin-right:10px;">' )
 								.append( $label );
+				$input.click(function(event){
+					event.stopPropagation();
+
+					let wasChecked =  $radio.data('checked');
+					
+					$(this).prop('checked', !wasChecked);
+					$radio.data('checked', !wasChecked);
+					
+					$radio.siblings().data('checked', false);
+
+					$radio.trigger('click');
+
+					if( wasChecked )
+						$radio.trigger('change');
+				});
+				
+
+				$label.click(function(event){
+					event.stopPropagation();
+				});
+
 
 				return $radio;
 			}
@@ -1830,12 +1981,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					id: optionId,
 					name: optionName,
 					value: this.value,
-					checked: this.selected,
+					checked: selected,
 					disabled: this.disabled
 				});
 				
 				$label.append( $input )
-					  .append( this.labelMap[CURRENT_LANGUAGE] );
+					  .append( this.label.getText(CURRENT_LANGUAGE) );
 
 				let $checkbox = $( '<div class="checkbox" style="display:inline-block;margin-left:10px;margin-right:20px;">' )
 									.append( $label );
@@ -1844,77 +1995,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		renderActiveTermsPreview( $previewPanel ){
-			$previewPanel.empty();
-
-			this.activeTerms.every( (activeTerm, index, ary) =>{
-				let $row = $( '<tr>' +
-						'<td style="width:35%;">' +
-							activeTerm.termName +
-						'</td>' +
-						'<td style="width:20%;">' +
-							activeTerm.termType +
-						'</td>' +
-						'<td style="width:35%;">' +
-							activeTerm.displayName.getText(CURRENT_LANGUAGE) +
-						'</td>' +
-						'<td>' +
-							'<button type="button" class="btn btn-default">' +
-								'<i class="icon-remove" />' +
-							'</button>' +
-						'</td>' +
-					'</tr>' );
-
-				let self = this;
-				$row.find('button').click(function(event){
-					event.stopPropagation();
-
-					self.removeActiveTerm( activeTerm );
-
-					$row.remove();
-
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: activeTerm
-						}
-					}
-
-					Liferay.fire( Events.LIST_OPTION_ACTIVE_TERM_REMOVED, eventData );
-				});
-
-				$row.click(function(event){
-					event.stopPropagation(); 
-					
-					$previewPanel.find('.highlight-border').removeClass('highlight-border');
-					$row.addClass('highlight-border');
-					
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: activeTerm
-						}
-					}
-
-					Liferay.fire( Events.LIST_OPTION_ACTIVE_TERM_SELECTED, eventData );
-				});
-				
-				$previewPanel.append( $row );
-			});
+		removePreview(){
+			if( Util.isNotEmpty(this.$rendered) )
+				this.$rendered.remove();
 		}
 
 		toJSON(){
 			let json = new Object();
 
 			json.value = this.value;
-			json.labelMap = this.labelMap;
+			json.label = this.label.toJSON();
 			if( this.selected ){
 				json.selected = true;
 			}
-			if( Util.isNonEmptyArray( this.activeTerms ) ){
-				json.activeTerms = this.activeTerms;
+			if( Util.isNonEmptyArray(this.slaveTerms) ){
+				json.slaveTerms = this.slaveTerms;
 			}
 
 			return json;
@@ -1950,32 +2045,104 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static STATUS_SCHEDULED = 7;
 		static STATUS_IN_TRASH = 8;
 
-		static $DEFAULT_TERM_TYPE_FORM_CTRL = $('#' + NAMESPACE + 'termType');
-		static $DEFAULT_TERM_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termName');
-		static $DEFAULT_TERM_VERSION_FORM_CTRL = $('#' + NAMESPACE + 'termVersion');
-		static $DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL = $('#' + NAMESPACE + 'termDisplayName');
-		static $DEFAULT_TERM_DEFINITION_FORM_CTRL = $('#' + NAMESPACE + 'termDefinition');
-		static $DEFAULT_TERM_TOOLTIP_FORM_CTRL = $('#' + NAMESPACE + 'termTooltip');
-		static $DEFAULT_TERM_SYNONYMS_FORM_CTRL = $('#' + NAMESPACE + 'synonyms');
-		static $DEFAULT_TERM_MANDATORY_FORM_CTRL = $('#' + NAMESPACE + 'mandatory');
-		static $DEFAULT_TERM_VALUE_FORM_CTRL = $('#' + NAMESPACE + 'value');
-		static $DEFAULT_ABSTRACT_KEY_FORM_CTRL = $('#' + NAMESPACE + 'abstractKey');
-		static $DEFAULT_SEARCHABLE_FORM_CTRL = $('#' + NAMESPACE + 'searchable');
-		static $DEFAULT_DOWNLOADABLE_FORM_CTRL = $('#' + NAMESPACE + 'downloadable');
-
+		
 		static KEYWORD_DELIMITERS = /\s|,/;
 
 		static DEFAULT_SEARCH_OPERATOR = 'and';
 
+		#termType;
+		#termName;
+		#termVersion;
+		#displayName;
+		
+		#abstractKey;
+		#searchable;
+		#downloadable;
+		#synonyms;
+		#mandatory;
+		#disabled;
+		#definition;
+		#tooltip;
+		#order;
+		#dirty;
+		#groupTermId;
+		#masterTerm;
+		#id;
+		
+		#standard;
+		#status;
+		#state;
+
+		#$rendered;
+		#$label;
+
+		#resourceCommandURL;
+
+		get id(){return this.#id;}
+		set id(val){this.#id = Util.toSafeNumber(val);}
+		get termType(){return this.#termType;}
+		set termType(val){this.#termType=Util.toSafeObject(val);}
+		get termName(){return this.#termName;}
+		set termName(val){this.#termName=Util.toSafeObject(val);}
+		get termVersion(){return this.#termVersion;}
+		set termVersion(val){this.#termVersion=Util.toSafeObject(val);}
+		get synonyms(){return this.#synonyms;}
+		set synonyms(val){this.#synonyms=Util.toSafeObject(val);}
+		get displayName(){return this.#displayName;}
+		set displayName(val){this.#displayName=Util.toSafeLocalizedObject(val);}
+		get definition(){return this.#definition;}
+		set definition(val){this.#definition=Util.toSafeLocalizedObject(val);}
+		get tooltip(){return this.#tooltip;}
+		set tooltip(val){this.#tooltip=Util.toSafeLocalizedObject(val);}
+		get mandatory(){return this.#mandatory;}
+		set mandatory(val){this.#mandatory=Util.toSafeBoolean(val, false);}
+		get disabled(){return this.#disabled;}
+		set disabled(val){this.#disabled=Util.toSafeBoolean(val, false);}
+		get abstractKey(){return this.#abstractKey;}
+		set abstractKey(val){this.#abstractKey=Util.toSafeBoolean(val, false);}
+		get downloadable(){return this.#downloadable;}
+		set downloadable(val){this.#downloadable=Util.toSafeBoolean(val, true);}
+		get searchable(){return this.#searchable;}
+		set searchable(val){this.#searchable=Util.toSafeBoolean(val, false);}
+		get standard(){return this.#standard;}
+		set standard(val){this.#standard=Util.toSafeBoolean(val, false);}
+		get masterTerm(){return this.#masterTerm;}
+		set masterTerm(val){this.#masterTerm=val;}
+		get $rendered(){return this.#$rendered;}
+		set $rendered(val){this.#$rendered=val;}
+		get $label(){return this.#$label;}
+		set $label(val){this.#$label=val;}
+		get dirty(){return this.#dirty;}
+		set dirty(val){this.#dirty=val;}
+		get state(){return this.#state;}
+		set state(val){this.#state=val;}
+		get status(){return this.#status;}
+		set status(val){this.#status=val;}
+		get order(){return this.#order;}
+		set order(val){this.#order= Util.toSafeNumber(val);}
+		get groupTermId(){return !this.#groupTermId ? new TermId() : this.#groupTermId;}
+		set groupTermId(val){this.#groupTermId=Util.toSafeTermId(val);}
+		get resourceCommandURL(){return this.#resourceCommandURL;}
+		set resourceCommandURL(val){this.#resourceCommandURL=val;}
+		
+		get groupId(){return this.groupTermId;}
+		get termId(){ return new TermId(this.termName, this.termVersion); }
 		
 		constructor( termType ){
 			
-			this.termId = 0;
+			this.id = 0;
 			this.termType = termType;
 
+			this.abstractKey = false;
+			this.disabled = false;
+			this.searchable = true;
+			this.downloadable = true;
+			this.mandatory = false;
+			this.termVersion = '1.0.0';
+			this.state = Term.STATE_ACTIVE;
+			this.standard = false;
 			this.dirty = false;
-			this.$rendered = undefined;
-			this.$label = undefined;
+			
 		}
 
 		static validateTermVersion( updated, previous ){
@@ -2024,8 +2191,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return /^[_|a-z|A-Z][_|a-z|A-Z|0-9]*/.test( termName );
 		}
 
-		activate( active=true ){
-			this.active = active;
+		activate( active=Term.STATE_ACTIVE ){
+			this.state = active;
 
 			if( !this.isRendered() )	return;
 
@@ -2034,7 +2201,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else{
 				this.$rendered.hide();
-				delete this.value;
+				this.value = undefined;
 			}
 		}
 
@@ -2050,13 +2217,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				},
 				callback: function( item ){
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: self
-						}
-					};
+					let dataPacket = Util.createEventDataPacket( NAMESPACE, NAMESPACE );
+					dataPacket.term = self;
 	
 					let message;
 
@@ -2067,10 +2229,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						message = Events.DATATYPE_PREVIEW_REMOVE_TERM;
 					}
 
-					Liferay.fire(
-						message,
-						eventData
-					);
+					Util.fire( message, dataPacket );
 				},
 				position: 'left'
 			};
@@ -2082,43 +2241,37 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return function( event ){
 				event.stopPropagation();
 				
-				const eventData = {
-					sxeventdata:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: self
-					}
-				};
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.term = self;
 				
-				Liferay.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+				Util.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, dataPacket );
 			};
 		}
 
-		getTermId(){
-			if( Util.isNotEmpty( this.termName ) || Util.isNotEmpty( this.termVersion ) ){
-				return new TermId(this.termName,this.termVersion);
-			}
-			else{
-				return TermId.getEmptyTermId();
-			}
-		}
-
-		getGroupId(){
-			if( this.isMemberOfGroup() ){
-				return this.groupTermId ;
-			}
-			else{
-				return TermId.getEmptyTermId();
-			}
-		}
-
 		isRendered(){
-			return !this.$rendered ? false : true;
+			return !!this.$rendered;
 		}
 
-		displayInputStatus( status=true, labelColor ){
+		displayInputStatus( status, labelColor ){
 			if( !this.isRendered() )	return;
 
+			if( !status ){
+				let color = labelColor ? labelColor : '#454545';
+				this.$label.css('color', color);
+				return 0;
+			} 
+			else if( this.hasValue() ){
+				let color = labelColor ? labelColor : '#454545';
+				this.$label.css('color', color);
+				return 1;
+			}
+			else{
+				let color = labelColor ? labelColor : '#ef6f6f';
+				this.$label.css('color', color);
+				return 0;
+			}
+
+			/*
 			let color = labelColor ? labelColor : '#454545';
 
 			if( status ){
@@ -2128,32 +2281,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.$label ){
 				this.$label.css('color', color);
 			}
+			*/
 		}
 
 		isOrdered(){
 			return (this.order && this.order > 0) ? true : false;
-		}
-
-		setDisable( disable=true ){
-			if( disable ){
-				this.disabled = disable;
-			}
-			else{
-				delete this.disabled;
-			}
-		}
-
-		setDirty( dirty ){
-			if( dirty ){
-				this.dirty = dirty;
-			}
-			else{
-				delete this.dirty;
-			}
-		}
-
-		clearDirty(){
-			this.setDirty();
 		}
 
 		isHighlighted(){
@@ -2172,7 +2304,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		emptyRender(){
 			if( this.$rendered ){
 				this.$rendered.empty();
-				delete this.$rendered;
+				this.$rendered = undefined;
 			}
 		}
 
@@ -2216,25 +2348,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		addSynonym( synonym ){
-			if( !this.synonyms )
-				this.sysnonyms = new Array();
-			this.synonyms.push( synonym );
-		}
-		
-		removeSynonym( synonym ){
-			if( !this.synonyms )		return;
-			
-			this.synonyms.every( (item, index, arr ) => {
-				if( item === synonym ){
-					this.synonyms.splice( index, 1 );
-					return Constants.STOP_EVERY;
-				}
-				
-				return Constants.CONTINUE_EVERY;
-			});
-		}
-		
 		/**
 		 *  Validate the term name matches naming pattern.
 		 *  If it is needed to change naming pattern, 
@@ -2286,25 +2399,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = new Object();
 			
+			/* required properties */
 			json.termType = this.termType;
 			json.termName = this.termName;	
 			json.termVersion = this.termVersion;
-			if( this.hasOwnProperty('displayName') )	json.displayName = this.displayName.getLocalizedMap();
-			if( this.hasOwnProperty('definition') ) 	json.definition = this.definition.getLocalizedMap();
-			if( this.hasOwnProperty('abstractKey') )	json.abstractKey = this.abstractKey;
-			if( this.hasOwnProperty('searchable') )		json.searchable = this.searchable;
-			if( this.hasOwnProperty('downloadable') )	json.downloadable = this.downloadable;
-			if( this.hasOwnProperty('tooltip') ) 		json.tooltip = this.tooltip.getLocalizedMap();
-			if( this.hasOwnProperty('synonyms') ) 		json.synonyms = this.synonyms;
-			if( this.hasOwnProperty('mandatory') )		json.mandatory = this.mandatory;
-			if( this.hasOwnProperty('disabled') )		json.disabled = this.disabled;
+			json.displayName = this.displayName.toJSON();
 
-			if( this.hasOwnProperty('order') )			json.order = this.order;
-			if( this.hasOwnProperty('dirty') )			json.dirty = this.dirty;
-			if( this.hasOwnProperty('masterTerm') )		json.masterTerm = this.masterTerm;
-			if( this.isMemberOfGroup() )				json.groupTermId = this.groupTermId.toJSON();
+			/* Never saved if undefined */
+			if( this.abstractKey )	json.abstractKey = true;
+			if( !this.searchable )	json.searchable = false;
+			if( !this.downloadable )	json.downloadable = false;
+			if( Util.isNotEmptyString(this.synonyms) ) 		json.synonyms = this.synonyms;
+			if( this.mandatory )		json.mandatory = true;
+			if( this.disabled )		json.disabled = true;
+			if( Util.isSafeLocalizedObject(this.definition) ) 	json.definition = this.definition.toJSON();
+			if( Util.isSafeLocalizedObject(this.tooltip) ) json.tooltip = this.tooltip.toJSON();
+			if( Util.isSafeNumber(this.order) )			json.order = this.order;
+			if( this.dirty )			json.dirty = this.dirty;
+			if( Util.isNotEmptyString(this.masterTerm) )		json.masterTerm = this.masterTerm;
+			if( this.isMemberOfGroup() )			json.groupTermId = this.groupTermId.toJSON();
+			if( this.id )	json.id = this.id;
 			
+			/* Keep this properties in lifetime */
 			json.state = this.state;
+			json.status = this.status;
+			json.standard = this.standard;
 			
 			return json;
 		}
@@ -2315,11 +2434,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let self = this;
 			Object.keys( json ).forEach(function(key, index){
 				switch( key ){
-					case 'dirty':
-						self[key] = false;
-						break;
+					case 'id':
 					case 'termType':
-					case 'termId':
 					case 'termName':
 					case 'termVersion':
 					case 'synonyms':
@@ -2332,376 +2448,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'state':
 					case 'disabled':
 					case 'masterTerm':
-						self[key] = json[key];
-						break;
 					case 'groupTermId':
-						if( typeof json.groupTermId === 'string' ){
-							json.groupTermId = JSON.parse( json.groupTermId );	
-						}
-
-						self[key] = new TermId(json[key].name, json[key].version);
-						break;
 					case 'displayName':
 					case 'definition':
-					case 'tooltip':
-						self[key] = new LocalizedObject(); 
-						self[key].setLocalizedMap( json[key] );
-						break;
 					case 'status':
+					case 'tooltip':
+					case 'standard':
+								self[key] = json[key];
+						break;
+					case 'dirty':
 						break;
 					default:
 						unparsed[key] = json[key];
 				}
 			});
 
-			if( !this.hasOwnProperty('termVersion') )	this.termVersion = Term.DEFAULT_TERM_VERSION;
-			if( !this.hasOwnProperty('state') )	this.state = Constants.STATE_ACTIVE;
-
 			return unparsed;
 		}
-		
-		/****************************************************************
-		 * Setter and getter UIs for form control values of the definer's edit section.
-		 * Form controls should be consist of [namespace]+[term attribute name]
-		 ****************************************************************/
-		getTermTypeFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.TERM_TYPE );
-			if( save ){
-				this.termType = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setTermTypeFormValue ( value ){
-			if( value ){
-				this.termType = value;
-				FormUIUtil.setFormValue( TermAttributes.TERM_TYPE, value );
-			}
-			else if( this.hasOwnProperty('termType') ){
-				FormUIUtil.setFormValue( TermAttributes.TERM_TYPE, this.termType );
-			}
-			else{
-				this.termType = TermTypes.STRING;
-				FormUIUtil.setFormValue( TermAttributes.TERM_TYPE, TermTypes.STRING );
-			}
-		}
-		
-		getTermNameFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.TERM_NAME );
-			if( save ){
-				this.termName = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setTermNameFormValue ( value ){
-			if( value ){
-				this.termName = value;
-				FormUIUtil.setFormValue( TermAttributes.TERM_NAME, value );
-			}
-			else if( this.hasOwnProperty('termName') ){
-				FormUIUtil.setFormValue( TermAttributes.TERM_NAME, this.termName );
-			}
-			else{
-				delete this.termName;
-				FormUIUtil.setFormValue( TermAttributes.TERM_NAME );
-			}
-		}
-		
-		getTermVersionFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.TERM_VERSION );
-			if( save ){
-				this.termVersion = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setTermVersionFormValue ( value ){
-			if( value ){
-				this.termVersion = value;
-				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, value );
-			}
-			else if( this.hasOwnProperty('termVersion') ){
-				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, this.termVersion );
-			}
-			else{
-				this.termVersion = Term.DEFAULT_TERM_VERSION;
-				FormUIUtil.setFormValue( TermAttributes.TERM_VERSION, Term.DEFAULT_TERM_VERSION );
-			}
-		}
-		
-		getDisplayNameFormValue ( save=true ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDisplayName' );
-			if( save ){
-				this.displayName = new LocalizedObject( valueMap );
-				this.setDirty( true );
-			}
-			
-			return valueMap;
-		}
-		setDisplayNameFormValue ( valueMap ){
-			if( valueMap ){ 
-				this.displayName = new LocalizedObject(valueMap);
-				FormUIUtil.setFormLocalizedValue( 'termDisplayName', valueMap );
-			}
-			else if( this.hasOwnProperty('displayName') ){
-				FormUIUtil.setFormLocalizedValue( 'termDisplayName', this.displayName.getLocalizedMap() );
-			}
-			else{
-				delete this.displayName;
-				FormUIUtil.setFormLocalizedValue( 'termDisplayName' );
-			}
-		}
-		
-		getDefinitionFormValue ( save=true ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( 'termDefinition' );
-			if( save ){
-				this.definition = new LocalizedObject(valueMap);
-				this.setDirty( true );
-			}
-			
-			return valueMap;
-		}
-		setDefinitionFormValue ( valueMap ){
-			if( valueMap ){
-				this.definition = new LocalizedObject(valueMap);
-				FormUIUtil.setFormLocalizedValue( 'termDefinition', valueMap );
-			}
-			else if( this.hasOwnProperty('definition') ){
-				FormUIUtil.setFormLocalizedValue( 'termDefinition', this.definition.getLocalizedMap() );
-			}
-			else{
-				delete this.definition;
-				FormUIUtil.setFormLocalizedValue( 'termDefinition' );
-			}
-		}
-
-		getAbstractKeyFormValue( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.ABSTRACT_KEY );
-			
-			if( save ){
-				this.abstractKey = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setAbstractKeyFormValue ( value ){
-			if( typeof value === 'boolean' ){
-				this.abstractKey = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, value );
-			}
-			else if( this.hasOwnProperty('abstractKey') ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, this.abstractKey );
-			}
-			else{
-				this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.ABSTRACT_KEY, Term.DEFAULT_ABSTRACT_KEY );
-			}
-		}
-
-		getDisabledFormValue( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.DISABLED );
-			
-			let self = this;
-			if( save ){
-				this.disabled = value;
-				this.setDirty( true );
-			}
-
-			return value;
-		}
-		setDisabledFormValue ( value ){
-			if( typeof value === 'boolean' ){
-				this.disabled = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, value );
-			}
-			else if( this.hasOwnProperty('disabled') ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, this.disabled );
-			}
-			else{
-				this.disabled = false;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.DISABLED, false );
-			}
-		}
-
-		getSearchableFormValue( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SEARCHABLE );
-			
-			if( save ){
-				this.searchable = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setSearchableFormValue ( value ){
-			if( typeof value === 'boolean' ){
-				this.searchable = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, value );
-			}
-			else if( this.hasOwnProperty('searchable') ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, this.searchable );
-			}
-			else{
-				this.searchable = Term.DEFAULT_SEARCHABLE;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.SEARCHABLE, Term.DEFAULT_SEARCHABLE );
-			}
-		}
-
-		getDownloadableFormValue( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.DOWNLOADABLE );
-			
-			if( save ){
-				this.downloadable = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setDownloadableFormValue ( value ){
-			if( typeof value === 'boolean' ){
-				this.downloadable = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, value );
-			}
-			else if( this.hasOwnProperty('downloadable') ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, this.downloadable );
-			}
-			else{
-				this.downloadable = Term.DEFAULT_DOWNLOADABLE;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.DOWNLOADABLE, Term.DEFAULT_DOWNLOADABLE );
-			}
-		}
-
-		getTooltipFormValue ( save=true ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( 'termTooltip' );
-
-			if( save ){
-				if( Object.keys( valueMap ).length <= 0 && this.tooltip ){
-					this.tooltip = null;
-				}
-				else{
-					this.tooltip = new LocalizedObject();
-					this.tooltip.setLocalizedMap( valueMap );
-				}
-				this.setDirty( true );
-			}
-			
-			return valueMap;
-		}
-		setTooltipFormValue ( valueMap ){
-			if( valueMap ){
-				this.tooltip = new LocalizedObject();
-				this.tooltip.setLocalizedMap( valueMap );
-				FormUIUtil.setFormLocalizedValue( 'termTooltip', valueMap );
-			}
-			else if( this.hasOwnProperty('tooltip') ){
-				FormUIUtil.setFormLocalizedValue( 'termTooltip', this.tooltip.getLocalizedMap() );
-			}
-			else{
-				delete this.tooltip;
-				FormUIUtil.setFormLocalizedValue( 'termTooltip' );
-			}
-		}
-		
-		getSynonymsFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.SYNONYMS );
-			if( save ){
-				this.synonyms = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setSynonymsFormValue ( value ){
-			if( value ){
-				this.synonyms = value;
-				FormUIUtil.setFormValue( TermAttributes.SYNONYMS, value );
-			}
-			else if( this.hasOwnProperty('synonyms') ){
-				FormUIUtil.setFormValue( TermAttributes.SYNONYMS, this.synonyms );
-			}
-			else{
-				delete this.synonyms;
-				FormUIUtil.clearFormValue( TermAttributes.SYNONYMS );
-			}
-		}
-
-		getMandatoryFormValue ( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MANDATORY );
-			
-			if( save ){
-				this.mandatory = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMandatoryFormValue ( value ){
-			if( typeof value === 'boolean' ){
-				this.mandatory = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, value );
-			}
-			else if( this.hasOwnProperty('mandatory') ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, this.mandatory );
-			}
-			else{
-				this.mandatory = Term.DEFAULT_MANDATORY;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MANDATORY, Term.DEFAULT_MANDATORY );
-			}
-		}
-
-		setPropertyFormValues(){
-			this.setDefinitionFormValue();
-			this.setDisplayNameFormValue();
-			this.setDownloadableFormValue();
-			this.setMandatoryFormValue();
-			this.setAbstractKeyFormValue();
-			this.setDisabledFormValue();
-			this.setSearchableFormValue();
-			this.setSynonymsFormValue();
-			this.setTermNameFormValue();
-			this.setTermTypeFormValue();
-			this.setTermVersionFormValue();
-			this.setTooltipFormValue();
-		}
-
-		initPropertyValues(){
-			// Audit properties
-			delete this.definition;
-			delete this.displayName;
-			this.abstractKey = Term.DEFAULT_ABSTRACT_KEY;
-			this.downloadable = Term.DEFAULT_DOWNLOADABLE;
-			this.mandatory = Term.DEFAULT_MANDATORY;
-			this.searchable = Term.DEFAULT_SEARCHABLE;
-			this.state = Term.STATE_INIT;
-			delete this.synonyms;
-			delete this.termName;
-			this.termVersion = Term.DEFAULT_TERM_VERSION;
-			delete this.tooltip;
-			
-			if( !this.isMemberOfGroup() ) 	delete this.groupTermId;
-			this.standard = false;
-		}
-
-		disableAllFormControls(){
-			Term.$DEFAULT_TERM_ABSTRACT_KEY_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_DEFINITION_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_DISPLAY_NAME_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_DOWNLOADABLE_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_MANDATORY_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_NAME_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_SEARCHABLE_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_SYNONYMS_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_TOOLTIP_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_TYPE_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_VALUE_FORM_CTRL.prop( 'disabled', true );
-			Term.$DEFAULT_TERM_VERSION_FORM_CTRL.prop( 'disabled', true );
-		}
-		
 	} // End of Term
 	
 	/* 1. String */
@@ -2711,35 +2474,71 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_MULTIPLE_LINE = false;
 		static DEFAULT_VALIDATION_RULE = '^[\w\s!@#\$%\^\&*\)\(+=._-]*$';
 
+		#minLength;
+		#maxLength;
+		#multipleLine;
+		#placeHolder;
 		#value;
-
-		constructor( jsonObj ){
-			super( 'String' );
-
-			if( jsonObj ) this.parse( jsonObj );
-
-			this.setPropertyFormValues();
-		}
+		#validationRule;
 
 		/**************************************************
 		 * getters and setters
 		 **************************************************/
+		get minLength(){return this.#minLength;}
+		set minLength(minLength){
+			let safeVal = Util.toSafeNumber(minLength, this.minLength);
+			if( !isNaN(safeVal) ){
+				if( !Util.isSafeNumber(this.maxLength) ){
+					this.#minLength = safeVal;
+				} 
+				else if( this.maxLength >= safeVal){
+					this.#minLength = safeVal;
+				}
+				else{
+					$.alert('Non-proper minimum length:' + safeVal);
+				}
+			}
+			else{
+				this.#minLength = undefined;
+			}
+		}
+		get maxLength(){return this.#maxLength;}
+		set maxLength(maxLength){
+			let safeVal = Util.toSafeNumber(maxLength, this.maxLength);
+			if( !isNaN(safeVal) ){
+				if( !Util.isSafeNumber(this.minLength) ){
+					this.#maxLength = safeVal;
+				}
+				else if( this.minLength <= safeVal){
+					this.#maxLength = safeVal;
+				}
+				else{
+					$.alert('Non-proper maximum length:' + safeVal);
+				}
+			}
+			else{
+				this.#maxLength = undefined;
+			}
+		}
+		get multipleLine(){return this.#multipleLine ? this.#multipleLine : false;}
+		set multipleLine(multipleLine){this.#multipleLine = Util.toSafeBoolean(multipleLine);}
+		get placeHolder(){ return this.#placeHolder; }
+		set placeHolder(val){ this.#placeHolder = Util.toSafeLocalizedObject(val, this.placeHolder); }
 		get value(){ return this.#value; }
-		set value(val){ this.#value = val; }
-		
-		removeActiveTerm( term ){
-			return null;
-		} 
+		set value(val){ this.#value = Util.toSafeObject(val); }
+		get validationRule(){ return this.#validationRule; }
+		set validationRule(val){ this.#validationRule = Util.toSafeObject(val, this.validationRule); }
 
-		setLocalizedMap ( attrName, controlId ){
-			
-			defaultLocales.forEach( function( locale ) {
-				let localizedInputId = NAMESPACE+id+'_'+locale;
-				
-				this.localizedMap[locale] = $('#localizedInputId').val();
-			});
-			
-			return this.localizedMap;
+		constructor( jsonObj ){
+			super( 'String' );
+
+			this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
+			this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
+			this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
+			this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
+
+			if( jsonObj ) this.parse( jsonObj );
+
 		}
 
 		addSearchKeyword( keyword ){
@@ -2806,15 +2605,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		hasValue(){
 			return !!this.value;
 		}
+
+		clone(){
+			return new StringTerm( this.toJSON() );
+		}
 		
 		toJSON(){
 			let json = super.toJSON();
 			
-			if( this.placeHolder )
-				json.placeHolder = this.placeHolder.getLocalizedMap();
-			if( this.minLength > StringTerm.DEFAULT_MIN_LENGTH )		
+			if( Util.isSafeLocalizedObject(this.placeHolder) )
+				json.placeHolder = this.placeHolder.localizedMap;
+			if( Util.isSafeNumber(this.minLength) )		
 				json.minLength = this.minLength;
-			if( this.maxLength !== StringTerm.DEFAULT_MAX_LENGTH )		
+			if( Util.isSafeNumber(this.maxLength) )		
 				json.maxLength = this.maxLength;
 			if( this.multipleLine !== StringTerm.DEFAULT_MULTIPLE_LINE)	
 				json.multipleLine = this.multipleLine;
@@ -2831,9 +2634,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unparsed = super.parse( json );
 			let unvalid = new Object();
 			
-			let self = this;
 			Object.keys( unparsed ).forEach( (key, index) => {
 				switch( key ){
+					case 'placeHolder':
 					case 'minLength':
 					case 'maxLength':
 					case 'multipleLine':
@@ -2841,14 +2644,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'value':
 					case 'inputSize':
 					case 'lineBreak':
-						self[key] = unparsed[key];
+						this[key] = json[key];
 						break;
-					case 'placeHolder':
-						self.placeHolder = new LocalizedObject( unparsed[key] );
+					case 'dirty':
 						break;
 					default:
 						console.log('Un-identified Attribute: '+key);
-						unvalid[key] = unparsed[key];
+						unvalid[key] = json[key];
 				}
 			});
 
@@ -2876,16 +2678,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					event.stopPropagation();
 
 					self.value = FormUIUtil.getFormValue(self.termName);
+					console.log( 'self.value: ', self.value);
 
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = self;
 					const eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: self
-						}
+						dataPacket: dataPacket
 					};
 					
-					Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+					Liferay.fire( Events.SX_TERM_VALUE_CHANGED, eventData );					
 				}
 			};
 
@@ -2923,15 +2724,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self.searchKeywords = keywords.split( ' ' );
 					}
 
-					const eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: self
-						}
-					};
-					
-					Liferay.fire( Events.SD_SEARCH_KEYWORD_CHANGED, eventData );					
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = self;
+
+					Util.fire(Events.SD_SEARCH_KEYWORD_CHANGED, dataPacket );
 				}
 			};
 
@@ -3005,257 +2801,105 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return this.placeHolder.getText(locale);
 			}
 		}
-
-		getPlaceHolderFormValue ( save ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.PLACE_HOLDER );
-
-			if( save ){
-				if( Object.keys( valueMap ).length <= 0 ){
-					this.placeHolder = null;
-				}
-				else{
-					this.placeHolder = new LocalizedObject();
-					this.placeHolder.setLocalizedMap( valueMap );
-				}
-				this.setDirty( true );
-			}
-			
-			return valueMap;
-		}
-		setPlaceHolderFormValue ( valueMap ){
-			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.PLACE_HOLDER, valueMap );
-			}
-			else if( this.placeHolder ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.PLACE_HOLDER, this.placeHolder.getLocalizedMap() );
-			}
-			else{
-				FormUIUtil.setFormLocalizedValue( TermAttributes.PLACE_HOLDER );
-			}
-		}
-
-		getMinLengthFormValue ( save ){
-			let value = FormUIUtil.getFormValue( TermAttributes.MIN_LENGTH );
-			if( save ){
-				this.minLength = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMinLengthFormValue ( value ){
-			if( value && value > 0 ){
-				FormUIUtil.setFormValue( TermAttributes.MIN_LENGTH, value );
-			}
-			else if( this.minLength ){
-				FormUIUtil.setFormValue( TermAttributes.MIN_LENGTH, this.minLength );
-			}
-			else{
-				FormUIUtil.setFormValue( TermAttributes.MIN_LENGTH, 1 );
-			}
-		}
-		
-		getMaxLengthFormValue ( save ){
-			let value = FormUIUtil.getFormValue( TermAttributes.MAX_LENGTH );
-			if( save ){
-				this.maxLength = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMaxLengthFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( TermAttributes.MAX_LENGTH, value );
-			}
-			else if( this.maxLength ){
-				FormUIUtil.setFormValue( TermAttributes.MAX_LENGTH, this.maxLength );
-			}
-			else{
-				FormUIUtil.clearFormValue( TermAttributes.MAX_LENGTH );
-			}
-		}
-	
-		getValueFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.VALUE );
-			if( save ){
-				this.value = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setValueFormValue ( value ){
-			if( value !== null && typeof value === 'undefined' && value !== '' ){
-				this.value = value;
-				FormUIUtil.setFormValue( TermAttributes.VALUE, value );
-			}
-			else if( this.hasOwnProperty('value') ){
-				FormUIUtil.setFormValue( TermAttributes.VALUE, this.value );
-			}
-			else{
-				delete this.value;
-				FormUIUtil.clearFormValue( TermAttributes.VALUE );
-			}
-		}
-
-		getMultipleLineFormValue ( save ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MULTIPLE_LINE );
-			if( save ){
-				this.multipleLine = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMultipleLineFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MULTIPLE_LINE, value );
-			}
-			else if( this.multipleLine ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MULTIPLE_LINE, this.multipleLine );
-			}
-			else{
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MULTIPLE_LINE, StringTerm.DEFAULT_MULTIPLE_LINE );
-			}
-		}
-		
-		getValidationRuleFormValue ( save ){
-			let value = FormUIUtil.getFormValue( TermAttributes.VALIDATION_RULE );
-			if( save ){
-				this.validationRule = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setValidationRuleFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( TermAttributes.VALIDATION_RULE, value );
-			}
-			else if( this.validationRule ){
-				FormUIUtil.setFormValue( TermAttributes.VALIDATION_RULE, this.validationRule );
-			}
-			else{
-				FormUIUtil.clearFormValue( TermAttributes.VALIDATION_RULE );
-			}
-		}
-		
-		setPropertyFormValues(){
-			super.setPropertyFormValues();
-			
-			this.setPlaceHolderFormValue();
-			this.setMinLengthFormValue();
-			this.setMaxLengthFormValue();
-			this.setMultipleLineFormValue();
-			this.setValidationRuleFormValue();
-			this.setValueFormValue();
-		}
-
-		initPropertyValues(){
-			super.initPropertyValues(); 
-			
-			this.minLength = StringTerm.DEFAULT_MIN_LENGTH;
-			this.maxLength = StringTerm.DEFAULT_MAX_LENGTH;
-			this.multipleLine = StringTerm.DEFAULT_MULTIPLE_LINE;
-			this.validationRule = StringTerm.DEFAULT_VALIDATION_RULE;
-			delete this.placeHolder;
-		}
-
-		disableAllFormControls(){
-		}
-		
-		validation(){
-			
-		}
 	}
 	
 	/* 2. NumericTerm */
 	class NumericTerm extends Term{
 		#value;
+		#uncertainty;
 		#uncertaintyValue;
 		#minValue;
+		#minBoundary;
 		#maxValue;
+		#maxBoundary;
+		#unit;
+		#sweepable;
+		#placeHolder;
 
 		constructor( jsonObj ){
 			super('Numeric');
 
+			this.uncertainty = false;
+			this.sweepable = false;
+
 			if( jsonObj )	this.parse( jsonObj );
-			
-			this.setPropertyFormValues();
 		}
 
 		/**************************************************
 		 * getters and setters
 		 **************************************************/
 		get value(){ return this.#value; }
-		set value(value){ 
-			if( Util.isEmpty(value) ){
+		set value(val){
+			let safeVal = Util.toSafeNumber(val, this.value);
+
+			if( safeVal === undefined ){
 				this.#value = undefined;
-				return;
 			}
-
-			let prevValue = this.hasValue() ? '' : this.#value;
-			let safeValue = Util.toSafeNumber( value );
-
-			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
-				$.alert('Not proper number: ' + safeValue);
-				return;
+			else if( Util.isSafeNumber(safeVal) ){
+				if( this.minmaxValidation(safeVal) ){
+					this.#value = safeVal;
+				}
+				else{
+					$.alert('Not proper number for [ ' + this.termName + ' ]: ' + safeVal);
+				}
 			}
-
-			this.#value = safeValue;
+			else{
+				$.alert(Liferay.Language.get('only-numbers-allowed-for-numeric-term'));
+				this.#value = undefined;
+			}
 		}
 		get uncertaintyValue(){ return this.#uncertaintyValue; }
-		set uncertaintyValue(value){ 
-			if( Util.isEmpty(value) ){
-				this.#uncertaintyValue = undefined;
-				return;
+		set uncertaintyValue(val){ 
+			this.#uncertaintyValue = Util.toSafeNumber(val, this.uncertaintyValue);
+			if( isNaN(this.#uncertaintyValue) ){
+				$.alert(Liferay.Language.get('only-numbers-allowed-for-uncertainty-value'));
+				this.#uncertaintyValue = nudefined;
 			}
-
-			let prevValue = Util.isEmpty(this.#uncertaintyValue) ? '' : this.#uncertaintyValue;
-			let safeValue = Util.toSafeNumber( value );
-
-			if( isNaN(safeValue) ){
-				$.alert('Not proper number: ' + safeValue);
-				return;
-			}
-
-			this.#uncertaintyValue = safeValue;
 		}
 		get minValue(){ return this.#minValue; }
-		set minValue(value){ 
-			if( Util.isEmpty(value) ){
+		set minValue(val){ 
+			let safeVal = Util.toSafeNumber(val, this.minValue);
+			if( Util.isSafeNumber(safeVal) ){
+				if( this.maxValidation(safeVal) ){
+					this.#minValue = safeVal;
+				}
+				else{
+					$.alert('Not proper minimum number for [ ' + this.termName + ' ]: ' + safeVal);
+				}
+			}
+			else{
+				$.alert(Liferay.Language.get('only-numbers-allowed-for-min-value'));
 				this.#minValue = undefined;
-				return;
 			}
-
-			let safeValue = Util.toSafeNumber( value );
-
-			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
-				return;
-			}
-
-			this.#minValue = safeValue;
 		}
 		get maxValue(){ return this.#maxValue; }
-		set maxValue(value){ 
-			if( Util.isEmpty(value) ){
+		set maxValue(val){ 
+			let safeVal = Util.toSafeNumber(val, this.maxValue);
+			if( Util.isSafeNumber(safeVal) ){
+				if( this.minValidation(safeVal) ){
+					this.#maxValue = safeVal;
+				}
+				else{
+					$.alert('Not proper number: ' + safeVal);
+				}
+			}
+			else{
+				$.alert(Liferay.Language.get('only-numbers-allowed-for-max-value'));
 				this.#maxValue = undefined;
-				return;
 			}
-
-			let safeValue = Util.toSafeNumber( value );
-
-			if( isNaN(safeValue) || !this.minmaxValidation(safeValue) ){
-				return;
-			}
-
-			this.#maxValue = safeValue;
 		}
-
-		removeActiveTerm( term ){
-			return null;
-		}
+		get uncertainty(){ return this.#uncertainty; }
+		set uncertainty(val){this.#uncertainty = Util.toSafeBoolean(val);}
+		get minBoundary(){ return this.#minBoundary; }
+		set minBoundary(val){this.#minBoundary = Util.toSafeBoolean(val);}
+		get maxBoundary(){ return this.#maxBoundary; }
+		set maxBoundary(val){this.#maxBoundary = Util.toSafeBoolean(val);}
+		get unit(){ return this.#unit; }
+		set unit(val){this.#unit = Util.toSafeObject(val);}
+		get sweepable(){ return this.#sweepable; }
+		set sweepable(val){this.#sweepable = Util.toSafeBoolean(val);}
+		get placeHolder(){ return this.#placeHolder; }
+		set placeHolder(val){this.#placeHolder = Util.toSafeObject(val);}
 
 		$getSearchNumericNode(){
 			let controlName = NAMESPACE + this.termName;
@@ -3272,7 +2916,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $controlSection = $('<div class="form-group">').appendTo($searchKeywordSection);
 
-			if( !isNaN(this.minValue) && this.minValue !== null ){
+			if( Util.isNotEmpty(this.minValue) ){
 				$controlSection.append($('<span>'+this.minValue+'</span>'));
 
 				if( !!this.minBoundary ){
@@ -3291,7 +2935,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					.append( $curlingSpan )
 					.append( $toSpan );
 			
-			if( !isNaN(this.maxValue) && this.maxValue !== null ){
+			if( Util.isNotEmpty(this.maxValue) ){
 				if( !!this.maxBoundary ){
 					$controlSection.append($('<span style="margin-left:5px; margin-right:5px;">&le;</span>'));
 				}
@@ -3343,18 +2987,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					}
 	
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-					
-					Liferay.fire(
-						Events.SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED,
-						eventData
-					);
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = term;
+
+					Util.fire(Events.SD_NUMERIC_RANGE_SEARCH_STATE_CHANGED, dataPacket );
 				}
 			}
 
@@ -3408,17 +3044,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				if( valueChanged === true ){
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = term;
 					
-					Liferay.fire(
+					Util.fire(
 						Events.SD_SEARCH_FROM_NUMERIC_CHANGED,
-						eventData
+						dataPacket
 					);
 				}
 			});
@@ -3442,17 +3073,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$(this).val( term.toSearchValue );
 				}
 				else{
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-	
-					Liferay.fire(
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = term;
+					
+					Util.fire(
 						Events.SD_SEARCH_TO_NUMERIC_CHANGED,
-						eventData
+						dataPacket
 					);
 				}
 
@@ -3520,15 +3146,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						FormUIUtil.clearFormValue( term.termName+'_value' );
 					};
 
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = term;
+
 					const eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
+						dataPacket:dataPacket
 					};
 					
-					Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+					Liferay.fire( Events.SX_TERM_VALUE_CHANGED, eventData );					
 				}
 			};
 			this.$input = FormUIUtil.$getTextInput( valueName, valueName, 'text',  placeHolder, mandatory, disabled, value, eventFuncs ).appendTo($inputCol);
@@ -3552,15 +3177,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							FormUIUtil.clearFormValue( term.termName+'_uncertainty' );
 						};
 						
+						let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+						dataPacket.term = term;
+	
 						const eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
+							dataPacket:dataPacket
 						};
-						
-						Liferay.fire( Events.DATATYPE_SDE_VALUE_CHANGED, eventData );					
+	
+						Liferay.fire( Events.SX_TERM_VALUE_CHANGED, eventData );					
 					}
 				};
 				FormUIUtil.$getTextInput( uncertaintyName, uncertaintyName, 'text', placeHolder, mandatory, disabled, uncertaintyValue, eventFuncs ).appendTo($inputCol);
@@ -3722,7 +3346,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( validation === false ){
 					FormUIUtil.showError(
 						Constants.ERROR,
-						Liferay.Language.get('search-out-of-range-error'),
+						Liferay.Language.get('out-of-range-error'),
 						errorMsg,
 						{
 							ok: {
@@ -3884,243 +3508,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return true;
 		}
 
-		setMinValue( value ){
-			if( Util.isEmpty(value) ){
-				delete this.minValue;
-				return true;
-			}
-
-			value = Util.toSafeNumber( value );
-
-			if( isNaN(value) || !this.maxValidation(value) ){
-				return false;
-			}
-
-			this.minValue = value;
-			return true;
-		}
-
-		setMaxValue( value=NaN ){
-			if( Util.isEmpty(value) ){
-				delete this.maxValue;
-				return true;
-			}
-
-			value = Util.toSafeNumber( value );
-
-			if( isNaN(value) || !this.minValidation(value) ){
-				return false;
-			}
-
-			this.maxValue = value;
-			return true;
-		}
-
-		getMinValueFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.MIN_VALUE );
-			
-			if( save ){
-				this.setMinValue( value );
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMinValueFormValue ( value ){
-			if( this.setMinValue( value ) ){
-				FormUIUtil.setFormValue( TermAttributes.MIN_VALUE, value );
-			}
-			else if( Util.isSafeNumber(this.minValue) ){
-				FormUIUtil.setFormValue( TermAttributes.MIN_VALUE, this.minValue );
-			}
-			else{
-				FormUIUtil.clearFormValue( TermAttributes.MIN_VALUE );
-			}
-		}
-		
-		getMinBoundaryFormValue ( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MIN_BOUNDARY );
-			if( save ){
-				this.minBoundary = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMinBoundaryFormValue ( value ){
-			if( value ){
-				this.minBoundary = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MIN_BOUNDARY, value );
-			}
-			else if( this.minBoundary ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MIN_BOUNDARY, this.minBoundary );
-			}
-			else{
-				delete this.minBoundary;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MIN_BOUNDARY );
-			}
-		}
-		
-		getMaxValueFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.MAX_VALUE );
-
-			if( save ){
-				if( this.setMaxValue( value ) ){
-					this.setDirty( true );
-				};
-			}
-			
-			return value;
-		}
-		setMaxValueFormValue ( value='' ){
-			if( this.setMaxValue( value ) ){
-				FormUIUtil.setFormValue( TermAttributes.MAX_VALUE, value );
-			}
-			else if( Util.isSafeNumber(this.maxValue) ){
-				FormUIUtil.setFormValue( TermAttributes.MAX_VALUE, this.maxValue );
-			}
-			else{
-				FormUIUtil.clearFormValue( TermAttributes.MAX_VALUE );
-			}
-		}
-		
-		getMaxBoundaryFormValue ( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.MAX_BOUNDARY );
-			if( save ){
-				this.maxBoundary = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setMaxBoundaryFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MAX_BOUNDARY, value );
-			}
-			else if( this.maxBoundary ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MAX_BOUNDARY, this.maxBoundary );
-			}
-			else{
-				FormUIUtil.setFormCheckboxValue( TermAttributes.MAX_BOUNDARY );
-			}
-		}
-		
-		getUnitFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( TermAttributes.UNIT );
-			if( save ){
-				this.unit = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setUnitFormValue ( value ){
-			if( value ){
-				this.unit = value;
-				FormUIUtil.setFormValue( TermAttributes.UNIT, value );
-			}
-			else if( this.unit ){
-				FormUIUtil.setFormValue( TermAttributes.UNIT, this.unit );
-			}
-			else{
-				delete this.unit;
-				FormUIUtil.clearFormValue( TermAttributes.UNIT );
-			}
-		}
-		
-		getUncertaintyFormValue ( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.UNCERTAINTY );
-			if( save ){
-				this.uncertainty = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setUncertaintyFormValue ( value ){
-			if( value ){
-				this.uncertainty = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.UNCERTAINTY, value );
-			}
-			else if( this.uncertainty ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.UNCERTAINTY, this.uncertainty );
-			}
-			else{
-				delete this.uncertainty;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.UNCERTAINTY );
-			}
-		}
-
-		getSweepableFormValue ( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( TermAttributes.SWEEPABLE );
-			if( save ){
-				this.sweepable = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setSweepableFormValue ( value ){
-			if( value ){
-				this.sweepable = value;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE, value );
-			}
-			else if( this.sweepable ){
-				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE, this.sweepable );
-			}
-			else{
-				delete this.sweepable;
-				FormUIUtil.setFormCheckboxValue( TermAttributes.SWEEPABLE );
-			}
-		}
-
-		getNumericPlaceHolderFormValue ( save=true ){
-			let valueMap = FormUIUtil.getFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER );
-
-			if( save ){
-				if( Object.keys( valueMap ).length <= 0 ){
-					this.placeHolder = null;
-				}
-				else{
-					this.placeHolder = new LocalizedObject( valueMap );
-				}
-				this.setDirty( true );
-			}
-			
-			return valueMap;
-		}
-		setNumericPlaceHolderFormValue ( valueMap ){
-			if( valueMap ){
-				this.placeHolder =  new LocalizedObject( valueMap );
-				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER, valueMap );
-			}
-			else if( this.placeHolder ){
-				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER, this.placeHolder.getLocalizedMap() );
-			}
-			else{
-				delete this.placeHolder;
-				FormUIUtil.setFormLocalizedValue( TermAttributes.NUMERIC_PLACE_HOLDER );
-			}
-		}
-
 		hasValue(){
 			return Util.isSafeNumber(this.#value);
 		}
 
 		hasUncertainty(){
 			return Util.isSafeNumber(this.#uncertaintyValue);
-		}
-		
-		setPropertyFormValues(){
-			super.setPropertyFormValues();
-			this.setMinValueFormValue();
-			this.setMinBoundaryFormValue();
-			this.setMaxValueFormValue();
-			this.setMaxBoundaryFormValue();
-			this.setUnitFormValue();
-			this.setUncertaintyFormValue();
-			this.setSweepableFormValue();
-			this.setNumericPlaceHolderFormValue();
 		}
 
 		parse( json ){
@@ -4144,7 +3537,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						self[key] = json[key];
 						break;
 					case 'placeHolder':
-						self.placeHolder = new LocalizedObject( unparsed[key] );
+						self.placeHolder = new LocalizedObject( json[key] );
 						break;
 					default:
 						invalid[key] = json[key];
@@ -4152,20 +3545,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 		
+		clone(){
+			return new NumericTerm( this.toJSON() );
+		}
+
 		toJSON(){
 			let json = super.toJSON();
 			
 			if( Util.isSafeNumber(this.minValue) )	json.minValue = this.minValue;
-			if( !!this.minBoundary )	json.minBoundary = true;
+			if( Util.isSafeBoolean(this.minBoundary) )	json.minBoundary = this.minBoundary;
 			if( Util.isSafeNumber(this.maxValue) )	json.maxValue = this.maxValue;
-			if( !!this.maxBoundary )	json.maxBoundary = true;
-			if( !!this.unit )	json.unit = this.unit;
-			if( !!this.uncertainty )	json.uncertainty = true;
+			if( Util.isSafeBoolean(this.maxBoundary) )	json.maxBoundary = this.maxBoundary;
+			if( Util.isNotEmpty(this.unit) )	json.unit = this.unit;
+			if( Util.isSafeBoolean(this.uncertainty) )	json.uncertainty = this.uncertainty;
 			if( this.hasValue() )	json.value = this.value;
-			if( this.hasUncertaintyValue )	json.uncertaintyValue = this.uncertaintyValue;
-			if( this.sweepable )	json.sweepable = true;
-			if( this.placeHolder ){
-				json.placeHolder = this.placeHolder.getLocalizedMap();
+			if( Util.isSafeNumber(this.uncertaintyValue) )	json.uncertaintyValue = this.uncertaintyValue;
+			if( Util.isSafeBoolean(this.sweepable) )	json.sweepable = this.sweepable;
+			if( this.placeHolder && !this.placeHolder.isEmpty() ){
+				json.placeHolder = this.placeHolder.toJSON();
 			}
 			json.inputSize = this.inputSize;
 			json.lineBreak = this.lineBreak;
@@ -4178,24 +3575,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 3. ListTerm */
 	class ListTerm extends Term {
-		static $DISPLAY_STYLE_FORM_CONTROL = $('#'+NAMESPACE+'listDisplayStyle');
-		static $OPTION_TABLE = $('#'+NAMESPACE+'options');
-		static $OPTION_LABEL = $('#'+NAMESPACE+'optionLabel');
-		static $OPTION_VALUE = $('#'+NAMESPACE+'optionValue');
-		static $OPTION_SELECTED = $('#'+NAMESPACE+'optionSelected');
-		static $OPTION_ACTIVE_TERMS = $('#'+NAMESPACE+'activeTerms');
-		static $BTN_ADD_OPTION = $('#'+NAMESPACE+'btnAddOption');
-		static $BTN_NEW_OPTION = $('#'+NAMESPACE+'btnNewOption');
-		static $BTN_CHOOSE_ACTIVE_TERMS = $('#'+NAMESPACE+'btnListChooseActiveTerms');
-
 		#value;
+		#options;
+		#displayStyle;
 
 		constructor( jsonObj ){
 			super('List');
 
-			if( jsonObj ) this.parse(jsonObj);
-
-			this.setPropertyFormValues();
+			if( Util.isNotEmpty(jsonObj) ) this.parse(jsonObj);
 		}
 
 		get value() { return this.#value; }
@@ -4206,195 +3593,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( Util.isNonEmptyArray(value) ){
 				this.#value = value;
 			}
-			else{
+			else if( Util.isEmpty(value) ){
 				this.#value = undefined;
 			}
 		}
-
-		highlightOptionPreview(){
-			/*
-			let rows = $.makeArray( ListTerm.$OPTION_TABLE.children('tr') );
-			rows.forEach((row, index) => { 
-				$(row).removeClass( 'highlight-border' );
-				if( this.highlightedOption && this.highlightedOption === this.options[index] ){
-					$(row).addClass( 'highlight-border' );
-				}
-			});
-			*/
-			if( this.options instanceof Array ){
-				this.options.forEach( option => {
-					option.$rendered.removeClass('highlight-border');
-				});
-			}
-
-			if( this.highlightedOption && this.highlightedOption.$rendered ){
-				this.highlightedOption.$rendered.addClass('highlight-border');
-			}
-		}
-
-		initOptionFormValues( option ){
-			if( option ){
-				this.setOptionLabelFormValue( option.labelMap );
-				this.setOptionValueFormValue( option.value );
-				this.setOptionSelectedFormValue( option.selected );
-				this.setActiveTermsFormValue( option.activeTerms );
-
-				this.highlightedOption = option;
-			}
-			else{
-				this.setOptionLabelFormValue();
-				this.setOptionValueFormValue();
-				this.setOptionSelectedFormValue();
-				this.setActiveTermsFormValue();
-
-				if( Util.isNonEmptyArray(this.options) ){
-					this.options.forEach( opt => {
-						opt.$rendered.removeClass('highlight-border');
-					});
-				}
-			}
-		}
-
-		/**********************************************************
-		 * 1. Read all values from Form
-		 * 2. Create ListOption instancec with the values
-		 * 3. Push the instance at the options array
-		 * 4. Render a preview row of the instance and add to the preview container
-		 * 5. 
-		 */
-		addOption( option ){
-			let optionLabelMap;
-			let optionValue;
-			let selected;
-			let activeTerms;
-
-			if( option ){
-				optionLabelMap = option.labelMap;
-				optionValue = option.value;
-				selected = option.selected;
-				activeTerms = option.activeTerms;
-			}
-			else{
-				optionLabelMap = this.getOptionLabelFormValue();
-				optionValue = this.getOptionValueFormValue();
-				selected = this.getOptionSelectedFormValue();
-				if( !optionLabelMap || 
-					Object.keys(optionLabelMap).length === 0 ||
-					!optionValue ){
-					$.alert( 'Option Label and Option Value are required.' );
-					return null;
-				}
-			}
-
-			if( selected === true ){
-				this.clearSelectedOption();
-			}
-
-			let newOption = new ListOption( optionLabelMap, optionValue, selected, false, activeTerms );
-
-			if( !this.options ){
-				this.options = new Array();
-			}
-
-			this.options.push(newOption);
-
-			let $row = newOption.$renderPreview();
-
-			ListTerm.$OPTION_TABLE.append( $row ); 
-
-			this.highlightedOption = newOption;
-
-			this.highlightOptionPreview();
-
-			this.setDirty( true );
-
-			return this.highlightedOption;
-		}
-
-		getHighlightedOption(){
-			return this.highlightedOption;
-		}
-
-		setEmptyHighlightedOption(){
-			this.highlightedOption = new ListOption();
-			this.initOptionFormValues();
-		}
-
-		clearSelectedOption(){
-			this.options.forEach((option, index)=>{
-				if( option !== this.highlightedOption ){
-					option.selected = false;
-					ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-selected').empty();
-				}
-			});
-			this.setDirty( true );
-		}
-
-		removeOption( optionValue ){
-			if( !this.options )	return;
-
-			this.options = this.options.filter(
-				(option, index, ary) => { 
-					if( option.value === optionValue ){
-						ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+')').remove();
-
-						let newIndex = index;
-						this.highlightedOption = null;
-						if( index === (ary.length - 1) ){
-							newIndex = ary.length - 2;
-						}
-						else{
-							newIndex = index + 1;
-						}
-						
-						if( newIndex >= 0 ){
-							this.highlightedOption = this.options[newIndex];
-						}
-
-						return false;
-					}
-
-					return true;
-				});
-			this.setDirty( true );
-			
-			this.initOptionFormValues(this.highlightedOption);
-
-			if( this.options.length === 0 ){
-				ListTerm.$BTN_ADD_OPTION.prop('disabled', false );
-			}
-
-		}
-
-		setOptionLabelMap( labelMap ){
-			if( this.highlightedOption ){
-				this.highlightedOption.setLabelMap( labelMap );
-				this.refreshOptionPreview( 'label' );
-				this.setDirty( true );
-			}
-		}
-
-		setOptionValue( value ){
-			if( this.highlightedOption ){
-				this.highlightedOption.value = value;
-				this.refreshOptionPreview('value');
-				this.setDirty( true );
-			}
-		}
-
-		setOptionSelected( value ){
-			if( this.highlightedOption ){
-				this.highlightedOption.selected = value;
-				this.refreshOptionPreview('selected');
-				this.setDirty( true );
-			}
-		}
+		get options() {return this.#options;}
+		set options(val){this.#options = val;}
+		get displayStyle() {return this.#displayStyle;}
+		set displayStyle(val){this.#displayStyle = val;}
 
 		hasSlaves(){
 			let hasSlaves = false;
 			if( Util.isNonEmptyArray(this.options) ){
 				this.options.every( option => {
-					if( option.hasOwnProperty('activeTerms') ){
+					if( option.hasSlaves() ){
 						hasSlaves = true;
 	
 						return Constants.STOP_EVERY;
@@ -4407,6 +3619,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return hasSlaves;
 		}
 
+		addOption( option ){
+			if( !this.options ){
+				this.options = new Array();
+			}
+
+			this.#options.push( option );
+		}
+
 		getOptions( optionValues, included=true ){
 			if( included ){
 				return this.options.filter(option=> optionValues.includes(option.value));
@@ -4416,25 +3636,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		getActiveTermNames( active=true ){
-			let values = this.hasOwnProperty('value') ? this.value : new Array();
+		deleteAllSlaveTerms(){
+			this.#options.forEach(option=>{
+				option.slaveTerms = undefined;
+			});
+		}
 
-			let options = this.getOptions( values, active );
+		getAllSlaveTerms( active=true ){
 			let termNames = new Array();
-			options.forEach( option => {
-				if( option.hasOwnProperty('activeTerms') ){
-					termNames = termNames.concat( option.activeTerms );
+			this.#options.forEach( option => {
+				if( Util.isNotEmpty(option.slaveTerms) ){
+					termNames = termNames.concat( option.slaveTerms );
 				}
 			});
 
 			return termNames;
 		}
 
-		removeActiveTerm( term ){
-			this.options.every((option)=>{
-				option.removeActiveTerm( term );
+		removeSlaveTerm( termName ){
+			this.#options.forEach(option=>{
+				option.removeSlaveTerm( termName );
 			});
-			this.setDirty( true );
 		} 
 
 		addSearchKeyword( keyword ){
@@ -4477,50 +3699,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchField;
 		}
 
-		refreshOptionPreview( column ){
-			if( !(this.highlightedOption && this.options) )	return;
-
-			this.options.every((option, index, ary)=>{
-				if( option === this.highlightedOption ){
-					switch( column ){
-						case 'label':
-							ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-label' )
-									.empty()
-									.text( this.highlightedOption.labelMap[CURRENT_LANGUAGE] );
-							break;
-						case 'value':
-							ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-value' )
-									.empty()
-									.text( this.highlightedOption.value );
-							break;
-						case 'selected':
-							let selectedOption = ListTerm.$OPTION_TABLE.find('tr:nth-child('+(index+1)+') td.option-selected' ).empty();
-							if( this.highlightedOption.selected ){
-								this.clearSelectedOption();
-								selectedOption.html('&#10004;');
-							}
-							
-							break;
-					}
-					
-					return Constants.STOP_EVERY;
-				}
-
-				return Constants.CONTINUE_EVERY;
-			})
-		}
-
-		renderOptions(){
-			let $panel = ListTerm.$OPTION_TABLE;
-			$panel.empty();
-
-			if( this.options ){
-				this.options.forEach((option)=>{
-					$panel.append( option.$renderPreview() );
-				});
-			}
-		}
-
 		$getFieldSetNode( forWhat ){
 			let term = this;
 
@@ -4528,7 +3706,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let label = term.getLocalizedDisplayName();
 			let helpMessage = term.getLocalizedTooltip();
 			let mandatory = !!term.mandatory ? true : false;
-			let value = term.hasOwnProperty('value') ? term.value : null;
+			let value = term.hasValue() ? term.value : null;
 			let displayStyle = !!term.displayStyle ? term.displayStyle : 'select';
 			let options = !!term.options ? term.options : new Array();
 			let disabled = !!term.disabled ? true : false;
@@ -4540,7 +3718,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $panelBody = $panelGroup.find('.panel-body');
 
 				options.forEach((option, index)=>{
-					let $option = option.$render( Constants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName);
+					let $option = option.$render( Constants.DISPLAY_STYLE_CHECK, controlName+'_'+(index+1), controlName, false);
 
 					$option.change(function(event){
 						event.stopPropagation();
@@ -4555,17 +3733,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							});
 						}
 
-						let eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
+						let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+						dataPacket.term = term;
 
-						Liferay.fire(
+						Util.fire(
 							Events.SD_SEARCH_KEYWORD_CHANGED, 
-							eventData );
+							dataPacket );
 
 					});
 
@@ -4577,8 +3750,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
 				let optionValue = value ? value[0] : '';
-				//let $node = $('<div class="form-group input-text-wrapper">')
-				//				.append( FormUIUtil.$getSelectTag(controlName, options, optionValue, label, mandatory, helpMessage, disabled) );
 				let $node = FormUIUtil.$getSelectTag(controlName, options, optionValue, label, mandatory, helpMessage, disabled);
 				this.$label = $node.find('span').first();
 
@@ -4587,17 +3758,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					term.value = [$node.find('select').val()];
 
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = term;
+					Util.fire(
+						Events.SX_TERM_VALUE_CHANGED,
+						dataPacket
 					);
 				});
 
@@ -4612,39 +3777,33 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let optionValue = value ? value[0] : '';
 				if( displayStyle === Constants.DISPLAY_STYLE_RADIO ){
 					options.forEach((option, index)=>{
-							let selected = (optionValue === option.value);
-							$panelBody.append( FormUIUtil.$getRadioButtonTag( 
+							let selected = optionValue ? (option.value === optionValue) : 
+														 option.selected;
+							let $radioTag = FormUIUtil.$getRadioButtonTag( 
 														controlName+'_'+(index+1),
 														controlName, 
 														option,
 														selected,
-														disabled ) );
+														disabled ).appendTo($panelBody);
 					});
 
 					$panelBody.change(function(event){
 						event.stopPropagation();
 
-						let changedVal = $(this).find('input[type="radio"]:checked').val();
+						let changedVal = $panelBody.find('input[type="radio"]:checked').val();
 						term.value = [changedVal];
 
-						let eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
-
-						Liferay.fire(
-							Events.DATATYPE_SDE_VALUE_CHANGED,
-							eventData
+						let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+						dataPacket.term = term;
+						Util.fire(
+							Events.SX_TERM_VALUE_CHANGED,
+							dataPacket
 						);
 					});
 				}
 				else{ //For Checkbox
 					options.forEach((option, index)=>{
-							let selected = option.selected || 
-											(value ? value.includes(option.value) : false);
+							let selected = value ? value.includes(option.value) : false;
 							$panelBody.append( FormUIUtil.$getCheckboxTag( 
 														controlName+'_'+(index+1),
 														controlName,
@@ -4667,17 +3826,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						term.value = checkedValues;
 						term.valueMode = Constants.ARRAY;
 
-						let eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: term
-							}
-						};
-
-						Liferay.fire(
-							Events.DATATYPE_SDE_VALUE_CHANGED,
-							eventData
+						let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+						dataPacket.term = term;
+						Util.fire(
+							Events.SX_TERM_VALUE_CHANGED,
+							dataPacket
 						);
 					});
 				}
@@ -4716,122 +3869,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
+
+
 		disable( disable=true ){
 			this.disable = disable;
 			this.$rendered.find('select, input').prop('disabled', this.disable);
-		}
-
-		getDisplayStyleFormValue ( save ){
-			let value = FormUIUtil.getFormRadioValue( 'listDisplayStyle' );
-			if( save ){
-				this.displayStyle = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setDisplayStyleFormValue ( value ){
-			if( value ){
-				this.displayStyle = value;
-				FormUIUtil.setFormRadioValue( 'listDisplayStyle', value );
-			}
-			else if( this.hasOwnProperty('displayStyle') ){
-				FormUIUtil.setFormRadioValue( 'listDisplayStyle', this.displayStyle );
-			}
-			else{
-				this.displayStyle = Constants.DISPLAY_STYLE_SELECT;
-				FormUIUtil.setFormRadioValue( 'listDisplayStyle', Constants.DISPLAY_STYLE_SELECT );
-			}
-		}
-
-		getOptionLabelFormValue (){
-			return FormUIUtil.getFormLocalizedValue( 'optionLabel' );
-		}
-		setOptionLabelFormValue ( valueMap ){
-			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( 'optionLabel', valueMap );
-			}
-			else if( this.highlightedOption && this.highlightedOption.labelMap ){
-				FormUIUtil.setFormLocalizedValue( 'optionLabel', this.highlightedOption.labelMap );
-			}
-			else{
-				FormUIUtil.setFormLocalizedValue( 'optionLabel' );
-			}
-		}
-
-		getOptionValueFormValue (){
-			return FormUIUtil.getFormValue( 'optionValue' );
-		}
-		setOptionValueFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'optionValue', value );
-			}
-			else if( this.highlightedOption && this.highlightedOption.value ){
-				FormUIUtil.setFormValue( 'optionValue', this.highlightedOption.value );
-			}
-			else{
-				FormUIUtil.setFormValue( 'optionValue' );
-			}
-		}
-
-		getOptionSelectedFormValue (){
-			return FormUIUtil.getFormCheckboxValue( 'optionSelected' );
-		}
-		setOptionSelectedFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormCheckboxValue( 'optionSelected', value );
-			}
-			else if( this.highlightedOption && this.highlightedOption.selected ){
-				FormUIUtil.setFormCheckboxValue( 'optionSelected', this.highlightedOption.selected );
-			}
-			else{
-				FormUIUtil.setFormCheckboxValue( 'optionSelected' );
-			}
-		}
-
-		getActiveTermsFormValue (){
-			let value = FormUIUtil.getFormCheckedArray( 'activeTerms' );
-			
-			return value;
-		}
-		setActiveTermsFormValue ( terms ){
-			let termNames = null;
-			
-			if( terms ){
-				termNames = terms.map(term=>term.termName);
-			}
-
-			if( termNames ){
-				FormUIUtil.setFormCheckedArray( 'activeTerms', termNames );
-			}
-			else if( this.highlightedOption && this.highlightedOption.activeTerms ){
-				let activeTermNames = this.highlightedOption.activeTerms.map(activeTerm=>activeTerm.termName);
-				FormUIUtil.setFormCheckedArray( 'activeTerms', this.highlightedOption.activeTerms );
-			}
-			else{
-				FormUIUtil.setFormCheckedArray( 'activeTerms' );
-			}
-		}
-
-		setPropertyFormValues(){
-			super.setPropertyFormValues();
-
-			this.setDisplayStyleFormValue();
-			this.renderOptions();
-
-			if( !this.options ){
-				this.highlightedOption = null;	
-			}
-			else{
-				this.highlightedOption = this.options[0];
-			}
-			
-			this.setOptionLabelFormValue();
-			this.setOptionValueFormValue();
-			this.setOptionSelectedFormValue();
-			this.setActiveTermsFormValue();
-	
-			this.highlightOptionPreview();
 		}
 
 		hasValue(){
@@ -4855,9 +3897,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						if( typeof json.options === 'string' ){
 							json.options = JSON.parse( json.options );
 						}
-						
-						self.options = new Array();
-						json.options.forEach(option => self.addOption(option));
+						json.options.forEach(option => {
+							if( option.hasOwnProperty('labelMap') ){
+								option.label = option.labelMap;
+							}
+
+							self.addOption(new ListOption(
+									option.label,
+									option.value,
+									option.selected,
+									option.hasOwnProperty('slaveTerms') ? 
+											option.slaveTerms : option.activeTerms,
+									option.disabled
+							));
+						});
 						break;
 					default:
 						unvalid[key] = json[key];
@@ -4867,7 +3920,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			//this.value = json.value ? JSON.parse(json.value) : [];
 		}
-					
+	
+		clone(){
+			return new ListTerm( this.toJSON() );
+		}
+
 		toJSON(){
 			let json = super.toJSON();
 			
@@ -4876,7 +3933,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				json.value = this.value;
 			}
 
-			if( this.options ){
+			if( Util.isNonEmptyArray(this.options) ){
 				json.options = this.options.map(option=>option.toJSON());
 			}
 			
@@ -4981,13 +4038,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					$inputEmailId.val( this.emailId );
 				}
 
-				let eventData = {
-					sxeventdata:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: this  
-					}
-				};
+				let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.term = this;
 
 				$inputEmailId.change( function(event){
 					event.stopPropagation();
@@ -4996,9 +4048,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					self.emailId = emailId;
 
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
+					Util.fire(
+						Events.SX_TERM_VALUE_CHANGED,
+						dataPacket
 					);
 				});
 
@@ -5033,9 +4085,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					self.server = serverName;
 
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
+					Util.fire(
+						Events.SX_TERM_VALUE_CHANGED,
+						dataPacket
 					);
 				});
 			}
@@ -5059,17 +4111,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						delete self.searchKeywords;
 					}
 					
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: self
-						}
-					};
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = self;
 
-					Liferay.fire(
+					Util.fire(
 						Events.SD_SEARCH_KEYWORD_CHANGED, 
-						eventData );
+						dataPacket );
 				});
 			}
 
@@ -5101,13 +4148,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		hasValue(){
-			return this.#value instanceof Array && this.#value[0] && this.#value[1];
+			return 	Util.isNonEmptyArray(this.#value) && 
+					Util.isNotEmpty(this.#value[0]) && 
+					Util.isNotEmpty(this.#value[1]);
 		}
 
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
 
 			this.value = jsonObj.value;
+		}
+
+		clone(){
+			return new EMailTerm( this.toJSON() );
 		}
 
 		toJSON(){
@@ -5209,12 +4262,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											'id="' + controlId + '_zipcode" ' +
 											'name="' + controlId + '_zipcode" ' +
 											'aria-required="' + mandatory + '" ' +
-											'style="width:45%;display:inline-block;" ' +
+											'style="width:45%;display:inline-block;border-color:#e7e7ed;" ' +
 											'disabled '+
 											'/>' ).appendTo( $inputSection );
 
 				if( this.hasValue() ){
-					$inputZipcode.val( this.zipcode );
+					$inputZipcode.val( this.zonecode );
 				}
 
 				let $searchZipcodeBtn = $('<button id="' + NAMESPACE + 'searchZipcode" class="btn btn-default">' + 
@@ -5229,6 +4282,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										'id="' + controlId + '_address" ' +
 										'name="' + controlId + '_address" ' +
 										'disabled '+
+										'style="border-color:#e7e7ed;" ' +
 										'/>' ).appendTo( $inputSection );
 				if( this.hasValue() ){
 					$address.val( this.street );
@@ -5241,7 +4295,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											'id="' + controlId + '_detailAddr" ' +
 											'name="' + controlId + '_detailAddr" ' +
 											'aria-required="true" ' +
-											'style="display:inline-block;max-width:76%;" '+
+											'style="display:inline-block;max-width:76%;border-color:#e7e7ed;" '+
 											'disabled '+
 											'/>' ).appendTo( $detailNode );
 				if( this.hasValue() ){
@@ -5257,7 +4311,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							
 				$resetBtn.click( function(event){
 					event.stopPropagation();
-					event.preventDefault();
 
 					self.value = undefined;
 
@@ -5270,7 +4323,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				$searchZipcodeBtn.click( function( e ){
 					e.stopPropagation();
-					e.preventDefault();
 
 					new daum.Postcode({
 						width: 500,
@@ -5302,17 +4354,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					self.detailAddr = $(this).val().replaceAll(',', ' ');
 
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: self  
-						}
-					};
-	
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = self;
+					Util.fire(
+						Events.SX_TERM_VALUE_CHANGED,
+						dataPacket
 					);
 				});
 			}
@@ -5354,18 +4400,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					delete self.searchKeywords;
 				}
 
-				let eventData = {
-					sxeventdata:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: self
-					}
-				};
+				let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+				dataPacket.term = self;
 
-				Liferay.fire(
-					Events.SD_SEARCH_KEYWORD_CHANGED,
-					eventData
-				);
+				Util.fire(
+					Events.SD_SEARCH_KEYWORD_CHANGED, 
+					dataPacket );
 			});
 		
 			return $section;
@@ -5398,14 +4438,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		hasValue(){
-			return Util.isNonEmptyArray( this.#value ) &&
-					this.#value[0] && this.#value[1] && this.#value[2];
+			return (Array.isArray( this.#value ) &&
+					this.#value[0] && this.#value[1] && this.#value[2]) ? true : false;
 		}
 
 		parse( jsonObj ){
 			super.parse( jsonObj );
 
 			this.value = jsonObj.value ? jsonObj.value : undefined;
+		}
+
+		clone(){
+			return new AddressTerm( this.toJSON() );
 		}
 
 		toJSON(){
@@ -5433,98 +4477,47 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		constructor( jsonObj ){
 			super( 'Matrix' );
 			
+			this.#rows = MatrixTerm.DEFAULT_ROWS;
+			this.#columns = MatrixTerm.DEFAULT_COLUMNS;
+			this.#columnWidth = MatrixTerm.DEFAULT_COLUMN_WIDTH;
+			
+			
+
 			if( jsonObj ){
 				this.parse( jsonObj );
 			}
 		}
 
-		get value(){
-			return this.#value;
-		}
-		set value( value ){
-			if( Util.isNotEmptyString(value) ){
-				this.#value = JSON.parse(value);
-				return;
-			}
-			else if( Util.isNonEmptyArray(value) ){
-				this.#value = value;
-				return;
-			}
-			
-			this.#value = undefined;
-		}
-
+		get value(){ return this.#value; }
+		set value( value ){ this.#value = value; }
 		get rows(){ return this.#rows; }
-		set rows( rows ){
-			let safeRows = Util.toSafeNumber( rows );
-
-			if( Util.isSafeNumber(safeRows) ){
-				if( safeRows < 1 ){
-					$.alert(Liferay.Language.get('matrix-rows-should-be-lager-than-0'));
-					return;
-				}
-				else{
-					this.#rows = safeRows;
-
-					return;
-				}
-			}
-
-			if( Util.isEmpty(rows) ){
-				this.#rows = 3;
-			}
-		}
-
+		set rows( rows ){ this.#rows = Util.toSafeNumber( rows ); }
 		get columns(){ return this.#columns; }
-		set columns( columns ){
-			let safeColumns = Util.toSafeNumber( columns );
-
-			if( Util.isSafeNumber(safeColumns) ){
-				if( safeColumns < 1 ){
-					$.alert(Liferay.Language.get('matrix-columns-should-be-lager-than-0'));
-					return;
-				}
-				else{
-					this.#columns = safeColumns;
-
-					return;
-				}
-			}
-
-			if( Util.isEmpty(columns) ){
-				this.#columns = 3;
-			}
-		}
-
+		set columns( columns ){ this.#columns = Util.toSafeNumber( columns ); }
 		get columnWidth(){ return this.#columnWidth; }
-		set columnWidth( width ){
-			let safeWidth = Util.toSafeNumber( width );
-
-			if( Util.isSafeNumber(safeWidth) ){
-				if( safeWidth < 1 ){
-					$.alert(Liferay.Language.get('matrix-column-width-should-be-lager-than-0'));
-					return;
-				}
-				else{
-					this.#columnWidth = width;
-
-					return;
-				}
-			}
-
-			if( Util.isEmpty(width) ){
-				this.#columnWidth = 2;
-			}
-		}
+		set columnWidth( width ){ this.#columnWidth = Util.toSafeNumber( width ); }
 
 		getCell( row, col ){
-			return this.#value[row][col];
+			if( this.hasValue() )
+				return this.#value[row][col];
 		}
 
 		setCell( row, col, value ){
 			let safeVal = Util.toSafeNumber( value );
 			if( !isNaN(safeVal) ){
+				if( !Array.isArray(this.#value) ){
+					this.assignEmptyValue();
+				}
+
 				this.#value[row][col] = safeVal;
+			}
+		}
+
+		assignEmptyValue(){
+			this.#value = new Array( this.#rows );
+				
+			for( let r=0; r<this.rows; r++){
+				this.#value[r] = new Array(this.#columns);
 			}
 		}
 
@@ -5609,17 +4602,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								else	$(this).val('');
 							}
 
-							let eventData = {
-								sxeventdata:{
-									sourcePortlet: NAMESPACE,
-									targetPortlet: NAMESPACE,
-									term: matrixTerm  
-								}
-							};
-			
-							Liferay.fire(
-								Events.DATATYPE_SDE_VALUE_CHANGED,
-								eventData
+							let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+							dataPacket.term = matrixTerm;
+							Util.fire(
+								Events.SX_TERM_VALUE_CHANGED,
+								dataPacket
 							);
 						});
 					}
@@ -5645,12 +4632,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			if( !this.hasValue() ){
-				this.#value = new Array( this.#rows );
-				
-				for( let r=0; r<this.rows; r++){
-					this.#value[r] = new Array(this.#columns);
-				}
+			if( !Array.isArray(this.#value ) ){
+				this.assignEmptyValue();
 			}
 
 			let $matrixSection = this.$getFormMatrixSection( forWhat );
@@ -5671,56 +4654,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		setRowsFormValue( value ){
-			this.rows = value;
-
-			FormUIUtil.setFormValue( 'rows', this.rows );
-		}
-
-		getRowsFormValue( save=true ){
-			let value = FormUIUtil.getFormValue( 'rows' );
-			if( save ){
-				this.rows = value;
-				this.dirty = true;
-			}
-			
-			return value;
-		}
-
-		setColumnsFormValue( value ){
-			this.columns = value;
-			
-			FormUIUtil.setFormValue( 'columns', this.columns );
-		}
-
-		getColumnsFormValue( save=true ){
-			let value = FormUIUtil.getFormValue( 'columns' );
-
-			if( save ){
-				this.columns = value;
-				this.dirty = true;
-			}
-			
-			return value;
-		}
-
-		setColumnWidthFormValue( value ){
-			this.columnWidth = value;
-			FormUIUtil.setFormValue( 'columnWidth', this.columnWidth );
-		}
-
-		getColumnWidthFormValue( save=true ){
-			if( save ){
-				this.columnWidth = FormUIUtil.getFormValue( 'columnWidth' );
-				this.dirty = true;
-
-				return this.columnWidth;
-			}
-			else{
-				return FormUIUtil.getFormValue( 'columnWidth' );
-			}
-		}
-
 		parse( jsonObj ){
 			let unparsed = super.parse( jsonObj );
 
@@ -5738,6 +4671,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				}
 			});
+		}
+
+		clone(){
+			return new MatrixTerm( this.toJSON() );
 		}
 
 		toJSON(){
@@ -5787,7 +4724,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( !Number.isInteger( Util.toSafeNumber(val) ) ){
 				$.alert('only-0-9-digit-allowed');
-				$control.focus();
+				$control.trigger('focus');
 
 				return false;
 			}
@@ -5798,30 +4735,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		hasValue(){
 			if( !Util.isNonEmptyArray( this.#value ) )	return false;
 
-			if( this.value[0] && this.value[1] && this.value[2] )	return true;
+			if( this.#value[0] && this.#value[1] && this.#value[2] )	return true;
 			
 			return false;
 		}
 
 		setValue( value, index ){
-			if( Util.isEmpty(this.#value) ){
+			if( !this.#value ){
 				this.#value = new Array( 3 );
 			}
 
 			this.#value[index] = value;
 
 			if( this.hasValue() ){
-				let eventData = {
-					sxeventdata:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: this
-					}
-				};
-
-				Liferay.fire(
-					Events.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
+				let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.term = this;
+				Util.fire(
+					Events.SX_TERM_VALUE_CHANGED,
+					dataPacket
 				);
 			}
 		}
@@ -5846,19 +4777,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 						self.searchKeywords = $(this).val().split(' ');
 
-						let eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: self  
-							}
-						}
+						let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+						dataPacket.term = self;
 
-						Liferay.fire(
-							Events.SD_SEARCH_KEYWORD_CHANGED,
-							eventData
-						);
-					}
+						Util.fire(
+							Events.SD_SEARCH_KEYWORD_CHANGED, 
+							dataPacket );
+						}
 				}
 
 				FormUIUtil.$getTextInput( 
@@ -5876,7 +4801,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{
 				let $inputNode = $('<div class="form-group input-text-wrapper">').appendTo($phoneSection);
 
-				let value = (this.value instanceof Array && this.value[0]) ? this.value[0] : ''; 
+				let mobileVal = ( Array.isArray(this.#value) && this.#value[0]) ? this.#value[0] : ''; 
 
 				let eventFuncs = {
 					change: function(event){
@@ -5887,6 +4812,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						if( !self.checkDigit( $(this), mobileNo ) ) return;
 
 						self.setValue( mobileNo, 0 );
+					},
+					keyup: function( event ){
+						let maxLength = $(this).prop('maxLength');
+						let valLength = $(this).val().length;
+
+						if( maxLength === valLength ){
+							$(this).siblings('input').first().trigger('focus');
+						}
 					}
 				};
 
@@ -5897,7 +4830,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										'',
 										false,
 										this.disabled,
-										value,
+										mobileVal,
 										eventFuncs
 									).appendTo( $inputNode );
 
@@ -5911,7 +4844,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				
 				$('<span>)&nbsp;</span>').appendTo( $inputNode );
 
-				value = (this.value instanceof Array && this.value[1]) ? this.value[1] : '';
+				let stationVal = (Array.isArray(this.#value) && this.#value[1]) ? this.#value[1] : '';
 
 				eventFuncs = {
 					change: function(event){
@@ -5922,6 +4855,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						if( !self.checkDigit( $(this), stationNo ) ) return;
 
 						self.setValue( stationNo, 1 );
+					},
+					keyup: function( event ){
+						let maxLength = $(this).prop('maxLength');
+						let valLength = $(this).val().length;
+
+						if( maxLength === valLength ){
+							$(this).siblings('input').last().trigger('focus');
+						}
 					}
 				};
 
@@ -5932,7 +4873,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										'',
 										false,
 										this.disabled,
-										value,
+										stationVal,
 										eventFuncs
 									).appendTo( $inputNode );
 
@@ -5948,7 +4889,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				$('<span>-</span>').appendTo( $inputNode );
 
-				value = (this.value instanceof Array && this.value[2]) ? this.value[2] : '';
+				let personalVal = (Array.isArray(this.#value) && this.#value[2]) ? this.#value[2] : '';
 
 				eventFuncs = {
 					change: function(event){
@@ -5969,7 +4910,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										'',
 										false,
 										this.disabled,
-										value,
+										personalVal,
 										eventFuncs
 									).appendTo( $inputNode );
 
@@ -6012,7 +4953,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		parse( jsonObj ){
 			super.parse( jsonObj );
 
-			this.value = jsonObj.value;
+			this.#value = jsonObj.value;
+		}
+
+		clone(){
+			return new PhoneTerm( this.toJSON() );
 		}
 
 		toJSON(){
@@ -6028,10 +4973,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 8. DateTerm */
 	class DateTerm extends Term{
-		static $DEFAULT_ENABLE_TIME_FORM_CTRL = $('#'+NAMESPACE+'enableTime');
-		static $DEFAULT_START_YEAR_FORM_CTRL = $('#'+NAMESPACE+'startYear');
-		static $DEFAULT_END_YEAR_FORM_CTRL = $('#'+NAMESPACE+'endYear');
 		static DEFAULT_ENABLE_TIME = false;
+		//static DEFAULT_START_YEAR = '1950';
 		static DEFAULT_START_YEAR = '1950';
 		static DEFAULT_END_YEAR = new Date().getFullYear();
 		static DEFAULT_SIZE = '200px';
@@ -6042,9 +4985,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static SUCCESS = 1;
 
 		#value;
+		#enableTime;
+		#startYear;
+		#endYear;
 
 		constructor( jsonObj ){
 			super('Date');
+
+			this.enableTime = false;
+			this.startYear = DateTerm.DEFAULT_START_YEAR;
+			this.endYear = DateTerm.DEFAULT_END_YEAR;
 
 			if( jsonObj ) 	this.parse( jsonObj );
 			
@@ -6055,18 +5005,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		set value( value ){
-			if( Util.isEmpty(value) ){
-				this.#value = undefined;
-				return;
-			}
-
 			let safeValue = Util.toSafeNumber( value );
 
-			if( Util.isSafeNumber(safeValue) ){
+			if( isNaN(safeValue) ){
+				this.#value = undefined;
+			}
+			else{
 				this.#value = safeValue;
-				return;
 			}
 		}
+		get enableTime(){return this.#enableTime;}
+		set enableTime(val){this.#enableTime=val;};
+		get startYear(){return this.#startYear;}
+		set startYear(val){this.#startYear=val;};
+		get endYear(){return this.#endYear;}
+		set endYear(val){this.#endYear=val;};
 
 		$getDateTimeInputNode(){
 			let term = this;
@@ -6085,7 +5038,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let eventFuncs = {
 				change: function(event){
-					if( Util.isEmpty( $(this).val() ) ){
+					if( Util.isEmptyString( $(this).val() ) ){
 						term.value = undefined;
 					}
 				}
@@ -6125,18 +5078,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					$inputTag.datetimepicker('setDate', $inputTag.datetimepicker("getValue"));
 
-					let eventData = {
-						bubbles: false,
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term 
-						}
-					};
-
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = term;
+					Util.fire(
+						Events.SX_TERM_VALUE_CHANGED,
+						dataPacket
 					);
 				}
 			};
@@ -6251,18 +5197,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					};
 
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-					
-					Liferay.fire(
-						Events.SD_SEARCH_FROM_DATE_CHANGED,
-						eventData
-						);
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = term;
+
+					Util.fire(
+						Events.SD_SEARCH_FROM_DATE_CHANGED, 
+						dataPacket );
 				}
 			};
 
@@ -6312,18 +5252,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						delete term.toSearchDate;
 					}
 
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-					
-					Liferay.fire(
-						Events.SD_SEARCH_TO_DATE_CHANGED,
-						eventData
-						);
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = term;
+
+					Util.fire(
+						Events.SD_SEARCH_TO_DATE_CHANGED, 
+						dataPacket );
 				}
 			};
 
@@ -6390,18 +5324,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						$toInputTag.val('');
 					}
 
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: term
-						}
-					};
-					
-					Liferay.fire(
-						Events.SD_DATE_RANGE_SEARCH_STATE_CHANGED,
-						eventData
-						);
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					dataPacket.term = term;
+
+					Util.fire(
+						Events.SD_DATE_RANGE_SEARCH_STATE_CHANGED, 
+						dataPacket );
 				}
 			};
 
@@ -6664,7 +5592,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let minuite = date.getMinutes().toLocaleString(undefined, {minimumIntegerDigits:2});
 			let dateAry = [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')];
 			let timeAry = [String(hour).padStart(2, '0'), String(minuite).padStart(2, '0')];
-			return dateAry.join('/') + '/' + timeAry.join(':');
+			return dateAry.join('/') + ' ' + timeAry.join(':');
 		}
 
 		toDateString( value=this.value){
@@ -6709,6 +5637,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return unvalid;
 		}
 
+		clone(){
+			return new DateTerm( this.toJSON() );
+		}
+
 		toJSON(){
 
 			let json = super.toJSON();
@@ -6724,7 +5656,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 9. FileTerm */
 	class FileTerm extends Term{
-		#deleteFileURL;
 		#value;
 
 		constructor( jsonObj ){
@@ -6734,9 +5665,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( !$.isEmptyObject(jsonObj) )	this.parse( jsonObj );
 		}
-
-		get deleteFileURL(){return this.#deleteFileURL;}
-		set deleteFileURL(url){ this.#deleteFileURL = url; }
 
 		get value(){
 			return this.getJsonValue();
@@ -6749,100 +5677,119 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( !$.isEmptyObject(value) ){
 				this.#value = value;
 			}
+			else{
+				return;
+			}
+
+			let files = this.#value;
+			for( let fileName in files ){
+				let file = files[fileName];
+				
+				file.parentFolderId = Util.toSafeNumber( file.parentFolderId );
+				file.fileId = Util.toSafeNumber( file.fileId );
+				file.size = Util.toSafeNumber( file.size );
+			}
 		}
-		
-		addFile( parantFolderId, fileId, file ){
-			if( $.isEmptyObject(this.#value) ){
+
+
+		get fileNames(){ return this.hasValue() ? Object.keys(this.#value) : new Array(); }
+		get inputTag(){ return this.$rendered.find('input').first()[0]; }
+
+		get files(){
+			return this.hasValue() ? this.#value : undefined;
+		}
+
+		getFile( fileName ){
+			return this.hasValue() ? this.#value[fileName] : undefined;
+		}
+
+		setFile( fileName, file ){
+			if( !this.hasValue() ){
 				this.#value = new Object();
 			}
 
-			let $fileListTable = this.$rendered.find('table');
-			if( this.#value.hasOwnProperty(file.name) ){
-				console.log('File already selected: ' + file.name );
-			}
-			else{
-				this.$getFileListTableRow( undefined, undefined, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
-			}
-
-			let newFile = new Object();
-			newFile.name = file.name;
-			newFile.size = file.size;
-			newFile.type = file.type;
+			this.#value[fileName] = file;
+		}
 		
-			if( file instanceof File ){
-				newFile.file = file;
-			
-				this.#value[newFile.name] = newFile;
-
-				let dt = new DataTransfer();
-				let files = Object.keys( this.#value );
-				for( let i=0; i<files.length; i++){
-					if( this.#value[files[i]].file ){
-						dt.items.add( this.#value[files[i]].file );
-					}
-				}
-	
-				let input = this.$rendered.find('input')[0];
-				input.files = dt.files;
+		addFile( parentFolderId, fileId, file ){
+			if( this.hasFile(file.name) ){
+				$.alert('File ' + file.name + ' already exist.');
+				return false;
 			}
 			else{
-				newFile.parantFolderId = file.parantFolderId,
-				newFile.fileId = fileId;
-				this.#value[newFile.name] = newFile;
+				if( !this.hasValue() ){
+					this.#value = new Object();
+				}
+
+				let newFile = new Object();
+				newFile.name = file.name;
+				newFile.size = file.size;
+				newFile.type = file.type;
+				
+				if( file instanceof File ){
+					newFile.file = file;
+				}
+				else{
+					newFile.parentFolderId = file.parentFolderId,
+					newFile.fileId = fileId;
+				}
+				
+				this.setFile(newFile.name, newFile);
+				
+				let $fileListTable = this.$rendered.find('table').first().show();
+				this.$getFileListTableRow( file.parentFolderId, fileId, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
+			}
+
+			let dt = new DataTransfer();
+			for( let fileName in this.#value ){
+				let dataFile = this.getFile( fileName );
+
+				if( dataFile.file ){
+					dt.items.add( dataFile.file );
+				}
+			}
+
+			let input = this.inputTag;
+			input.files = dt.files;
+
+			return true;
+		}
+
+		hasFile( fileName ){
+			if( !$.isEmptyObject(this.#value) ){
+				return !!this.files[fileName];
 			};
 
+			return false;
 		}
 
 		clearFile( fileName ){
 			delete this.#value[fileName];
-			//this.#value[fileName] = undefined;
+			
+			if( $.isEmptyObject(this.#value) )
+			this.#value = undefined;
 		}
 
-		removeFile( parentFolderId, fileId, fileName ){
+		removeFile( fileName ){
 			if( $.isEmptyObject(this.#value) ){
 				return;
 			}
 
-			if( fileId === undefined ){
-				this.clearFile(fileName);
+			this.clearFile(fileName);
 
-				let input = this.$rendered.find('input')[0];
-				let files = input.files;
-				let dt = new DataTransfer();
-				for( let i=0; i<files.length; i++ ){
-					let file = files[i];
-					if( file.name !== fileName ){
-						dt.items.add( file );
-					}
+			console.log('after remove: ', this);
+
+			let input = this.inputTag;
+			let files = input.files;
+			let dt = new DataTransfer();
+			for( let i=0; i<files.length; i++ ){
+				let file = files[i];
+				if( file.name !== fileName ){
+					dt.items.add( file );
 				}
-				
-				input.files = dt.files;
 			}
-			else{
-				let params = new Object();
-				params[NAMESPACE+'fileId'] = fileId;
-				let self = this;
-				let deleteFileURL = this.deleteFileURL;
-				console.log('deleteFileURL: ' + deleteFileURL );
-				$.ajax({
-					url: deleteFileURL,
-					method: 'post',
-					data: params,
-					dataType: 'text',
-					success: function( result ){
-						alert( result );
-						self.clearFile[fileName];
-					},
-					error: function( data, e ){
-						console.log(data);
-						console.log('AJAX ERROR-->' + e);
-					}
-				});
-			}
-
-			if( $.isEmptyObject(this.#value ) ){
-				this.#value = undefined;
-			}
+			
+			input.files = dt.files;
 		}
 
 		/**
@@ -6878,6 +5825,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchField;
 		}
 
+		/*
 		setPropertyFormValues(){
 			super.setPropertyFormValues();
 
@@ -6920,25 +5868,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				FormUIUtil.$getFileListTableRow( this, file.parentFolderId, file.field, file.name, file.size, file.type, file.downloadURL ).appendTo($fileListTable);
 			}
 		}
+		*/
 
 		$getFileListTableRow( parentFolderId, fileId, name, size, type, downloadURL ){
-			let $tr = $('<tr id="'+name+'">');
+			let $tr = $('<tr title="'+name+'">');
 			$('<td class="file-id" style="width:10%;">').appendTo($tr).text(fileId);
 			$('<td class="file-name" style="width:40%;">').appendTo($tr).text(name);
 			$('<td class="file-size" style="width:10%;">').appendTo($tr).text(size);
 			$('<td class="file-type" style="width:10%;">').appendTo($tr).text(type);
 			let $actionTd = $('<td class="action" style="width:10%;">').appendTo($tr);
 			
-							
-			let $downloadSpan =$(
-				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('download') + '" style="margin: 0 2px;">' +
-					'<a href="' + downloadURL +'">' +
-						'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
-							'<path class="lexicon-icon-outline" d="M15.608,6.262h-2.338v0.935h2.338c0.516,0,0.934,0.418,0.934,0.935v8.879c0,0.517-0.418,0.935-0.934,0.935H4.392c-0.516,0-0.935-0.418-0.935-0.935V8.131c0-0.516,0.419-0.935,0.935-0.935h2.336V6.262H4.392c-1.032,0-1.869,0.837-1.869,1.869v8.879c0,1.031,0.837,1.869,1.869,1.869h11.216c1.031,0,1.869-0.838,1.869-1.869V8.131C17.478,7.099,16.64,6.262,15.608,6.262z M9.513,11.973c0.017,0.082,0.047,0.162,0.109,0.226c0.104,0.106,0.243,0.143,0.378,0.126c0.135,0.017,0.274-0.02,0.377-0.126c0.064-0.065,0.097-0.147,0.115-0.231l1.708-1.751c0.178-0.183,0.178-0.479,0-0.662c-0.178-0.182-0.467-0.182-0.645,0l-1.101,1.129V1.588c0-0.258-0.204-0.467-0.456-0.467c-0.252,0-0.456,0.209-0.456,0.467v9.094L8.443,9.553c-0.178-0.182-0.467-0.182-0.645,0c-0.178,0.184-0.178,0.479,0,0.662L9.513,11.973z"></path>'+
-//							'<path class="lexicon-icon-outline" d="M256 0c-141.37 0-256 114.6-256 256 0 141.37 114.629 256 256 256s256-114.63 256-256c0-141.4-114.63-256-256-256zM269.605 360.769c-4.974 4.827-10.913 7.226-17.876 7.226s-12.873-2.428-17.73-7.226c-4.857-4.827-7.285-10.708-7.285-17.613 0-6.933 2.428-12.844 7.285-17.788 4.857-4.915 10.767-7.402 17.73-7.402s12.932 2.457 17.876 7.402c4.945 4.945 7.431 10.854 7.431 17.788 0 6.905-2.457 12.786-7.431 17.613zM321.038 232.506c-5.705 8.923-13.283 16.735-22.791 23.464l-12.99 9.128c-5.5 3.979-9.714 8.455-12.668 13.37-2.955 4.945-4.447 10.649-4.447 17.145v1.901h-34.202c-0.439-2.106-0.731-4.184-0.936-6.291s-0.321-4.301-0.321-6.612c0-8.397 1.901-16.413 5.705-24.079s10.24-14.834 19.309-21.563l15.185-11.322c9.070-6.7 13.605-15.009 13.605-24.869 0-3.57-0.644-7.080-1.901-10.533s-3.219-6.495-5.851-9.128c-2.633-2.633-5.969-4.71-9.977-6.291s-8.66-2.369-13.927-2.369c-5.705 0-10.561 1.054-14.571 3.16s-7.343 4.769-9.977 8.017c-2.633 3.247-4.594 7.022-5.851 11.322s-1.901 8.66-1.901 13.049c0 4.213 0.41 7.548 1.258 10.065l-39.877-1.58c-0.644-2.311-1.054-4.652-1.258-7.080-0.205-2.399-0.321-4.769-0.321-7.080 0-8.397 1.58-16.619 4.74-24.693s7.812-15.214 13.927-21.416c6.114-6.173 13.663-11.176 22.645-14.951s19.368-5.676 31.188-5.676c12.229 0 22.996 1.785 32.3 5.355 9.274 3.57 17.087 8.25 23.435 14.014 6.319 5.764 11.089 12.434 14.248 19.982s4.74 15.331 4.74 23.289c0.058 12.581-2.809 23.347-8.514 32.27z"></path>' +
-						'</svg>' +
-					'</a>' +
-				'</span>').appendTo( $actionTd );
+					
+			if( downloadURL ){
+				let $downloadSpan =$(
+					'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('download') + '" style="margin: 0 2px;">' +
+						'<a href="' + downloadURL +'">' +
+							'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
+								'<path class="lexicon-icon-outline" d="M15.608,6.262h-2.338v0.935h2.338c0.516,0,0.934,0.418,0.934,0.935v8.879c0,0.517-0.418,0.935-0.934,0.935H4.392c-0.516,0-0.935-0.418-0.935-0.935V8.131c0-0.516,0.419-0.935,0.935-0.935h2.336V6.262H4.392c-1.032,0-1.869,0.837-1.869,1.869v8.879c0,1.031,0.837,1.869,1.869,1.869h11.216c1.031,0,1.869-0.838,1.869-1.869V8.131C17.478,7.099,16.64,6.262,15.608,6.262z M9.513,11.973c0.017,0.082,0.047,0.162,0.109,0.226c0.104,0.106,0.243,0.143,0.378,0.126c0.135,0.017,0.274-0.02,0.377-0.126c0.064-0.065,0.097-0.147,0.115-0.231l1.708-1.751c0.178-0.183,0.178-0.479,0-0.662c-0.178-0.182-0.467-0.182-0.645,0l-1.101,1.129V1.588c0-0.258-0.204-0.467-0.456-0.467c-0.252,0-0.456,0.209-0.456,0.467v9.094L8.443,9.553c-0.178-0.182-0.467-0.182-0.645,0c-0.178,0.184-0.178,0.479,0,0.662L9.513,11.973z"></path>'+
+	//							'<path class="lexicon-icon-outline" d="M256 0c-141.37 0-256 114.6-256 256 0 141.37 114.629 256 256 256s256-114.63 256-256c0-141.4-114.63-256-256-256zM269.605 360.769c-4.974 4.827-10.913 7.226-17.876 7.226s-12.873-2.428-17.73-7.226c-4.857-4.827-7.285-10.708-7.285-17.613 0-6.933 2.428-12.844 7.285-17.788 4.857-4.915 10.767-7.402 17.73-7.402s12.932 2.457 17.876 7.402c4.945 4.945 7.431 10.854 7.431 17.788 0 6.905-2.457 12.786-7.431 17.613zM321.038 232.506c-5.705 8.923-13.283 16.735-22.791 23.464l-12.99 9.128c-5.5 3.979-9.714 8.455-12.668 13.37-2.955 4.945-4.447 10.649-4.447 17.145v1.901h-34.202c-0.439-2.106-0.731-4.184-0.936-6.291s-0.321-4.301-0.321-6.612c0-8.397 1.901-16.413 5.705-24.079s10.24-14.834 19.309-21.563l15.185-11.322c9.070-6.7 13.605-15.009 13.605-24.869 0-3.57-0.644-7.080-1.901-10.533s-3.219-6.495-5.851-9.128c-2.633-2.633-5.969-4.71-9.977-6.291s-8.66-2.369-13.927-2.369c-5.705 0-10.561 1.054-14.571 3.16s-7.343 4.769-9.977 8.017c-2.633 3.247-4.594 7.022-5.851 11.322s-1.901 8.66-1.901 13.049c0 4.213 0.41 7.548 1.258 10.065l-39.877-1.58c-0.644-2.311-1.054-4.652-1.258-7.080-0.205-2.399-0.321-4.769-0.321-7.080 0-8.397 1.58-16.619 4.74-24.693s7.812-15.214 13.927-21.416c6.114-6.173 13.663-11.176 22.645-14.951s19.368-5.676 31.188-5.676c12.229 0 22.996 1.785 32.3 5.355 9.274 3.57 17.087 8.25 23.435 14.014 6.319 5.764 11.089 12.434 14.248 19.982s4.74 15.331 4.74 23.289c0.058 12.581-2.809 23.347-8.514 32.27z"></path>' +
+							'</svg>' +
+						'</a>' +
+					'</span>').appendTo( $actionTd );
+			}
+
 			let $deleteBtn = $(
 				'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('delete') + '" style="margin: 0 2px;">' +
 					'<span>' +
@@ -6956,19 +5908,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				$tr.remove();
 
-				self.removeFile( parentFolderId, fileId, name );
+				//self.removeFile( parentFolderId, fileId, name );
 
-				let eventData = {
-					sxeventdata:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: self
-					}
-				};
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.term = self;
+				dataPacket.fileName = name;
+				dataPacket.fileId = self.getFile(name).fileId;
+				dataPacket.cmd = Constants.Commands.DELETE_DATA_FILE;
 
-				Liferay.fire(
-					Events.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
+				Util.fire(
+					Events.SX_TERM_VALUE_CHANGED,
+					dataPacket
 				);
 			});
 
@@ -6977,7 +5927,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getFileUploadNode(){
 			let controlName = NAMESPACE + this.termName;
-			let files = this.#value;
+			let files = this.files;
 
 			let $node = $('<div class="file-uploader-container">');
 
@@ -6995,39 +5945,36 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				event.stopPropagation();
 
 				let files = $(this)[0].files;
-			
+
+				let fileCount = 0;
 				if( files.length > 0 ){
 					let $fileListTable = $node.find('table');
 					$fileListTable.show();
 					
 					for( let i=0; i<files.length; i++){
-						term.addFile( undefined, undefined, files[i]);
+						if( term.addFile( undefined, undefined, files[i]) ){
+							fileCount++;
+						}
 					};
 				}
 
-				let eventData = {
-					sxeventdata:{
-						sourcePortlet: NAMESPACE,
-						targetPortlet: NAMESPACE,
-						term: term
-					}
-				};
-
-				Liferay.fire(
-					Events.DATATYPE_SDE_VALUE_CHANGED,
-					eventData
-				);
+				if( fileCount > 0 ){
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = term;
+					dataPacket.cmd = Constants.Commands.UPLOAD_DATA_FILE;
+					
+					Util.fire( Events.SX_TERM_VALUE_CHANGED, dataPacket );
+				}
 			});
 
 			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">')
 									.appendTo($node);
 
 			if( files ){
-				let fileNames = Object.keys( files );
-				fileNames.forEach( fileName => {
+				for( let fileName in files ){
 					let file = files[fileName];
 					$fileListTable.append( this.$getFileListTableRow( file.parentFolderId, file.fileId, file.name, file.size, file.type, file.downloadURL ) );
-				});
+				};
 
 				$fileListTable.show();
 			}
@@ -7037,12 +5984,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getFormFileUploadSection(){
 			let controlName = NAMESPACE + this.termName;
-			let controlValueId = NAMESPACE + this.termName + '_value';
 
 			let label = this.getLocalizedDisplayName();
 			let helpMessage = this.getLocalizedTooltip();
 			let mandatory = !!this.mandatory ? true : false;
-			let disabled = !!this.disabled ? true : false;
 
 			let $uploadSection = $('<div class="form-group input-text-wrapper">');
 			
@@ -7050,9 +5995,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							.appendTo( $uploadSection );
 			this.$label = $labelNode.find('span').first();
 
-			let $uploadNode = this.$getFileUploadNode().appendTo( $uploadSection );
-			
-			
+			this.$getFileUploadNode().appendTo( $uploadSection );
 
 			return $uploadSection;
 		}
@@ -7086,9 +6029,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				// rendering for PDF here
 			}
 
-
-
 			return this.$rendered;
+		}
+
+		refreshFile( parentFolderId, fileId, fileName, fileSize, fileType ){
+			let file = this.getFile(fileName);
+
+			file.parentFolderId = Util.toSafeNumber(parentFolderId);
+			file.fileId = Util.toSafeNumber(fileId);
+			file.name = fileName;
+			file.size = Util.toSafeNumber(fileSize);
+			file.type = fileType;
+
+			let $row = this.$rendered.find('[title="'+fileName+'"]');
+
+			$row.find('.file-id').first().text(fileId);
 		}
 
 		getJsonValue(){
@@ -7097,23 +6052,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			let json = new Object();
-			let fileNames = Object.keys(this.#value);
-			fileNames.forEach( fileName => {
-				let file = this.#value[fileName];
+			
+			let files = this.#value;
+			for( let fileName in files ){
+				let file = files[fileName];
 				json[fileName] = {
 					parentFolderId: file.parentFolderId,
 					fileId: file.fileId,
 					name: file.name,
 					size: file.size,
-					type: file.type
+					type: file.type,
+					status: file.status
 				};
-			});
+			}
 
 			return json;
 		}
 
 		hasValue(){
-			return !$.isEmptyObject( this.getJsonValue() );
+			return !$.isEmptyObject( this.#value );
 		}
 
 		parse( jsonObj ){
@@ -7121,13 +6078,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unvalid = new Object();
 			
 			let self = this;
-			console.log( 'file JSON: ', jsonObj, unparsed);
 			Object.keys( unparsed ).forEach( (key, index) => {
 				switch( key ){
-					case 'deleteFileURL':
-						this.deleteFileURL = jsonObj.deleteFileURL;
-						console.log('key: '+key, this.deleteFileURL );
-						break;
 					case 'value':
 						this.value = jsonObj.value;
 						break;
@@ -7137,6 +6089,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			return unvalid;
+		}
+
+		clone(){
+			return new FileTerm( this.toJSON() );
 		}
 
 		toJSON(){
@@ -7152,23 +6108,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	
 	/* 10. BooleanTerm */
 	class BooleanTerm extends Term {
-		static ID_DISPLAY_STYLE = 'booleanDisplayStyle';
-		static ID_TRUE_LABEL = 'booleanTrueLabel';
-		static ID_FALSE_LABEL = 'booleanFalseLabel';
-		static $DISPLAY_STYLE = $('#'+NAMESPACE+BooleanTerm.ID_DISPLAY_STYLE);
-		static $TRUE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_TRUE_LABEL);
-		static $FALSE_LABEL = $('#'+NAMESPACE+BooleanTerm.ID_FALSE_LABEL);
-		static $TRUE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanTrueActiveTerms');
-		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
-		static $FALSE_ACTIVE_TERMS_BUTTON = $('#'+NAMESPACE+'btnBooleanFalseActiveTerms');
-
 		static DEFAULT_DISPLAY_STYLE = Constants.DISPLAY_STYLE_SELECT;
 		static AVAILABLE_TERMS = null;
 
 		static OPTION_FOR_TRUE = 0;
 		static OPTION_FOR_FALSE = 1;
 
+		#displayStyle;
 		#value;
+		#options;
 
 		constructor( jsonObj ){
 			super('Boolean');
@@ -7187,16 +6135,48 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		get value(){ return this.#value; }
-		set value( value ){
-			if( Util.isEmpty(value) ){
-				this.#value = undefined;
-				return;
-			}
+		set value( value ){	this.#value = Util.toSafeBoolean( value ); };
+		get displayStyle(){return this.#displayStyle;}
+		set displayStyle(val){this.#displayStyle=val;}
+		get trueOption(){return this.#options[BooleanTerm.OPTION_FOR_TRUE];}
+		get falseOption(){return this.#options[BooleanTerm.OPTION_FOR_FALSE];}
+		get options(){return this.#options;}
+		set options(val){this.#options=val;}
+		get trueOptionLabel(){return this.trueOption.label;}
+		set trueOptionLabel(val){this.trueOption.label = val;}
+		get trueOptionValue(){return this.trueOption.value;}
+		set trueOptionValue(val){this.trueOption.value = val;}
+		get trueOptionSelected(){return this.trueOption.selected;}
+		set trueOptionSelected(val){this.trueOption.selected = val;}
+		get falseOptionLabel(){return this.falseOption.label;}
+		set falseOptionLabel(val){this.falseOption.label = val;}
+		get falseOptionValue(){return this.falseOption.value;}
+		set falseOptionValue(val){this.falseOption.value = val;}
+		get falseOptionSelected(){return this.falseOption.selected;}
+		set falseOptionSelected(val){this.falseOption.selected = val;}
 
-			if( Util.isNotEmptyString(value) ){
-				this.#value = JSON.parse(value);
-			}
-		};
+		getAllSlaveTerms( active=true ){
+			let termNames = new Array();
+			this.#options.forEach( option => {
+				if( option.hasSlaves() ){
+					termNames = termNames.concat( option.slaveTerms );
+				}
+			});
+
+			return termNames;
+		}
+
+		removeSlaveTerm( termName ){
+			this.#options.forEach(option=>{
+				option.removeSlaveTerm( termName );
+			});
+		} 
+
+		deleteAllSlaveTerms(){
+			this.#options.forEach(option=>{
+				option.slaveTerms = undefined;
+			});
+		}
 
 		setSearchKeywords( keywords ){
 			this.searchKeywords = keywords.toString();
@@ -7213,24 +6193,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return null;
 		}
 
-		getTrueOption(){
-			return this.options[BooleanTerm.OPTION_FOR_TRUE];
-		}
-
-		getFalseOption(){
-			return this.options[BooleanTerm.OPTION_FOR_FALSE]
-		}
-
 		$getBooleanFieldSetNode( forWhat ){
 			let controlName = NAMESPACE + this.termName;
 			let label = this.getLocalizedDisplayName();
 			let helpMessage = this.getLocalizedTooltip() ? this.getLocalizedTooltip() : '';
 			let mandatory = this.mandatory ? this.mandatory : false;
 			let disabled = this.disabled;
-			let value;
-			if( this.hasOwnProperty('value') ){
-				value = this.value;
-			}
+			let value = this.hasValue() ? this.value : undefined;
 			
 			let displayStyle = (forWhat === Constants.FOR_SEARCH ) ? Constants.DISPLAY_STYLE_RADIO : this.displayStyle;
 			let options = this.options;
@@ -7241,27 +6210,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( displayStyle === Constants.DISPLAY_STYLE_SELECT ){
 
-				$node = $('<div class="form-group input-text-wrapper">')
-							.append( FormUIUtil.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled) );
+				$node = FormUIUtil.$getSelectTag(controlName, options, value, label, mandatory, helpMessage, disabled);
 				this.$label = $node.find('span').first();
 
 				$node.change(function(event){
 					event.stopPropagation();
-					event.preventDefault();
 	
 					self.value = $node.find('select').val();
 	
-					let eventData = {
-						sxeventdata:{
-							sourcePortlet: NAMESPACE,
-							targetPortlet: NAMESPACE,
-							term: self
-						}
-					};
-	
-					Liferay.fire(
-						Events.DATATYPE_SDE_VALUE_CHANGED,
-						eventData
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = self;
+					Util.fire(
+						Events.SX_TERM_VALUE_CHANGED,
+						dataPacket
 					);
 				});
 			}
@@ -7278,27 +6239,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										controlName, 
 										option,
 										selected,
-										disabled );
-					$panelBody.append( $radioTag );
-
-					$radioTag.bind('click', function(event){
-						let wasChecked =  $(this).data('checked');
-						
-						if( wasChecked ){
-							$(this).find('input').prop('checked', false);
-							$(this).find('input').trigger('change');
-						}
-						else{
-							$(this).find('input').prop('checked', true);
-						}
-						$(this).data('checked', !wasChecked);
-					});
+										disabled ).appendTo($panelBody);
 				});
 					
 				if( forWhat === Constants.FOR_SEARCH ){
 					$panelBody.change(function(event){
 						event.stopPropagation();
-						event.preventDefault();
 
 						let $checkedRadio = $(this).find('input[type="radio"]:checked');
 						let changedVal = $checkedRadio.length > 0 ? $checkedRadio.val() : undefined;
@@ -7310,18 +6256,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							delete  self.searchKeywords;
 						}
 
-						let eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: self
-							}
-						};
+						let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+						dataPacket.term = self;
 
-						Liferay.fire(
-							Events.SD_SEARCH_KEYWORD_CHANGED,
-							eventData
-						);
+						Util.fire(
+							Events.SD_SEARCH_KEYWORD_CHANGED, 
+							dataPacket );
 					});
 				}
 				else{
@@ -7339,17 +6279,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							self.value = undefined;
 						}
 
-						let eventData = {
-							sxeventdata:{
-								sourcePortlet: NAMESPACE,
-								targetPortlet: NAMESPACE,
-								term: self
-							}
-						};
-
-						Liferay.fire(
-							Events.DATATYPE_SDE_VALUE_CHANGED,
-							eventData
+						let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
+						dataPacket.term = self;
+						Util.fire(
+							Events.SX_TERM_VALUE_CHANGED,
+							dataPacket
 						);
 					});
 				}
@@ -7387,70 +6321,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		getDisplayStyleFormValue ( save ){
-			let value = FormUIUtil.getFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
-			if( save ){
-				this.displayStyle = value;
-				this.setDirty( true );
-			}
-			
-			return value;
-		}
-		setDisplayStyleFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE, value );
-			}
-			else if( this.displayStyle ){
-				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE, this.displayStyle );
-			}
-			else{
-				FormUIUtil.setFormRadioValue( BooleanTerm.ID_DISPLAY_STYLE );
-			}
-		}
-
-		getTrueLabelFormValue (){
-			let trueOption = this.options[0];
-			trueOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL ));
-			this.setDirty( true );
-			return trueOption.getLabelMap();
-		}
-		setTrueLabelFormValue ( valueMap ){
-			let trueOption = this.options[0];
-
-			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL, valueMap );
-			}
-			else{
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_TRUE_LABEL, trueOption.getLabelMap() );
-			}
-		}
-
-		getFalseLabelFormValue (){
-			let falseOption = this.options[1];
-			falseOption.setLabelMap(FormUIUtil.getFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL ));
-			this.setDirty( true );
-			return falseOption.getLabelMap();
-		}
-		setFalseLabelFormValue ( valueMap ){
-			let falseOption = this.options[1];
-
-			if( valueMap ){
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL, valueMap );
-			}
-			else{
-				FormUIUtil.setFormLocalizedValue( BooleanTerm.ID_FALSE_LABEL, falseOption.getLabelMap() );
-			}
-		}
-
-		setPropertyFormValues(){
-			super.setPropertyFormValues();
-			this.setDisplayStyleFormValue();
-			this.setTrueLabelFormValue();
-			this.setFalseLabelFormValue();
-		}
-
 		hasValue(){
 			return typeof this.value === 'boolean';
+		}
+
+		clone(){
+			return new BooleanTerm( this.toJSON() );
 		}
 
 		toJSON(){
@@ -7477,12 +6353,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'options':
 						self.options = new Array();
 						jsonObj.options.forEach( option => {
+							if( option.hasOwnProperty('labelMap') ){
+								option.label = option.labelMap;
+							}
 							self.options.push( new ListOption(
-								option.labelMap,
+								option.label,
 								option.value,
 								option.selected,
-								option.disabled,
-								option.activeTerms
+								option.hasOwnProperty('slaveTerms') ? 
+										option.slaveTerms : option.activeTerms,
+								option.disabled
 							));
 						});
 						break;
@@ -7504,23 +6384,37 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 	/* 12. GroupTerm */
 	class GroupTerm extends Term{
-		static $BTN_CHOOSE_GROUP_TERMS = $('#'+NAMESPACE+'btnChooseGroupTerms');
-
 		static ActiveNonFullColor = '#ef6f6f';
 		static ActiveFullColor = '#dfdfdf';
 		static InactiveFullColor = '#555555';
 		static InactiveNonFullColor = '#ef6f6f';
 
+		#extended;
+		#inputFull;
+		#tempMembers;
+		#$accordion;
+
+		get extended(){return this.#extended;}
+		set extended(val){this.#extended = Util.toSafeBoolean(val);}
+		get inputFull(){return this.#inputFull;}
+		set inputFull(val){this.#inputFull = val;}
+		get tempMembers(){return this.#tempMembers;}
+
+		get $accordion(){ return this.#$accordion; }
+		set $accordion(val){ this.#$accordion = val; }
+
 		constructor( jsonObj ){
 			super('Group');
+
+			this.extended = false;
 
 			if( jsonObj ){
 				this.parse(jsonObj);
 			}
 
-			this.tempMembers = new Array();
+			this.#tempMembers = new Array();
 
-			this.inputFull = true;
+			this.#inputFull = true;
 		}
 
 		$newGroupPanel(){
@@ -7540,6 +6434,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		getGroupPanelId(){
 			return NAMESPACE + this.termName+ '_'+ this.termVersion + '_GroupPanel';
+		}
+
+		extend( extend ){
+			if( extend === false ){
+				this.$accordion.accordion('option', 'active', false);
+			}
+			else{
+				this.$accordion.accordion('option', 'active', 0);
+			}
 		}
 
 		/**
@@ -7586,7 +6489,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $row;
 				if( deep === true ){
 					if( term.isGroupTerm() && Util.isNonEmptyArray(others) ){
-						let termSets = term.devideTermsByGroup( others, term.getTermId() );
+						let termSets = term.devideTermsByGroup( others, term.termId );
 						$row = term.$render( termSets.hits, termSets.others, forWhat ); 
 					}
 					else{
@@ -7598,6 +6501,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 				
 				let renderedCount = $panel.children('.sx-form-item-group').length;
+
 				if( term.order === 1 ){
 					$panel.prepend( $row );
 				}
@@ -7636,9 +6540,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat !== Constants.FOR_SEARCH ){
 				let self = this;
 				$accordion.find('h3').first().click(function(event){
-					event.stopPropagation();
-					event.preventDefault();
-
 					if( self.isSelected() ){
 						if( self.inputFull )
 							self.$label.css('color', GroupTerm.ActiveFullColor);
@@ -7646,7 +6547,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							self.$label.css('color', GroupTerm.ActiveNonFullColor);
 					}
 					else{
-						console.log('self.inputFull: ' + self.inputFull, GroupTerm.InactiveFullColor);
 						if( self.inputFull )
 							self.$label.css('color', GroupTerm.InactiveFullColor);
 						else
@@ -7692,18 +6592,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$accordion.find('h3').hasClass('ui-state-active') ;
 		}
 
+		hasValue(){
+			return false;
+		}
+
 		disable( disable ){
 			this.$rendered.find('.ui-accordion-header').css('background', '#c5c5c5');
 		}
 
 		clearHighlightedChildren(){
 			this.$groupPanel.find('.sx-form-item-group.highlight').removeClass('highlight');
-		}
-
-		setPropertyFormValues(){
-			super.setPropertyFormValues();
-
-			FormUIUtil.setFormCheckboxValue('extended', this.extended);
 		}
 
 		parse( jsonObj ){
@@ -7717,6 +6615,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						//FormUIUtil.setFormCheckboxValue( 'extended', self[key] );
 						break;
 					case 'value':
+					case 'dirty':
 						break;
 					default:
 						console.log('Group Term has unparsed attributes: '+ self.termName, key, unparsed[key]);
@@ -7724,10 +6623,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
+		clone(){
+			return new GroupTerm( this.toJSON() );
+		}
+
 		toJSON(){
 			let json = super.toJSON();
 
-			if( this.hasOwnProperty('extended') ){
+			if( this.extended ){
 				json.extended = this.extended;
 			}
 
@@ -7735,205 +6638,1543 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 
+	class TermPropertiesForm{
+		#termType;
+		#termName;
+		#termVersion;
+		#termDisplayName;
+		#termDefinition;
+		#termTooltip;
+		#synonyms;
+		#mandatory;
+		#value;
+		#abstractKey;
+		#searchable;
+		#downloadable;
+		#disabled;
+		#placeHolder;
+		#numericPlaceHolder
+		#minLength;
+		#maxLength;
+		#multipleLine;
+		#validationRule;
+		#minValue;
+		#maxValue;
+		#minBoundary;
+		#maxBoundary;
+		#unit;
+		#uncertainty;
+		#sweepable;
+		#listOptions;
+		#listDisplayStyle;
+		#optionLabel;
+		#optionValue;
+		#optionSelected;
+		#optionSlaveTerms;
+		#booleanDisplayStyle;
+		#booleanTrueLabel;
+		#booleanFalseLabel;
+		#enableTime;
+		#startYear;
+		#endYear;
+		#allowedExtensions;
+		#extended;
+		#rows;
+		#columns;
+		#columnWidth;
+
+		#currentOption;
+
+		addOption(option){
+			this.#listOptions.push(option);
+			this.currentOption = option;
+
+			this.$renderListOption( this.currentOption );
+			this.highlightOptionPreview( this.currentOption.$defined );
+		}
+
+		deleteOption(option){
+			this.#listOptions = this.#listOptions.filter( opt => opt !== option );
+			option.$defined.remove();
+
+			if( this.#listOptions.length > 0 ){
+				this.currentOption = this.#listOptions[0];
+				this.$btnAddOption = true;
+				this.highlightOptionPreview(this.currentOption.$defined);
+			}
+			else{
+				this.currentOption = new ListOption();
+				this.$btnAddOption = false;
+			}
+		}
+
+
+		constructor(){
+			let self = this;
+
+			this.$btnNewOption.click(function(){
+				self.$optionLabel.trigger('focus');
+
+				self.currentOption = new ListOption();
+				
+				self.$btnAddOption.prop('disabled', false);
+			});
+
+			this.$btnAddOption.click(function(event){
+				self.$btnAddOption.prop( 'disabled', true);
+				
+				if( !self.listOptions ){
+					self.listOptions = new Array();
+				}
+
+				console.log('---self.listOptions: ', self.#currentOption, self.listOptions);
+				self.addOption( self.currentOption );
+				console.log('self.listOptions---: ', self.currentOption, self.listOptions);
+
+				
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.options = self.listOptions;
+
+				Util.fire( Events.LIST_OPTION_PREVIEW_ADDED, dataPacket);
+			});
+
+			this.$btnListChooseSlaveTerms.click(function(){
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.option = self.currentOption;
+
+				Util.fire( Events.LIST_OPTION_CHOOSE_SLAVE_TERMS, dataPacket);
+			});
+
+			
+			this.$optionLabel.change(function(event){
+				let label = self.optionLabel;
+				if( !label || label.isEmpty() ){
+					$.alert({
+						title: 'Alert',
+						content: Liferay.Language.get('option-label-required')
+					});
+					$(this).trigger('focus');
+					self.currentOption.label = undefined;
+					return;
+				}
+
+				self.currentOption.label = label;
+
+				if( self.isCurrentOptionDefined() ){
+					self.refreshOptionPreview(self.currentOption, 'option-label');
+
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					Util.fire( Events.LIST_OPTION_PREVIEW_CHANGED, dataPacket );
+				}
+			});
+			
+			this.$optionValue.change(function(event){
+				let value = self.optionValue;
+				if( Util.isEmptyString(value) ){
+					$.alert(Liferay.Language.get('option-value-required'));
+					self.optionValue = self.currentOption.value;
+					self.$optionValue.trigger('focus');
+					
+					return;
+				}
+
+				if( self.listOptions ){
+					let uniqueVal = true;
+					self.listOptions.every( option => {
+						if( option.value === value ){
+							uniqueVal = false;
+							return Constants.STOP_EVERY;
+						}
+						return Constants.CONTINUE_EVERY;
+					});
+
+					if( !uniqueVal ){
+						$.alert(Liferay.Language.get('option-value-should-be-unique'));
+
+						self.optionValue = self.currentOption.value;
+						self.$optionValue.trigger('focus');
+						return;
+					}
+				}
+				
+				if( !self.currentOption ){
+					self.currentOption = new ListOption();
+				}
+				self.currentOption.value = value;
+				
+				if( self.isCurrentOptionDefined() ){
+					self.refreshOptionPreview(self.currentOption, 'option-value');
+
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					Util.fire( Events.LIST_OPTION_PREVIEW_CHANGED, dataPacket );
+				}
+			});
+			
+			this.$optionSelected.change(function(event){
+				let value = self.optionSelected;
+				
+				if( !self.currentOption ){
+					self.currentOption = new ListOption();
+				}
+				if( value === true ){
+					self.clearPreviousOptionSelected();
+				}
+
+				self.currentOption.selected = value;
+
+				if( self.isCurrentOptionDefined() ){
+					self.refreshOptionPreview( self.currentOption, 'option-selected');
+
+					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					Util.fire( Events.LIST_OPTION_PREVIEW_CHANGED, dataPacket );
+				}
+			});
+			
+			/*
+			Liferay.on( Events.LIST_OPTION_PREVIEW_SELECTED, function( event ){
+				let dataPacket = event.dataPacket;
+				if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+					return;
+				}
+		
+				self.currentOption = dataPacket.option;
+			});
+			*/
+		}
+
+		get termType(){ return FormUIUtil.getFormValue('termType'); }
+		set termType(val){ FormUIUtil.setFormValue('termType', val); }
+		get termName(){ return FormUIUtil.getFormValue('termName'); }
+		set termName(val){ FormUIUtil.setFormValue('termName', val); }
+		get termVersion(){ return FormUIUtil.getFormValue('termVersion'); }
+		set termVersion(val){ FormUIUtil.setFormValue('termVersion', val); }
+		get termDisplayName(){ return FormUIUtil.getFormLocalizedValue('termDisplayName'); }
+		set termDisplayName(val){ FormUIUtil.setFormLocalizedValue('termDisplayName', val); }
+		get termDefinition(){ return FormUIUtil.getFormLocalizedValue('termDefinition'); }
+		set termDefinition(val){ FormUIUtil.setFormLocalizedValue('termDefinition', val); }
+		get abstractKey(){ return FormUIUtil.getFormCheckboxValue('abstractKey'); }
+		set abstractKey(val){ FormUIUtil.setFormCheckboxValue('abstractKey', val); }
+		get disabled(){ return FormUIUtil.getFormCheckboxValue('disabled'); }
+		set disabled(val){ FormUIUtil.setFormCheckboxValue('disabled', val); }
+		get searchable(){ return FormUIUtil.getFormCheckboxValue('searchable'); }
+		set searchable(val){ FormUIUtil.setFormCheckboxValue('searchable', val); }
+		get downloadable(){ return FormUIUtil.getFormCheckboxValue('downloadable'); }
+		set downloadable(val){ FormUIUtil.setFormCheckboxValue('downloadable', val); }
+		get termTooltip(){ return FormUIUtil.getFormLocalizedValue('termTooltip'); }
+		set termTooltip(val){ FormUIUtil.setFormLocalizedValue('termTooltip', val); }
+		get synonyms(){ return FormUIUtil.getFormValue('synonyms'); }
+		set synonyms(val){ FormUIUtil.setFormValue('synonyms', val); }
+		get mandatory(){ return FormUIUtil.getFormCheckboxValue('mandatory'); }
+		set mandatory(val){ FormUIUtil.setFormCheckboxValue('mandatory', val); }
+		get value(){ return FormUIUtil.getFormValue('value'); }
+		set value(val){ FormUIUtil.setFormValue('value', val); }
+		get placeHolder(){ return FormUIUtil.getFormLocalizedValue('placeHolder'); }
+		set placeHolder(val){ FormUIUtil.setFormLocalizedValue('placeHolder', val); }
+		get minLength(){ return FormUIUtil.getFormValue('minLength'); }
+		set minLength(val){ FormUIUtil.setFormValue('minLength', val); }
+		get maxLength(){ return FormUIUtil.getFormValue('maxLength'); }
+		set maxLength(val){ FormUIUtil.setFormValue('maxLength', val); }
+		get multipleLine(){ return FormUIUtil.getFormCheckboxValue('multipleLine'); }
+		set multipleLine(val){ FormUIUtil.setFormCheckboxValue('multipleLine', val); }
+		get validationRule(){ return FormUIUtil.getFormValue('validationRule'); }
+		set validationRule(val){ FormUIUtil.setFormValue('validationRule', val); }
+		get stringInputSize(){ return FormUIUtil.getFormValue('stringInputSize'); }
+		set stringInputSize(val){ FormUIUtil.setFormValue('stringInputSize', val); }
+		get stringLineBreak(){ return FormUIUtil.getFormValue('stringLineBreak'); }
+		set stringLineBreak(val){ FormUIUtil.setFormValue('stringLineBreak', val); }
+		get numericPlaceHolder(){ return FormUIUtil.getFormLocalizedValue('numericPlaceHolder'); }
+		set numericPlaceHolder(val){ FormUIUtil.setFormLocalizedValue('numericPlaceHolder', val); }
+		get minValue(){ return FormUIUtil.getFormValue('minValue'); }
+		set minValue(val){ FormUIUtil.setFormValue('minValue', val); }
+		get maxValue(){ return FormUIUtil.getFormValue('maxValue'); }
+		set maxValue(val){ FormUIUtil.setFormValue('maxValue', val); }
+		get minBoundary(){ return FormUIUtil.getFormCheckboxValue('minBoundary'); }
+		set minBoundary(val){ FormUIUtil.setFormCheckboxValue('minBoundary', val); }
+		get maxBoundary(){ return FormUIUtil.getFormCheckboxValue('maxBoundary'); }
+		set maxBoundary(val){ FormUIUtil.setFormCheckboxValue('maxBoundary', val); }
+		get unit(){ return FormUIUtil.getFormValue('unit'); }
+		set unit(val){ FormUIUtil.setFormValue('unit', val); }
+		get uncertainty(){ return FormUIUtil.getFormCheckboxValue('uncertainty'); }
+		set uncertainty(val){ FormUIUtil.setFormCheckboxValue('uncertainty', val); }
+		get sweepable(){ return FormUIUtil.getFormCheckboxValue('sweepable'); }
+		set sweepable(val){ FormUIUtil.setFormCheckboxValue('sweepable', val); }
+		get numericInputSize(){ return FormUIUtil.getFormValue('numericInputSize'); }
+		set numericInputSize(val){ FormUIUtil.setFormValue('numericInputSize', val); }
+		get numericLineBreak(){ return FormUIUtil.getFormCheckboxValue('numericLineBreak'); }
+		set numericLineBreak(val){ FormUIUtil.setFormCheckboxValue('numericLineBreak', val); }
+		get listDisplayStyle(){ return FormUIUtil.getFormRadioValue('listDisplayStyle'); }
+		set listDisplayStyle(val){ FormUIUtil.setFormRadioValue('listDisplayStyle', val); }
+//		get listDisplayStyle(){ return $('input[name="listDisplayStyle"]:checked').val(); }
+//		set listDisplayStyle(val){ $('input[name="listDisplayStyle"][value="'+val+'"]' ).prop('checked', true); }
+		get optionLabel(){ return FormUIUtil.getFormLocalizedValue('optionLabel'); }
+		set optionLabel(val){ FormUIUtil.setFormLocalizedValue('optionLabel', val); }
+		get optionValue(){ return FormUIUtil.getFormValue('optionValue'); }
+		set optionValue(val){ FormUIUtil.setFormValue('optionValue', val); }
+		get optionSelected(){ return FormUIUtil.getFormCheckboxValue('optionSelected'); }
+		set optionSelected(val){ FormUIUtil.setFormCheckboxValue('optionSelected', val); }
+		get booleanDisplayStyle(){ return FormUIUtil.getFormRadioValue('booleanDisplayStyle'); }
+		set booleanDisplayStyle(val){ FormUIUtil.setFormRadioValue('booleanDisplayStyle', val); }
+		get booleanTrueLabel(){ return FormUIUtil.getFormLocalizedValue('booleanTrueLabel'); }
+		set booleanTrueLabel(val){ FormUIUtil.setFormLocalizedValue('booleanTrueLabel', val); }
+		get booleanFalseLabel(){ return FormUIUtil.getFormLocalizedValue('booleanFalseLabel'); }
+		set booleanFalseLabel(val){ FormUIUtil.setFormLocalizedValue('booleanFalseLabel', val); }
+		get enableTime(){ return FormUIUtil.getFormCheckboxValue('enableTime'); }
+		set enableTime(val){ FormUIUtil.setFormCheckboxValue('enableTime', val); }
+		get startYear(){ return FormUIUtil.getFormValue('startYear'); }
+		set startYear(val){ FormUIUtil.setFormValue('startYear', val); }
+		get endYear(){ return FormUIUtil.getFormValue('endYear'); }
+		set endYear(val){ FormUIUtil.setFormValue('endYear', val); }
+		get allowedExtensions(){ return FormUIUtil.getFormValue('allowedExtensions'); }
+		set allowedExtensions(val){ FormUIUtil.setFormValue('allowedExtensions', val); }
+		get extended(){ return FormUIUtil.getFormCheckboxValue('extended'); }
+		set extended(val){ FormUIUtil.setFormCheckboxValue('extended', val); }
+		get rows(){ return FormUIUtil.getFormValue('rows'); }
+		set rows(val){ FormUIUtil.setFormValue('rows', val); }
+		get columns(){ return FormUIUtil.getFormValue('columns'); }
+		set columns(val){ FormUIUtil.setFormValue('columns', val); }
+		get columnWidth(){ return FormUIUtil.getFormValue('columnWidth'); }
+		set columnWidth(val){ FormUIUtil.setFormValue('columnWidth', val); }
+
+		get currentOption(){ return this.#currentOption; }
+		set currentOption(val){
+				this.#currentOption = !val ? new ListOption() : val;
+				this.setOptionForm();
+
+				if( this.#currentOption.$defined ){
+					this.highlightOptionPreview( this.#currentOption.$defined );
+				}
+				else{
+					this.clearOptionPreviewHighlight();
+				}
+		}
+		get listOptions(){ return this.#listOptions; }
+		set listOptions(val){ 
+				if( !(val instanceof Array) ){
+					this.listOptions = new Array();
+					return;
+				}
+
+				this.#listOptions = val; 
+				let self = this;
+				this.$optionsBody.empty();
+				this.#listOptions.forEach( option => self.$renderListOption(option) );
+
+				if( this.listOptions.length > 0 ){
+					this.currentOption = this.listOptions[0];
+				}
+				else{
+					this.currentOption = new ListOption();
+				}
+		}
+
+		get $termType(){ return $('#'+NAMESPACE+'termType')}
+		set $termType(val){ this.$termType.prop('disabled', val); }
+		get $termName(){ return $('#'+NAMESPACE+'termName')}
+		get $termVersion(){ return $('#'+NAMESPACE+'termVersion')}
+		get $termDisplayName(){ return $('#'+NAMESPACE+'termDisplayName')}
+		get $termDefinition(){ return $('#'+NAMESPACE+'termDefinition')}
+		get $termTooltip(){ return $('#'+NAMESPACE+'termTooltip')}
+		get $synonyms(){ return $('#'+NAMESPACE+'synonyms')}
+		get $mandatory(){ return $('#'+NAMESPACE+'mandatory')}
+		set $mandatory(val){ this.$mandatory.prop('disabled', val); }
+		get $value(){ return $('#'+NAMESPACE+'value')}
+		set $value(val){ this.$value.prop('disabled', val);}
+		get $abstractKey(){ return $('#'+NAMESPACE+'abstractKey')}
+		set $abstractKey(val){ this.$abstractKey.prop('disabled', val);}
+		get $searchable(){ return $('#'+NAMESPACE+'searchable')}
+		set $searchable(val){ this.$searchable.prop('disabled', val);}
+		get $downloadable(){ return $('#'+NAMESPACE+'downloadable')}
+		set $downloadable(val){ this.$downloadable.prop('disabled', val);}
+		get $disabled(){ return $('#'+NAMESPACE+'disabled')}
+		get $placeHolder(){ return $('#'+NAMESPACE+'placeHolder')}
+		get $minLength(){ return $('#'+NAMESPACE+'minLength')}
+		get $maxLength(){ return $('#'+NAMESPACE+'maxLength')}
+		get $multipleLine(){ return $('#'+NAMESPACE+'multipleLine')}
+		get $validationRule(){ return $('#'+NAMESPACE+'validationRule')}
+		get $stringInputSize(){ return $('#'+NAMESPACE+'stringInputSize')}
+		get $stringLineBreak(){ return $('#'+NAMESPACE+'stringLineBreak')}
+		get $numericPlaceHolder(){ return $('#'+NAMESPACE+'numericPlaceHolder')}
+		get $minValue(){ return $('#'+NAMESPACE+'minValue')}
+		get $maxValue(){ return $('#'+NAMESPACE+'maxValue')}
+		get $minBoundary(){ return $('#'+NAMESPACE+'minBoundary')}
+		set $minBoundary(val){ this.$minBoundary.prop('disabled', val);}
+		get $maxBoundary(){ return $('#'+NAMESPACE+'maxBoundary')}
+		set $maxBoundary(val){ this.$maxBoundary.prop('disabled', val);}
+		get $unit(){ return $('#'+NAMESPACE+'unit')}
+		get $uncertainty(){ return $('#'+NAMESPACE+'uncertainty')}
+		get $uncertaintyValue(){ return $('#'+NAMESPACE+'uncertaintyValue')}
+		get $sweepable(){ return $('#'+NAMESPACE+'sweepable')}
+		get $numericInputSize(){ return $('#'+NAMESPACE+'numericInputSize')}
+		get $numericLineBreak(){ return $('#'+NAMESPACE+'numericLineBreak')}
+//		get $listDisplayStyle(){ return $('#'+NAMESPACE+'listDisplayStyle');}
+		get $listDisplayStyle(){ return $('input[name="'+NAMESPACE+'listDisplayStyle"]'); }
+		get $optionLabel(){ return $('#'+NAMESPACE+'optionLabel')}
+		get $optionValue(){ return $('#'+NAMESPACE+'optionValue')}
+		get $optionSelected(){ return $('#'+NAMESPACE+'optionSelected')}
+		get $optionSlaveterms(){ return $('#'+NAMESPACE+'optionSlaveTerms')}
+//		get $booleanDisplayStyle(){ return $('#'+NAMESPACE+'booleanDisplayStyle')}
+		get $booleanDisplayStyle(){ return $('input[name="'+NAMESPACE+'booleanDisplayStyle"]'); }
+		get $booleanTrueLabel(){ return $('#'+NAMESPACE+'booleanTrueLabel')}
+		get $booleanFalseLabel(){ return $('#'+NAMESPACE+'booleanFalseLabel')}
+		get $enableTime(){ return $('#'+NAMESPACE+'enableTime')}
+		get $startYear(){ return $('#'+NAMESPACE+'startYear')}
+		get $endYear(){ return $('#'+NAMESPACE+'endYear')}
+		get $allowedExtensions(){ return $('#'+NAMESPACE+'allowedExtensions')}
+		get $extended(){ return $('#'+NAMESPACE+'extended')}
+		get $rows(){ return $('#'+NAMESPACE+'rows')}
+		get $columns(){ return $('#'+NAMESPACE+'columns')}
+		get $columnWidth(){ return $('#'+NAMESPACE+'columnWidth')}
+		
+		get $optionsBody(){ return $('#'+NAMESPACE+'options')}
+		
+		get $btnNewTerm(){ return $('#'+NAMESPACE+'btnNewTerm'); }
+		set $btnNewTerm(val){ this.$btnNewTerm.prop('disabled', val); }
+		get $btnCopyTerm(){ return $('#'+NAMESPACE+'btnCopyTerm'); }
+		set $btnCopyTerm(val){ this.$btnCopyTerm.prop('disabled', val); }
+		get $btnAdd(){ return $('#'+NAMESPACE+'btnAdd'); }
+		set $btnAdd(val){ this.$btnAdd.prop('disabled', val); }
+		get $btnClear(){ return $('#'+NAMESPACE+'btnClear'); }
+		set $btnClear(val){ this.$btnClear.prop('disabled', val); }
+		get $btnImportTerm(){ return $('#'+NAMESPACE+'btnImportTerm'); }
+		set $btnImportTerm(val){ this.$btnImportTerm.prop('disabled', val); }
+		get $btnUp(){ return $('#'+NAMESPACE+'btnUp'); }
+		set $btnUp(val){ this.$btnUp.prop('disabled', val); }
+		get $btnDown(){ return $('#'+NAMESPACE+'btnDown'); }
+		set $btnDown(val){ this.$btnDown.prop('disabled', val); }
+		get $btnNewOption(){ return $('#'+NAMESPACE+'btnNewOption')}
+		get $btnAddOption(){ return $('#'+NAMESPACE+'btnAddOption')}
+		set $btnAddOption(val){ this.$btnAddOption.prop('disabled', val)}
+		get $btnChooseGroupTerms(){ return $('#'+NAMESPACE+'btnChooseGroupTerms')}
+		get $btnListChooseSlaveTerms(){ return $('#'+NAMESPACE+'btnListChooseSlaveTerms')}
+		set $btnListChooseSlaveTerms(val){ this.$btnListChooseSlaveTerms.prop('disabled', val)}
+
+		$getOptionTableColumns( $tr, optionLabel, optionValue, selected, btnClickFunc ){
+			$('<td class="option-label" style="width:50%;">' + optionLabel + '</td>').appendTo($tr);
+			$('<td class="option-value" style="width:30%;">' + optionValue + '</td>').appendTo($tr);
+			let $selected = $('<td class="option-selected" style="width:10%;">').appendTo($tr);
+			if( selected ){
+				$selected.html('&#10004;');
+			}
+			let $btnTd = $('<td>').appendTo($tr);
+			let $btn = $('<button type="button" class="btn btn-default">').appendTo($btnTd);
+			$('<i class="icon-remove" />').appendTo($btn);
+			
+			$btn.click(btnClickFunc);
+
+			return $tr;
+		}
+
+		$getOptionTableRow( optionLabel, optionValue, selected, btnClickFunc){
+			let $row = $('<tr>');
+
+			return this.$getOptionTableColumns( $row, optionLabel, optionValue, selected, btnClickFunc );
+		}
+
+		$renderListOption( option ){
+			let self = this;
+			let btnClickFunc = function(event){
+				event.stopPropagation();
+
+				self.deleteOption( option );
+				
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.options = self.listOptions;
+				Util.fire( Events.LIST_OPTION_PREVIEW_REMOVED, dataPacket);
+			};
+
+			option.$defined = this.$getOptionTableRow(
+									option.label.getText(CURRENT_LANGUAGE), 
+									option.value, 
+									option.selected, 
+									btnClickFunc).appendTo(this.$optionsBody);
+			
+			option.$defined.click( function(event){
+				event.stopPropagation();
+
+				self.currentOption = option;
+
+				self.highlightOptionPreview( option.$defined );
+			} );
+
+			return option.$defined;
+		}
+
+		isCurrentOptionDefined(){
+			if( !this.listOptions )	return false;
+
+			return this.listOptions.includes( this.currentOption );
+		}
+
+		removeOptionPreview( option ){
+			option.removePreview();
+		}
+
+		clearOptionPreviewHighlight(){
+			this.$optionsBody.find('tr').removeClass('highlight-border');
+		}
+
+		highlightOptionPreview( $row ){
+			this.clearOptionPreviewHighlight();
+
+			$row.addClass('highlight-border');
+		}
+
+		clearPreviousOptionSelected(){
+			let self = this;
+
+			this.listOptions.every( option => {
+				if( option.selected ){
+					option.selected = undefined;
+					return Constants.STOP_EVERY;
+				}
+
+				return Constants.CONTINUE_EVERY;
+			});
+
+			this.$optionsBody.find('td.option-selected')
+							 .html('');
+		}
+
+		refreshOptionPreview( option, column ){
+			switch( column ){
+				case 'option-label':
+					option.$defined.find('td.option-label').first()
+							.html( option.labelMap[CURRENT_LANGUAGE] );
+					break;
+				case 'option-value':
+					option.$defined.find('td.option-value').first()
+							.empty()
+							.html( option.value );
+					break;
+				case 'option-selected':
+					option.$defined.find('td.option-selected').first()
+							.empty()
+							.html( option.selected ? '&#10004;' : '' );
+					break;
+			}
+		}
+
+		removeOption( targetOption ){
+			if( !this.options )	return;
+
+			this.options = this.options.filter( option => option !== targetOption );
+			this.currentOption = this.options[0];
+			this.dirty = true;
+		}
+
+		setOptionForm(){
+			let option = this.currentOption;
+			if( option instanceof ListOption ){
+				this.optionLabel = option.label;
+				this.optionValue = option.value;
+				this.optionSelected = option.selected;
+			}
+			else{
+				this.optionLabel = undefined;
+				this.optionValue = undefined;
+				this.optionSelected = undefined;
+			}
+		}
+
+		disableRenderedBtnGroup( disable ){
+			this.$btnAdd = disable;
+			this.$termType = disable;
+			this.$btnClear = disable;
+			this.$btnCopy = !disable;
+		}
+
+		disableMoveBtnGroup( disable ){
+			this.$btnUp = disable;
+			this.$btnDown = disable;
+		}
+
+		disableGroupPropertyGroup( disable ){
+			this.$mandatory = disable;
+			this.$abstractKey = disable;
+			this.$downloadable = disable;
+			this.$searchable = disable;
+			this.$value = disable;
+		}
+	}
+
 	class DataStructure {
-		static $DEFAULT_PREVIEW_PANEL = $('#'+NAMESPACE+'previewPanel');
-		static $DEFAULT_CANVAS = $('<iframe id='+NAMESPACE+'canvasPanel>');
-		static $DEFAULT_CANVAS = $('#'+NAMESPACE+'searchCanvas');
-
-		static $TERM_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'termDelimiter');
-		static $TERM_DELIMITER_POSITION_FORM_CTRL = $('#'+NAMESPACE+'termDelimiterPosition');
-		static $TERM_VALUE_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'termValueDelimiter');
-		static $MATRIX_BRACKET_TYPE_FORM_CTRL = $('#'+NAMESPACE+'matrixBracketType');
-		static $MATRIX_ELEMENT_DELIMITER_FORM_CTRL = $('#'+NAMESPACE+'matrixElementDelimiter');
-		static $COMMENT_CHAR_FORM_CTRL = $('#'+NAMESPACE+'commentChar');
-		static FORM_RENDER_URL = '';
-
-		static DEFAULT_TERM_DELIMITER = '';
-		static DEFAULT_TERM_DELIMITER_POSITION = true;
-		static DEFAULT_TERM_VALUE_DELIMITER = '=';
+		static DEFAULT_TERM_DELIMITER = ';';
+		static DEFAULT_TERM_DELIMITER_POSITION = 'end';
+		static DEFAULT_TERM_VALUE_DELIMITER = 'equal';
 		static DEFAULT_MATRIX_BRACKET_TYPE = '[]';
-		static DEFAULT_MATRIX_ELEMENT_DELIMITER = ' ';
+		static DEFAULT_MATRIX_ELEMENT_DELIMITER = 'space';
 		static DEFAULT_COMMENT_CHAR = '#';
 
 		static DEFAULT_FIELD_OPERATOR = 'or';
 		static DEFAULT_INFIELD_OPERATOR = 'or';
 
 		#inputStatusDisplay;
+		#resourceCommandURL;
+		#dataTypeId;
+		#dataTypeName;
+		#dataTypeDisplayName;
+		#dataTypeVersion;
+		#structuredDataId;
+		#terms;
+		#currentTerm;
+		#forWhat;
+		#$canvas;
 
-		constructor( jsonObj ){
-			if( !Util.isEmptyObject(jsonObj) ){
-				this.parse( jsonObj );
-			}
-			else{
-				this.termDelimiter= DataStructure.DEFAULT_TERM_DELIMITER;
-				this.termDelimiterPosition = DataStructure.DEFAULT_TERM_DELIMITER_POSITION;
-				this.termValueDelimiter = DataStructure.DEFAULT_TERM_VALUE_DELIMITER;
-				this.matrixBracketType = DataStructure.DEFAULT_MATRIX_BRACKET_TYPE;
-				this.matrixElementDelimiter = DataStructure.DEFAULT_MATRIX_ELEMENT_DELIMITER;
-				this.commentString = DataStructure.DEFAULT_COMMENT_CHAR;
+		#termDelimiter;
+		#termDelimiterPosition;
+		#termValueDelimiter;
+		#matrixBracketType;
+		#matrixElementDelimiter;
+		#commentChar;
 
-				this.tooltip = new LocalizedObject();
-				this.terms = new Array();
+		#propertyForm;
+		#dirty;
 
-			}
-			
-			this.dirty = false;
-			this.uploadFiles = false;
-			this.$canvas = null;
-			this.forWhat = Constants.FOR_NOTHING;
-			this.fieldOperator = DataStructure.DEFAULT_FIELD_OPERATOR;
-			this.infieldOperator = DataStructure.DEFAULT_INFIELD_OPERATOR;
-
-			this.selectedTerm = null;
-		}
-		
 		/***********************************************************************
 		 *  getters and setters
 		 ***********************************************************************/
 
+		get resourceCommandURL(){return this.#resourceCommandURL;}
+		set resourceCommandURL(url){this.#resourceCommandURL = url;}
+		get dataTypeId(){return this.#dataTypeId;}
+		set dataTypeId(id){this.#dataTypeId = Util.toSafeNumber(id);}
+		get dataTypeName(){return this.#dataTypeName;}
+		set dataTypeName(dataTypeName){this.#dataTypeName = dataTypeName;}
+		get dataTypeDisplayName(){return this.#dataTypeDisplayName;}
+		set dataTypeDisplayName(dataTypeDisplayName){this.#dataTypeDisplayName = dataTypeDisplayName;}
+		get dataTypeVersion(){return this.#dataTypeVersion;}
+		set dataTypeVersion(dataTypeVersion){this.#dataTypeVersion = Util.toSafeObject(dataTypeVersion);}
+		get structuredDataId(){return this.#structuredDataId;}
+		set structuredDataId(structuredDataId){
+			this.#structuredDataId = Util.toSafeNumber(structuredDataId);
+		}
+		get title(){ return this.dataTypeDisplayName + ' v.' + this.dataTypeVersion + ' No.' + this.structuredDataId; }
+
+		get terms(){return this.#terms;}
+		set terms( terms ){ this.#terms = terms; }
+		get currentTerm(){return this.#currentTerm;}
+		set currentTerm( term ){ this.#currentTerm = term; }
+		get forWhat(){return this.#forWhat;}
+		set forWhat( forWhat ){ this.#forWhat = forWhat; }
+		get $canvas(){return this.#$canvas;}
+		set $canvas( $canvas ){ this.#$canvas = $canvas;}
+		get dirty(){return this.#dirty;}
+		set dirty( dirty ){ this.#dirty = dirty;}
+
+		get termDelimiter(){
+			return this.#termDelimiter;
+		}
+		set termDelimiter( val ){ 
+			this.#termDelimiter = $.isEmptyObject(val) ? '\n' : val;
+		}
+		get termDelimiterPosition(){
+			return this.#termDelimiterPosition;
+		}
+		set termDelimiterPosition( val ){ 
+			this.#termDelimiterPosition = $.isEmptyObject(val) ? undefined : val;
+		}
+		get termValueDelimiter(){
+			return this.#termValueDelimiter;
+		}
+		set termValueDelimiter( val ){ 
+			this.#termValueDelimiter = $.isEmptyObject(val) ? undefined : val;
+		}
+		get matrixBracketType(){
+			return this.#matrixBracketType;
+		}
+		set matrixBracketType( val ){ 
+			this.#matrixBracketType = $.isEmptyObject(val) ? undefined : val;
+		}
+		get matrixElementDelimiter(){
+			return this.#matrixElementDelimiter;
+		}
+		set matrixElementDelimiter( val ){ 
+			this.#matrixElementDelimiter = $.isEmptyObject(val) ? undefined : val;
+		}
+		get commentChar(){
+			return this.#commentChar;
+		}
+		set commentChar( val ){ 
+			this.#commentChar = $.isEmptyObject(val) ? undefined : val;
+		}
 		get inputStatusDisplay(){
 			return this.#inputStatusDisplay;
 		}
 		set inputStatusDisplay( val ){
-			this.#inputStatusDisplay = val;
+			this.#inputStatusDisplay = Util.toSafeBoolean(val);
 		}
+
+		get $termDelimiter(){ return $('#'+NAMESPACE+'termDelimiter')}
+		get $termDelimiterPosition(){ return $('#'+NAMESPACE+'termDelimiterPosition')}
+		get $termValueDelimiter(){ return $('#'+NAMESPACE+'termValueDelimiter')}
+		get $matrixBracketType(){ return $('#'+NAMESPACE+'matrixBracketType')}
+		get $matrixElementDelimiter(){ return $('#'+NAMESPACE+'matrixElementDelimiter')}
+		get $commentChar(){ return $('#'+NAMESPACE+'commentChar')}
+		get $inputStatusDisplay(){ return $('#'+NAMESPACE+'inputStatusDisplay')}
+		get $inputStatusBar(){ return $('#'+NAMESPACE+'inputStatusBar'); }
+
+		get propertyForm(){ return this.#propertyForm; }
 
 		/***********************************************************************
-		 *  APIs for form controls
+		 *  Constructor
 		 ***********************************************************************/
+		constructor( jsonObj, profile, forWhat, $canvas ){
+			if( profile ){
+				if( profile.resourceCommandURL ){
+					this.resourceCommandURL = profile.resourceCommandURL;
+				}
+				if( profile.dataTypeId )
+					this.dataTypeId = profile.dataTypeId;
+				if( profile.dataTypeName )
+					this.dataTypeName = profile.dataTypeName;
+				if( profile.dataTypeDisplayName )
+					this.dataTypeDisplayName = profile.dataTypeDisplayName;
+				if( profile.dataTypeVersion )
+					this.dataTypeVersion = profile.dataTypeVersion;
+				if( profile.structuredDataId )
+					this.structuredDataId = profile.structuredDataId;
+			}
 
-		getTermDelimiterFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( 'termDelimiter' );
-			if( save ){
-				this.termDelimiter = value;
+			this.termDelimiter= DataStructure.DEFAULT_TERM_DELIMITER;
+			this.termDelimiterPosition = DataStructure.DEFAULT_TERM_DELIMITER_POSITION;
+			this.termValueDelimiter = DataStructure.DEFAULT_TERM_VALUE_DELIMITER;
+			this.matrixBracketType = DataStructure.DEFAULT_MATRIX_BRACKET_TYPE;
+			this.matrixElementDelimiter = DataStructure.DEFAULT_MATRIX_ELEMENT_DELIMITER;
+			this.commentChar = DataStructure.DEFAULT_COMMENT_CHAR;
+			this.inputStatusDisplay = false;
+
+			this.forWhat = forWhat;
+			this.$canvas = $canvas;
+
+			if( forWhat === Constants.FOR_PREVIEW ){
+				this.#propertyForm = new TermPropertiesForm();
+			}
+
+			if( !$.isEmptyObject(jsonObj) ){
+				this.parse( jsonObj );
 			}
 			
-			return value;
-		}
-		setTermDelimiterFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'termDelimiter', value );
+			this.dirty = false;
+			this.fieldOperator = DataStructure.DEFAULT_FIELD_OPERATOR;
+			this.infieldOperator = DataStructure.DEFAULT_INFIELD_OPERATOR;
+
+			this.inputStatusDisplay ? 
+					this.$inputStatusBar.show() :
+					this.$inputStatusBar.hide();
+
+			/**************************************************
+			 *  Event Handlers for data structure
+			**************************************************/
+			let dataStructure = this;
+
+			if( this.forWhat === Constants.FOR_PREVIEW ){
+				this.$termDelimiter.val(this.termDelimiter);
+				this.$termDelimiterPosition.val(this.termDelimiterPosition);
+				this.$termValueDelimiter.val(this.termValueDelimiter);
+				this.$matrixBracketType.val(this.matrixBracketType);
+				this.$matrixElementDelimiter.val(this.matrixElementDelimiter);
+				this.$commentChar.val(this.commentChar);
+				this.$inputStatusDisplay.prop('checked', this.inputStatusDisplay);
+
+				/**************************************************************
+				* Change Event handlers for form controls 
+				***************************************************************/
+				this.$termDelimiter.change(function(event){
+					dataStructure.termDelimiter = FormUIUtil.getFormValue( 'termDelimiter' );
+				});
+				
+				this.$termDelimiterPosition.change(function(event){
+					dataStructure.termDelimiterPosition = FormUIUtil.getFormValue( 'termDelimiterPosition' );
+				});
+				
+				this.$termValueDelimiter.change(function(event){
+					dataStructure.termValueDelimiter = FormUIUtil.getFormValue( 'termValueDelimiter' );
+				});
+			
+				this.$matrixBracketType.change(function(event){
+					dataStructure.matrixBracketType = FormUIUtil.getFormValue( 'matrixBracketType' );
+				});
+				
+				this.$matrixElementDelimiter.change(function(event){
+					dataStructure.matrixElementDelimiter = FormUIUtil.getFormValue( 'matrixElementDelimiter' );
+				});
+			
+				this.$commentChar.change(function(event){
+					dataStructure.commentChar = FormUIUtil.getFormValue( 'commentChar' );
+				});
+				
+				this.$inputStatusDisplay.change( function(event){
+					dataStructure.inputStatusDisplay = FormUIUtil.getFormCheckboxValue( 'inputStatusDisplay' );
+					dataStructure.displayInputStatus();
+					dataStructure.inputStatusDisplay ? 
+								dataStructure.$inputStatusBar.show() :
+								dataStructure.$inputStatusBar.hide();
+				});
+				
+				this.propertyForm.$termType.change(function(event){
+					let selectedTermType = dataStructure.propertyForm.termType;
+					let currentTerm = dataStructure.currentTerm;
+					
+					if( currentTerm.isRendered() ){
+						$.alert({
+							title: Liferay.Language.get('term-type-change-alert'),
+							content: Liferay.Language.get('how-to-term-type-change')
+						});
+
+						dataStructure.propertyForm.termType = currentTerm.termType;
+					}
+					else{
+						dataStructure.setCurrentTerm( 
+							dataStructure.createTerm(selectedTermType) );
+					}
+				});
+
+				this.propertyForm.$termName.change(function(event){
+					let currentTerm = dataStructure.currentTerm;
+
+					let changedName = dataStructure.propertyForm.termName;
+					if( !Term.validateTermName(changedName) ){
+						$.alert( changedName + 'is not valid. Try another name.' );
+						FormUIUtil.setFormValue(DataStructure.TagIds.TERM_NAME, currentTerm.termName);
+						return;
+					}
+
+					if( dataStructure.exist( changedName ) ){
+						$.alert( changedName + 'already exist. Should be changed another name.' );
+						dataStructure.propertyForm.termName = currentTerm.termName;
+					}
+					else if( currentTerm.validateNameExpression( changedName ) === false ){
+						$.alert( 'Term Name[' + changedName +'] is unvalid for a term name. Try another one.');
+						dataStructure.propertyForm.termName = currentTerm.termName;
+					} 
+					
+					if( currentTerm.isRendered() ){
+						// It means the current term is one of the data structure and previewed on the preview panel.
+						// Therefore, we must confirm that the term's name be changed before the preview changed.
+						$.confirm({
+							title: Liferay.Language.get('select-term-type'),
+							content: Liferay.Language.get('this-term-is-previewed-are-you-sure-to-change-the-name-of-the-term'),
+							type: 'orange',
+							typeAnimated: true,
+							buttons:{
+								ok: {
+									text: 'OK',
+									btnClass: 'btn-blue',
+									action: function(){
+										currentTerm.termName = changedName;
+										dataStructure.refreshTerm( currentTerm );
+									}
+								},
+								cancel: function(){
+									dataStructure.propertyForm.termName = currentTerm.termName;
+								}
+							},
+							draggable: true
+						}); 
+					}
+					else{
+						currentTerm.termName = changedName;
+					}
+				});
+			
+				this.propertyForm.$termVersion.change(function(event){
+					let currentTerm = dataStructure.currentTerm;
+
+					const changedVersion = dataStructure.propertyForm.termVersion;
+					
+					let validated;
+					if( currentTerm.$rendered ){
+						validated = Term.validateTermVersion( changedVersion, currentTerm.termVersion );
+					}
+					else{
+						validated = Term.validateTermVersion( changedVersion );
+					}
+					
+					if( validated === true ){
+						currentTerm.termVersion = changedVersion;
+						
+					}
+					else{
+						if( Util.isEmptyString(changedVersion) ){
+							$.alert( Liferay.Language.get('term-version-is-required') );
+						}
+						else{
+							$.alert( Liferay.Language.get('wrong-term-version-format')  );
+						}
+						
+						dataStructure.propertyForm.termVersion = currentTerm.termVersion;
+					} 
+				});
+			
+				this.propertyForm.$termDisplayName.change(function(event){
+					dataStructure.currentTerm.displayName = dataStructure.propertyForm.termDisplayName;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$termDefinition.change(function(event){
+					dataStructure.currentTerm.definition = dataStructure.propertyForm.termDefinition;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$abstractKey.change(function(event){
+					dataStructure.currentTerm.abstractKey = dataStructure.propertyForm.abstractKey;
+				});
+				
+				this.propertyForm.$disabled.change(function(event){
+					dataStructure.currentTerm.disabled = dataStructure.propertyForm.disabled;
+					dataStructure.disableTerm( dataStructure.currentTerm, 
+											   dataStructure.currentTerm.disabled )
+				});
+				
+				this.propertyForm.$searchable.change(function(event){
+					dataStructure.currentTerm.searchable = dataStructure.propertyForm.searchable;
+				});
+				
+				this.propertyForm.$downloadable.change(function(event){
+					dataStructure.currentTerm.downloadable = dataStructure.propertyForm.downloadable;
+				});
+				
+				this.propertyForm.$termTooltip.change(function(event){
+					dataStructure.currentTerm.tooltip = dataStructure.propertyForm.termTooltip;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+								
+				this.propertyForm.$synonyms.change(function(event){
+					dataStructure.currentTerm.synonyms = dataStructure.propertyForm.synonyms;
+				});
+				
+				this.propertyForm.$mandatory.change(function(event){
+					dataStructure.currentTerm.mandatory = dataStructure.propertyForm.mandatory;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$value.change(function(event){
+					dataStructure.currentTerm.value = dataStructure.propertyForm.value;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+
+					let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+					dataPacket.term = dataStructure.currentTerm;
+					Util.fire( Events.SX_TERM_VALUE_CHANGED, dataPacket );
+
+				});
+
+				this.propertyForm.$placeHolder.change(function(event){
+					dataStructure.currentTerm.placeHolder = dataStructure.propertyForm.placeHolder;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+			
+				this.propertyForm.$numericPlaceHolder.change(function(event){
+					dataStructure.currentTerm.placeHolder = dataStructure.propertyForm.numericPlaceHolder;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+
+				this.propertyForm.$minLength.change(function(event){
+					dataStructure.currentTerm.minLength = dataStructure.propertyForm.minLength;
+				});
+				
+				this.propertyForm.$maxLength.change(function(event){
+					dataStructure.currentTerm.maxLength = dataStructure.propertyForm.maxLength;
+				});
+			
+				this.propertyForm.$multipleLine.change(function(event){
+					dataStructure.currentTerm.multipleLine = dataStructure.propertyForm.multipleLine;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+			
+				this.propertyForm.$validationRule.change(function(event){
+					dataStructure.currentTerm.validationRule = dataStructure.propertyForm.validationRule;
+				});
+				
+				this.propertyForm.$minValue.change(function(event){
+					let currentTerm = dataStructure.currentTerm;
+
+					const preValue = currentTerm.minValue;
+					const minValue = Util.toSafeNumber(dataStructure.propertyForm.minValue);
+					
+					if( isNaN(minValue) ){
+						if( isNaN(preValue) ){
+							currentTerm.minBoundary = false;
+							dataStructure.propertyForm.minBoundary = false;
+							dataStructure.propertyForm.$minBoundary = true;
+							dataStructure.propertyForm.minValue = '';
+						}
+						else{
+							dataStructure.propertyForm.minValue = preValue;
+							dataStructure.propertyForm.$minBoundary = false;
+						}
+					}
+					else{
+						dataStructure.propertyForm.$minBoundary = false;
+						currentTerm.minValue = minValue;
+					}
+					
+					if( preValue !== minValue ){
+						dataStructure.refreshTerm( currentTerm );
+					}
+				});
+			
+				this.propertyForm.$minBoundary.change(function(event){
+					dataStructure.currentTerm.minBoundary = dataStructure.propertyForm.minBoundary;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$maxValue.change(function(event){
+					let currentTerm = dataStructure.currentTerm;
+
+					const preValue = currentTerm.maxValue;
+					const maxValue = Util.toSafeNumber(dataStructure.propertyForm.maxValue);
+					
+					if( isNaN(maxValue) ){
+						if( isNaN(preValue) ){
+							currentTerm.maxBoundary = false;
+							dataStructure.propertyForm.maxBoundary = false;
+							dataStructure.propertyForm.maxValue = '';
+							dataStructure.propertyForm.$maxBoundary = true;
+						}
+						else{
+							dataStructure.propertyForm.maxValue = preValue;
+							dataStructure.propertyForm.$maxBoundary = false;
+						}
+					}
+					else{
+						dataStructure.propertyForm.$maxBoundary = false;
+						currentTerm.maxValue = maxValue;
+					}
+					
+					if( preValue !== maxValue ){
+						dataStructure.refreshTerm( currentTerm );
+					}
+				});
+				
+				this.propertyForm.$maxBoundary.change(function(event){
+					dataStructure.currentTerm.maxBoundary = dataStructure.propertyForm.maxBoundary;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+			
+				this.propertyForm.$unit.change(function(event){
+					dataStructure.currentTerm.unit = dataStructure.propertyForm.unit;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$uncertainty.change(function(event){
+					dataStructure.currentTerm.uncertainty = dataStructure.propertyForm.uncertainty;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+			
+				this.propertyForm.$sweepable.change(function(event){
+					dataStructure.currentTerm.sweepable = dataStructure.propertyForm.sweepable;
+				});
+				
+				this.propertyForm.$listDisplayStyle.change(function(event){
+					dataStructure.currentTerm.displayStyle = dataStructure.propertyForm.listDisplayStyle;
+					console.log('currentTerm:', dataStructure.propertyForm.$listDisplayStyle);
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				
+				/*
+				this.propertyForm.$optionSlaveTerms.change(function(event){
+					let activeTermNames = FormUIUtil.getFormCheckedArray( DataStructure.TagIds.OPTION_ACTIVE_TERMS );
+					
+					dataStructure.currentTerm.setActiveTerms( activeTermNames );
+				});
+				*/
+				
+				this.propertyForm.$booleanDisplayStyle.change(function(event){
+					dataStructure.currentTerm.displayStyle = dataStructure.propertyForm.booleanDisplayStyle; 
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$booleanTrueLabel.change(function(event){
+					dataStructure.currentTerm.trueOptionLabel = dataStructure.propertyForm.booleanTrueLabel;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$booleanFalseLabel.change(function(event){
+					dataStructure.currentTerm.falseOptionLabel = dataStructure.propertyForm.booleanFalseLabel;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$enableTime.change(function(event){
+					dataStructure.currentTerm.enableTime = dataStructure.propertyForm.enableTime;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$startYear.change(function(event){
+					dataStructure.currentTerm.startYear = dataStructure.propertyForm.startYear;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$endYear.change(function(event){
+					dataStructure.currentTerm.endYear = dataStructure.propertyForm.endYear;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$allowedExtensions.change(function(event){
+					dataStructure.currentTerm.allowedExtensions = 
+										dataStructure.propertyForm.allowedExtensions; 
+				});
+				
+				this.propertyForm.$extended.change(function(event){
+					dataStructure.currentTerm.extended = dataStructure.propertyForm.extended;
+					dataStructure.extendGroup( dataStructure.currentTerm, 
+											   dataStructure.currentTerm.extended);
+				});
+				
+				this.propertyForm.$rows.change(function(event){
+					dataStructure.currentTerm.rows = dataStructure.propertyForm.rows;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$columns.change(function(event){
+					dataStructure.currentTerm.columns = dataStructure.propertyForm.columns;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+			
+				this.propertyForm.$columnWidth.change(function(event){
+					dataStructure.currentTerm.columnWidth = dataStructure.propertyForm.columnWidth;
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+
+				/**************************************************************
+				* Custom Liferay event handlers
+				**************************************************************/
+				Liferay.on(Events.DATATYPE_PREVIEW_COPY_TERM, function(event){
+					let dataPacket = event.dataPacket;
+					 
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+					
+					console.log('DATATYPE_PREVIEW_COPY_TERM', dataPacket);
+					
+					dataStructure.setCurrentTerm(
+						dataStructure.copyTerm( dataPacket.term ) );
+				});
+				
+				Liferay.on(Events.DATATYPE_PREVIEW_TERM_SELECTED, function(event){
+					let dataPacket = event.dataPacket;
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+					
+					if( dataStructure.currentTerm === dataPacket.term ){
+						return;
+					}
+					
+					console.log('dataPacket.term: ', dataPacket.term);
+					dataStructure.setCurrentTerm( dataPacket.term );
+
+					dataStructure.terms.forEach(term=>{
+						if( term !== dataPacket.term && 
+							term.isGroupTerm() && 
+							term.groupId.sameWith( dataPacket.term.groupId ) &&
+							!term.extended ){
+							term.extend( false );
+						}
+					});
+					
+				});
+			
+				
+				Liferay.on( Events.LIST_OPTION_PREVIEW_REMOVED, function( event ){
+					let dataPacket = event.dataPacket;
+							
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+			
+					dataStructure.currentTerm.options = dataPacket.options;
+					
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+
+				Liferay.on( Events.LIST_OPTION_PREVIEW_ADDED, function( event ){
+					let dataPacket = event.dataPacket;
+							
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+			
+					dataStructure.currentTerm.options = dataPacket.options;
+					console.log('term options: ', dataStructure.currentTerm.options);
+					
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+
+				Liferay.on( Events.LIST_OPTION_PREVIEW_CHANGED, function( event ){
+					let dataPacket = event.dataPacket;
+							
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+			
+					dataStructure.refreshTerm( dataStructure.currentTerm );
+				});
+
+				Liferay.on( Events.LIST_OPTION_CHOOSE_SLAVE_TERMS, function( event ){
+					let dataPacket = event.dataPacket;
+							
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+			
+					dataStructure.chooseSlaveTerms( dataStructure.currentTerm, dataPacket.option );
+				});
+			
+				Liferay.on( Events.DATATYPE_PREVIEW_DELETE_TERM, function( event ){
+					let dataPacket = event.dataPacket;
+					// console.log( 'SX.Events.DATATYPE_PREVIEW_DELETE_TERM received...', dataPacket);
+					
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+					
+					dataStructure.deleteTerm( dataPacket.term );
+					
+					// console.log('Data Structure: ', dataStructure );
+				});
+				Liferay.on( Events.DATATYPE_PREVIEW_REMOVE_TERM, function( event ){
+					let dataPacket = event.dataPacket;
+					
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+					console.log( 'Events.DATATYPE_PREVIEW_REMOVE_TERM received...', dataPacket);
+					
+					dataStructure.removeTerm( dataPacket.term );
+				});
+	
+				
+				/* Following events should be deprecated in any time */
+				$('#'+NAMESPACE+'stringInputSize').change(function(event){
+					dataStructure.currentTerm.inputSize = $(this).val();
+					console.log('Input Size: ' + dataStructure.currentTerm.inputSize);
+				});
+				$('#'+NAMESPACE+'stringLineBreak').change(function(event){
+					dataStructure.currentTerm.lineBreak = $(this).prop('checked');
+					console.log('Line Break: ' + dataStructure.currentTerm.lineBreak);
+				});
+				
+				$('#'+NAMESPACE+'numericInputSize').change(function(event){
+					dataStructure.currentTerm.inputSize = $(this).val();
+					console.log('Input Size: ' + dataStructure.currentTerm.inputSize);
+				});
+				$('#'+NAMESPACE+'numericLineBreak').change(function(event){
+					dataStructure.currentTerm.lineBreak = $(this).prop('checked');
+					console.log('Line Break: ' + dataStructure.currentTerm.lineBreak);
+				});
+
+				/*******************************************************************************
+				* Event handlers for buttons
+				*******************************************************************************/
+				this.propertyForm.$btnNewTerm.click(function(){
+					dataStructure.setCurrentTerm( 
+							dataStructure.createTerm(dataStructure.propertyForm.termType) );
+					dataStructure.propertyForm.$termVersion.trigger('focus');
+				});
+
+				this.propertyForm.$btnCopyTerm.click(function(){
+					dataStructure.setCurrentTerm( dataStructure.copyTerm( dataStructure.currentTerm ) );
+				});
+			
+				this.propertyForm.$btnClear.click(function(){
+					dataStructure.setCurrentTerm( 
+							dataStructure.createTerm( dataStructure.currentTerm.termType ) );
+				});
+			
+				this.propertyForm.$btnImportTerm.click(function(){
+
+					//$.alert('Under Construction.');
+				});
+				
+				this.propertyForm.$btnUp.click(function(event){
+					if( !dataStructure.currentTerm.isRendered() ){
+						return;
+					}
+					
+					dataStructure.moveUpTerm( dataStructure.currentTerm );
+				});
+				
+				this.propertyForm.$btnDown.click(function(event){
+					if( !dataStructure.currentTerm.isRendered() ){
+						return;
+					}
+					
+					dataStructure.moveDownTerm( dataStructure.currentTerm );
+				});
+
+				this.propertyForm.$btnAdd.click(function(){
+					if( dataStructure.currentTerm.termType === TermTypes.LIST ){
+						if( !dataStructure.currentTerm.options ||
+							dataStructure.currentTerm.options.length < 2 ){
+							$.alert( 'List type terms must have at leat 2 options');
+							return;
+						}
+					}
+
+					dataStructure.addTerm( dataStructure.currentTerm,  0, Constants.FOR_PREVIEW, true );
+					console.log('dataStructure: ', dataStructure);
+				
+					console.log('dataStructure.currentTerm: ',  dataStructure.currentTerm, dataStructure.terms );
+				});
+
+				
+				this.propertyForm.$btnChooseGroupTerms.click(function(){
+					dataStructure.chooseGroupTerms( dataStructure.currentTerm );
+				});
+
 			}
-			else if( this.termDelimiter ){
-				FormUIUtil.setFormValue( 'termDelimiter', this.termDelimiter );
-			}
-			else{
-				FormUIUtil.clearFormValue( 'termDelimiter' );
-			}
+
+			Liferay.on(Events.SX_TERM_VALUE_CHANGED, function(event){
+				let packet = event.dataPacket;
+
+				if( packet.targetPortlet !== NAMESPACE ){
+					return;
+				}
+
+				
+				let term = packet.term;
+				switch( term.termType ){
+					case TermTypes.LIST:
+						dataStructure.activateSlaveTerms( term );
+						if( dataStructure.forWhat === Constants.FOR_PREVIEW ){
+							dataStructure.propertyForm.value = term.value;
+						}
+						
+						dataStructure.fireStructuredDataChangedEvent();
+						break;
+					case TermTypes.BOOLEAN:
+						dataStructure.activateSlaveTerms( term );
+						if( dataStructure.forWhat === Constants.FOR_PREVIEW ){
+							dataStructure.propertyForm.value = term.value;
+						}
+
+						dataStructure.fireStructuredDataChangedEvent();
+						break;
+					case TermTypes.FILE:
+						let cmd = packet.cmd;
+						
+						let uploadForm = new FormData();
+						uploadForm.append(NAMESPACE+'command', cmd);
+	
+						uploadForm.append(NAMESPACE+'dataTypeId', dataStructure.dataTypeId);
+						uploadForm.append(NAMESPACE+'dataTypeName', dataStructure.dataTypeName);
+						uploadForm.append(NAMESPACE+'dataTypeVersion', dataStructure.dataTypeVersion);
+						
+						if( cmd === Constants.Commands.UPLOAD_DATA_FILE ){
+							uploadForm.append(NAMESPACE+'structuredDataId', dataStructure.structuredDataId);
+							uploadForm.append(NAMESPACE+'termName', term.termName);
+							uploadForm.append(NAMESPACE+'termVersion', term.termVersion);
+	
+							for( let fileName in term.files ){
+								let file = term.files[fileName];
+	
+								if( !file.fileId ){
+									uploadForm.append(NAMESPACE+term.termName, file.file );
+								}
+							}
+
+							uploadForm.append(NAMESPACE+'fileContent', dataStructure.toFileContent() );
+						}
+						else if( cmd === Constants.Commands.DELETE_DATA_FILE ){
+							uploadForm.append(NAMESPACE+'fileName', packet.fileName);
+							uploadForm.append(NAMESPACE+'fileId', packet.fileId);
+						}
+
+						$.ajax({
+							url: dataStructure.resourceCommandURL,
+							type: 'post',
+							enctype: 'multipart/form-data',
+							contentType: false,
+							processData: false,
+							dataType: 'json',
+							data: uploadForm,
+							beforeSend: function(){
+								console.log('before file upload');
+							},
+							xhr: function() {
+								let xhr = new window.XMLHttpRequest();
+								xhr.upload.addEventListener("progress", function(evt) {
+									if (evt.lengthComputable) {
+										let percentComplete = (evt.loaded / evt.total) * 100;
+									}
+								}, false);
+								return xhr;
+							},
+							success: function(result){
+								if( result.hasOwnProperty('structuredDataId') ){
+									dataStructure.structuredDataId = Util.toSafeNumber(result.structuredDataId);
+								}
+	
+								if( result.cmd === Constants.Commands.UPLOAD_DATA_FILE ){
+									console.log('result: ', result );
+									if( result.result == 1 ){
+										$.alert( result.message );
+		
+										return;
+									}
+	
+									if( result.result == 2 ){
+										$.alert( 'selected-file-already-in-repository');
+									}
+	
+									let fileInfos = result[term.termName];
+		
+									for( let fileName in fileInfos){
+										let fileInfo = fileInfos[fileName];
+										term.refreshFile( fileInfo.parentFolderId, 
+															fileInfo.fileId,
+															fileInfo.name,
+															fileInfo.size,
+															fileInfo.type );
+									}
+								}
+								else if( cmd === Constants.Commands.DELETE_DATA_FILE ){
+									term.removeFile( result.fileName );
+									if( dataStructure.inputStatusDisplay ){
+										dataStructure.displayInputStatus();
+									}
+								}
+	
+								dataStructure.fireStructuredDataChangedEvent();
+							},
+							error: function( errorMsg ){
+								$.alert( errorMsg );
+							},
+							complete: function(){
+							}
+						});
+
+						break;
+					case TermTypes.MATRIX:
+					case TermTypes.DATE:
+					case TermTypes.EMAIL:
+					case TermTypes.PHONE:
+					case TermTypes.ADDRESS:
+						dataStructure.fireStructuredDataChangedEvent();
+						break;
+					default:
+						if( dataStructure.forWhat === Constants.FOR_PREVIEW ){
+							dataStructure.propertyForm.value = term.value;
+						}
+
+						dataStructure.fireStructuredDataChangedEvent();
+						break;
+				}
+				
+				if( dataStructure.inputStatusDisplay ){
+					dataStructure.displayInputStatus();
+				}
+			});
+
 		}
 
-		getTermDelimiterPositionFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( 'termDelimiterPosition' );
-			if( save ){
-				this.termDelimiter = value;
-			}
-			
-			return value;
-		}
-		setTermDelimiterPositionFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'termDelimiterPosition', value );
-			}
-			else if( this.termDelimiterPosition ){
-				FormUIUtil.setFormValue( 'termDelimiterPosition', this.termDelimiterPosition );
-			}
-			else{
-				FormUIUtil.clearFormValue( 'termDelimiterPosition' );
-			}
+		fireStructuredDataChangedEvent(){
+			let dataPacket = new EventDataPacket( NAMESPACE, NAMESPACE );
+			dataPacket.payloadType = Constants.PayloadType.DATA_STRUCTURE;
+			dataPacket.payload = this;
+
+			Util.fire( Events.SX_STRUCTURED_DATA_CHANGED, dataPacket );
 		}
 		
-		getTermValueDelimiterFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( 'termValueDelimiter' );
-			if( save ){
-				this.termDelimiter = value;
+		/***********************************************************************
+		 *  Term Property Handling Functions
+		 ***********************************************************************/
+		setPropertyFormValues(){
+			let term = this.currentTerm;
+
+			this.propertyForm.termType = term.termType;
+			this.propertyForm.termName = term.termName;
+			this.propertyForm.termVersion = term.termVersion;
+			this.propertyForm.termDisplayName = term.displayName;
+			this.propertyForm.termDefinition = term.definition;
+			this.propertyForm.termTooltip = term.tooltip;
+			this.propertyForm.mandatory = term.mandatory;
+			this.propertyForm.abstractKey = term.abstractKey;
+			this.propertyForm.disabled = term.disabled;
+			this.propertyForm.searchable = term.searchable;
+			this.propertyForm.downloadable = term.downloadable;
+			this.propertyForm.synonyms = term.synonyms;
+			if( term.hasValue() ){
+				this.propertyForm.value = term.value;
 			}
 			
-			return value;
-		}
-		setTermValueDelimiterFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'termValueDelimiter', value );
-			}
-			else if( this.termValueDelimiter ){
-				FormUIUtil.setFormValue( 'termValueDelimiter', this.termValueDelimiter );
-			}
-			else{
-				FormUIUtil.clearFormValue( 'termValueDelimiter' );
-			}
-		}
-		
-		getMatrixBracketTypeFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( 'matrixBracketType' );
-			if( save ){
-				this.matrixBracketType = value;
-			}
-			
-			return value;
-		}
-		setMatrixBracketTypeFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'matrixBracketType', value );
-			}
-			else if( this.matrixBracketType ){
-				FormUIUtil.setFormValue( 'matrixBracketType', this.matrixBracketType );
-			}
-			else{
-				FormUIUtil.clearFormValue( 'matrixBracketType' );
+			switch( term.termType ){
+				case TermTypes.STRING:
+					this.propertyForm.placeHolder = term.placeholder;
+					this.propertyForm.minLength = term.minLength;
+					this.propertyForm.maxLength = term.maxLength;
+					this.propertyForm.multipleLine = term.multipleLine;
+					this.propertyForm.validationRule = term.validationRule;
+					this.propertyForm.stringInputSize = term.inputSize;
+					this.propertyForm.stringLineBreak = term.lineBreak;
+					break;
+				case TermTypes.NUMERIC:
+					this.propertyForm.numericPlaceHolder = term.placeHolder;
+					this.propertyForm.minValue = term.minValue;
+					this.propertyForm.minBoundary = term.minBoundary;
+					this.propertyForm.maxValue = term.maxValue;
+					this.propertyForm.maxBoundary = term.maxBoundary;
+					this.propertyForm.uncertainty = term.uncertainty;
+					this.propertyForm.unit = term.unit;
+					this.propertyForm.sweepable = term.sweepable;
+					this.propertyForm.numericInputSize = term.inputSize;
+					this.propertyForm.numericLineBreak = term.lineBreak;
+					break;
+				case TermTypes.LIST:
+					this.propertyForm.listDisplayStyle = term.displayStyle;
+					this.propertyForm.listOptions = term.options;
+					break;
+				case TermTypes.BOOLEAN:
+					this.propertyForm.booleanDisplayStyle = term.displayStyle;
+					this.propertyForm.booleanTrueLabel = term.trueOptionLabel;
+					this.propertyForm.booleanFalseLabel = term.falseOptionLabel;
+
+					break;
+				case TermTypes.MATRIX:
+					this.propertyForm.rows = term.rows;
+					this.propertyForm.columns = term.columns;
+					this.propertyForm.columnWidth = term.columnWidth;
+					break;
+				case TermTypes.FILE:
+					break;
+				case TermTypes.ADDRESS:
+					break;
+				case TermTypes.EMAIL:
+					break;
+				case TermTypes.PHONE:
+					break;
+				case TermTypes.GROUP:
+					this.propertyForm.extended = term.extended;
+					break;
 			}
 		}
 
-		getMatrixElementDelimiterFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( 'matrixElementDelimiter' );
-			if( save ){
-				this.matrixElementDelimiter = value;
-			}
+		setCurrentTerm( term ){
+			this.currentTerm = term;
+
+			this.replaceVisibleTypeSpecificSection( this.currentTerm.termType );
 			
-			return value;
-		}
-		setMatrixElementDelimiterFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'matrixElementDelimiter', value );
-			}
-			else if( this.matrixElementDelimiter ){
-				FormUIUtil.setFormValue( 'matrixElementDelimiter', this.matrixElementDelimiter );
+			this.clearHighlight();
+			if( this.currentTerm.isRendered() ){
+				this.propertyForm.disableRenderedBtnGroup(true);
+				this.propertyForm.disableMoveBtnGroup(false);
+				this.highlightTerm( this.currentTerm );
 			}
 			else{
-				FormUIUtil.clearFormValue( 'matrixElementDelimiter' );
-			}
-		}
-
-		getInputStatusDisplayFormValue ( save=true ){
-			let value = FormUIUtil.getFormCheckboxValue( 'displayInputStatus' );
-			if( save ){
-				this.#inputStatusDisplay = value;
-				this.dirty = true;
+				this.propertyForm.disableRenderedBtnGroup(false);
+				this.propertyForm.disableMoveBtnGroup(true);
 			}
 			
-			return value;
-		}
-		setInputStatusDisplayFormValue ( value ){
-			FormUIUtil.setFormCheckboxValue( 'displayInputStatus', !!value );
-		}
-
-		
-		getCommentCharFormValue ( save=true ){
-			let value = FormUIUtil.getFormValue( 'commentChar' );
-			if( save ){
-				this.commentChar = value;
-			}
-			
-			return value;
-		}
-		setCommentCharFormValue ( value ){
-			if( value ){
-				FormUIUtil.setFormValue( 'commentChar', value );
-			}
-			else if( this.matrixElementDelimiter ){
-				FormUIUtil.setFormValue( 'commentChar', this.commentChar );
+			if( this.currentTerm.isGroupTerm() ){
+				this.propertyForm.disableGroupPropertyGroup( true );
 			}
 			else{
-				FormUIUtil.clearFormFormValue( 'commentChar' );
+				this.propertyForm.disableGroupPropertyGroup( false );
 			}
+			
+			this.setPropertyFormValues();
 		}
 
 		replaceVisibleTypeSpecificSection( termType ){
@@ -7947,7 +8188,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {'booelan'} disable 
 		 */
 		disable( controlIds, disable=true ){
-			FormUIUtil.disableControls( controlIds, disable );
+			controlIds.forEach( $ctrl => {
+				$ctrl = disable;
+			});
 		}
 
 		
@@ -7974,59 +8217,87 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 		
-		createTerm( termType ){
+		createTerm( termType, jsonObj ){
+			let term;
+			
 			switch( termType ){
 			case 'String':
-				return new StringTerm();
+				term = new StringTerm(jsonObj);
+				break;
 			case 'Numeric':
-				return new NumericTerm();
+				term = new NumericTerm(jsonObj);
+				break;
 			case 'Integer':
-				return new IntegerTerm();
+				term = new IntegerTerm(jsonObj);
+				break;
 			case 'List':
-				return new ListTerm();
+				term = new ListTerm(jsonObj);
+				break;
 			case 'Boolean':
-				return new BooleanTerm();
+				term = new BooleanTerm(jsonObj);
+				break;
 			case 'EMail':
-				return new EMailTerm();
+				term = new EMailTerm(jsonObj);
+				break;
 			case 'Date':
-				return new DateTerm();
+				term = new DateTerm(jsonObj);
+				break;
 			case 'Address':
-				return new AddressTerm();
+				term = new AddressTerm(jsonObj);
+				break;
 			case 'Phone':
-				return new PhoneTerm();
+				term = new PhoneTerm(jsonObj);
+				break;
 			case 'Matrix':
-				return new MatrixTerm();
+				term = new MatrixTerm(jsonObj);
+				break;
 			case 'File':
-				return new FileTerm();
+				term = new FileTerm(jsonObj);
+				break;
 			case 'Group':
-				return new GroupTerm();
+				term = new GroupTerm(jsonObj);
+				break;
 			default:
-				return new StringTerm();
+				term = new StringTerm(jsonObj);
 			}
+
+			term.resourceCommandURL = this.resourceCommandURL;
+
+			return term;
 		}
 
 		copyTerm( term, parentTermId ){
-			let copied = Object.assign( this.createTerm(term.termType), term );
-		
-			copied.termName = term.termName + '_copied';
-			copied.termVersion = '1.0.0';
-			if( parentTermId ) copied.groupTermId = parentTermId;
-			delete copied.$rendered;
-			copied.order = 0;
-			
-			this.addTerm( copied, 0, Constants.FOR_PREVIEW, true, true );
+			let copied = term.clone();
 
-			let self = this;
-			if( term.isGroupTerm() ){
-				let groupMembers = this.getGroupMembers( term.getTermId() );
-				
-				groupMembers.forEach( member => {
-					self.copyTerm( member, copied.getTermId() );
-				});
+			let namePostfix = '_copied';
+
+			copied.termName = term.termName + namePostfix;
+			while( this.exist( copied.termName) ){
+				copied.termName = copied.termName + namePostfix;
 			}
 
-			//copied.setPropertyFormValues();
-			//copied.$rendered.trigger('click');
+			copied.termVersion = '1.0.0';
+			if( parentTermId ) copied.groupTermId = parentTermId;
+			copied.order = 0;
+			
+			copied.$rendered = undefined;
+
+			this.addTerm( copied, 0, this.forWhat, true, true );
+
+			let self = this;
+			if( copied.isGroupTerm() ){
+				let groupMembers = this.getGroupMembers( term.termId );
+				
+				groupMembers.forEach( member => {
+					self.copyTerm( member, copied.termId );
+				});
+
+				copied.$label.trigger('click');
+			}
+			
+			if( this.inputStatusDisplay ){
+				this.displayInputStatus();
+			}
 			
 			return copied;
 		}
@@ -8048,7 +8319,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let searchedTerm = null;
 			this.terms.every( term => {
-				if( termId.sameWith( term.getTermId() ) ){
+				if( termId.sameWith( term.termId ) ){
 					searchedTerm = term;
 					return Constants.STOP_EVERY;
 				}
@@ -8173,7 +8444,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( children.length === 0 ||
 				order <= 0 || 
 				order > this.terms.length ){
-				console.log( '[ERROR:getTermsByOrder] Range Violation: '+order);
+				$.alert( '[ERROR:getTermsByOrder] Range Violation: '+order);
 				return null;
 			}
 
@@ -8198,7 +8469,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			switchedTerm.order++;
 			term.order--;
 
-			let $panel = this.$getPreviewPanel( term.getGroupId() );
+			let $panel = this.$getPreviewPanel( term.groupId );
 
 			if( term.order === 1 ){
 				$panel.prepend(term.$rendered); 
@@ -8218,7 +8489,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			switchedTerm.order--;
 			term.order++;
 
-			let $panel = this.$getPreviewPanel( term.getGroupId() );
+			let $panel = this.$getPreviewPanel( term.groupId );
 
 			if( switchedTerm.order === 1 ){
 				$panel.prepend(switchedTerm.$rendered); 
@@ -8246,7 +8517,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				term.order = index+1;
 
 				if( term.isGroupTerm() ){
-					self.refreshGroupMemberOrders( term.getTermId() );
+					self.refreshGroupMemberOrders( term.termId );
 				}
 
 				return term;
@@ -8286,13 +8557,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.forEach((term, index)=>{
 				if( groupTerm === term || 
 					(term.isMemberOfGroup() && 
-						!term.getGroupId().sameWith(groupTerm.getTermId())) ){
+						!term.groupId.sameWith(groupTerm.termId)) ){
 					return;
 				}
 
 				let selected;
 				if( groupTerm.isRendered() ){
-					selected = term.getGroupId().sameWith( groupTerm.getTermId() );
+					selected = term.groupId.sameWith( groupTerm.termId );
 				}
 				else{
 					selected = groupTerm.tempMembers.includes( term );
@@ -8319,7 +8590,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						click: function(){
 							let termNameSet = FormUIUtil.getFormCheckedArray('groupTermsSelector');
 							// there could be rendered children.
-							let oldMembers = self.getGroupMembers(groupTerm.getTermId());
+							let oldMembers = self.getGroupMembers(groupTerm.termId);
 							oldMembers = oldMembers.filter( member=>{
 								if( !termNameSet.includes(member.termName) ){
 									self.addGroupMember( member, groupTerm.groupTermId, false);
@@ -8336,7 +8607,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								}
 
 								if( groupTerm.isRendered() ){
-									self.addGroupMember( term, groupTerm.getTermId(), false );
+									self.addGroupMember( term, groupTerm.termId, false );
 									//groupTerm.$groupPanel.append(term.$rendered);
 								}
 								else{
@@ -8386,7 +8657,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let groupTerm = this.getTerm( groupTermId );
 
 			return groupTerm === null ? 
-						DataStructure.$DEFAULT_PREVIEW_PANEL : 
+						this.$canvas : 
 						groupTerm.$getGroupPanel();
 		}
 
@@ -8394,36 +8665,37 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  APIs related with ListTerm
 		 ********************************************************/
 
-		chooseActiveTerms( targetTerm, targetOption ){
+		chooseSlaveTerms( targetTerm, targetOption ){
 			if( !this.terms || this.terms.length === 0 ){
 				return null;
 			}
 
-			let availableTerms = this.getGroupMembers( targetTerm.getGroupId() );
+			let availableTerms = this.getGroupMembers( targetTerm.groupId );
 			availableTerms = availableTerms.filter( term => term !== targetTerm );
 									 
 			console.log( 'available Terms: ', availableTerms );
 
-			let $activeTermsSelector = $('<div>');
+			let $slaveTermsSelector = $('<div>');
 			availableTerms.forEach((term, index)=>{
 				if( term === targetTerm ){
 					return;
 				}
 
-				let selected = targetOption.hasOwnProperty('activeTerms') ? targetOption.activeTerms.includes(term.termName) : false;
+				let selected = targetOption.slaveTerms ? 
+										targetOption.slaveTerms.includes(term.termName) : false;
 				let disabled = false;
 
 				// Check the term is already specified as an active term from other options or other terms.
 				// On that case, the checkbox for the term should be disabled.
-				if( term.hasOwnProperty('masterTerm') &&
+				if( term.masterTerm &&
 					term.masterTerm !== targetTerm.termName ){
 					disabled = true;
 				}
 				
 				targetTerm.options.every((option)=>{
 					if( option !== targetOption && 
-						option.activeTerms && 
-						option.activeTerms.includes( term.termName ) ){
+						option.slaveTerms && 
+						option.slaveTerms.includes( term.termName ) ){
 						disabled = true;
 
 						return Constants.STOP_EVERY;
@@ -8432,9 +8704,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					return Constants.CONTINUE_EVERY;
 				});
 				
-				$activeTermsSelector.append( FormUIUtil.$getCheckboxTag( 
+				$slaveTermsSelector.append( FormUIUtil.$getCheckboxTag( 
 											NAMESPACE+'_term_'+(index+1),
-											NAMESPACE+'activeTermsSelector',
+											NAMESPACE+'slaveTermsSelector',
 											term.displayName.getText(CURRENT_LANGUAGE),
 											selected,
 											term.termName,
@@ -8442,31 +8714,36 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			let self = this;
-			$activeTermsSelector.dialog({
-				title: 'Check Active Terms',
+			$slaveTermsSelector.dialog({
+				title: 'Check Slave Terms',
 				autoOpen: true,
 				dragglable: true,
 				modal: true,
+				close: function(event, ui){
+					$(this).dialog('destroy');
+				},
 				buttons:[
 					{
 						text: 'Confirm', 
 						click: function(){
-							if( Util.isNonEmptyArray(targetOption.activeTerms) ){
-								targetOption.activeTerms.forEach( termName => {
+							if( Util.isNotEmpty(targetOption.slaveTerms) ){
+								targetOption.slaveTerms.forEach( termName => {
 									let term = self.getTermByName( termName );
-									delete term.masterTerm;
+									term.masterTerm = undefined;
 								});
-								delete targetOption.activeTerms;
+								targetOption.slaveTerms = undefined;
 							}
 
-							let selectedTerms = FormUIUtil.getFormCheckedArray('activeTermsSelector');
+							let selectedTerms = FormUIUtil.getFormCheckedArray('slaveTermsSelector');
 							if( selectedTerms.length > 0 ){
-								targetOption.activeTerms = selectedTerms;
-								targetOption.activeTerms.forEach( termName => {
+								targetOption.slaveTerms = selectedTerms;
+								targetOption.slaveTerms.forEach( termName => {
 									let term = self.getTermByName( termName );
 									term.masterTerm = targetTerm.termName;
 								});
 							}
+
+							console.log('Slave Terms: ', targetTerm );
 
 							$(this).dialog('destroy');
 						}
@@ -8491,30 +8768,39 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		activateSlaveTerms( listTerm ){
 			let options = listTerm.options;
-			let values = listTerm.value;
+
+			let values;
+			if( Array.isArray(listTerm.value) ){
+				values = listTerm.value;
+			}
+			else{
+				values = [listTerm.value];
+			}
 
 			let dataStructure = this;
 
 			let allSlavesActivated = false;
 			options.forEach( option => {
 				if( values.includes( option.value ) ){
-					if( option.hasOwnProperty('activeTerms') && option.activeTerms.length > 0){
-						let activeTermNames = option.activeTerms;
-						activeTermNames.forEach( termName => dataStructure.activateTerm( termName, true ) );
+					if( option.slaveTerms ){
+						let slaveTermNames = option.slaveTerms;
+						slaveTermNames.forEach( termName => dataStructure.activateTerm( termName, true ) );
 					}
+					/*
 					else{
-						if( this.forWhat === Constants.FOR_PREVIEW ){
+						if( dataStructure.forWhat === Constants.FOR_PREVIEW ){
 							let slaveTerms = dataStructure.getAllSlaveTerms( listTerm.termName );
 							slaveTerms.forEach( term => term.$rendered.show() );
 							
 							allSlavesActivated = true;
 						}
 					}
+					*/
 				}
-				else if( !allSlavesActivated ){
-					if( option.hasOwnProperty('activeTerms') ){
-						let activeTermNames = option.activeTerms;
-						activeTermNames.forEach( termName => dataStructure.activateTerm( termName, false ) );
+				else{ // if( !allSlavesActivated ){
+					if( option.slaveTerms ){
+						let slaveTermNames = option.slaveTerms;
+						slaveTermNames.forEach( termName => dataStructure.activateTerm( termName, false ) );
 					}
 				}
 			});
@@ -8536,14 +8822,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			this.setOrder( term, baseOrder );
 
-			if( !this.terms ){
+			if( this.isEmptyTerms() ){
 				this.terms = new Array();
 			}
 
-			this.terms.push( term );
+			this.#terms.push( term );
 
 			if( forWhat !== Constants.FOR_NOTHING ){
-				this.renderTerm( term, forWhat, highlight );
+				this.renderTerm( term, highlight );
+
+				if( this.forWhat === Constants.FOR_PREVIEW ){
+					if( term === this.currentTerm ){
+						this.#propertyForm.disableRenderedBtnGroup( true );
+					}
+				}
 			}
 
 			return true;
@@ -8583,10 +8875,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {boolean} deep 
 		 */
 		deleteTerm( targetTerm, deep=false ){
-			let targetId = targetTerm.getTermId();
-			let	groupTermId = targetTerm.groupTermId;
+			let targetId = targetTerm.termId;
+			let	groupTermId = targetTerm.groupId;
 			
-			this.terms = this.terms.filter( term => !term.getTermId().sameWith(targetId) );
+			this.terms = this.terms.filter( term => !term.termId.sameWith(targetId) );
 
 			//Take care of children if targetTerm is a group
 			if( targetTerm.isGroupTerm() && deep === false ){
@@ -8615,7 +8907,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @see DataStructure::deleteTerm
 		 * 
 		 * @param {Term} targetTerm 
-		 * @returns 
+		 * @returns
 		 */
 		removeTerm( targetTerm ){
 			let self = this;
@@ -8632,8 +8924,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('delete'),
 				click: function(){
 					self.deleteTerm(targetTerm, true);
-					self.render(Constants.FOR_PREVIEW);
-
+					self.removeSlaveTerm( targetTerm );
+					self.render();
 					$(this).dialog('destroy');
 				}
 			}
@@ -8642,9 +8934,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('move-group-up'),
 				click: function(){
 					self.moveTermGroupUp( targetTerm );
-					self.render(Constants.FOR_PREVIEW);
 					self.highlightTerm( targetTerm );
-
+					self.removeSlaveTerm( targetTerm );
+					targetTerm.masterTerm = undefined;
+					if( targetTerm.termType === 'List' || targetTerm.termType === 'Boolean' ){
+						targetTerm.deleteAllSlaveTerms();
+					}
+					self.render();
+					
 					$(this).dialog('destroy');
 				}
 			}
@@ -8653,8 +8950,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('remove'),
 				click: function(){
 					self.deleteTerm(targetTerm, false);
-					self.render(Constants.FOR_PREVIEW);
-
+					self.removeSlaveTerm( targetTerm );
+					self.render();
 					$(this).dialog('destroy');
 				}
 			}
@@ -8694,15 +8991,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		}
 
-		removeActiveTerm( activeTerm ){
-			this.terms.every((term)=>{
-				term.removeActiveTerm( activeTerm );
+		removeSlaveTerm( slaveTerm ){
+			let terms = this.getGroupMembers( slaveTerm.groupId );
+			let master = this.getTermByName( slaveTerm.masterTerm );
+			master.removeSlaveTerm( slaveTerm.termName );
+			/*
+			terms.every((term)=>{
+				if( term.termType === TermTypes.LIST || term.termType === TermTypes.BOOLEAN ){
+					term.removeSlaveTerm( slaveTerm.termName );
+				}
 			});
+			*/
+		}
+
+		isEmptyTerms(){
+			return !this.terms || this.terms.length < 1;
 		}
 		
 		exist( termName ){
-			let exist = false;
+			if( this.isEmptyTerms() )	return false;
 			
+			let exist = false;
 			this.terms.every( (term) => {
 				if( term.termName === termName ){
 					exist = true;
@@ -8715,6 +9024,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		
 		countTerms(){
+			if( this.isEmptyTerms() )	return 0;
+
 			return this.terms.length;
 		}
 
@@ -8760,13 +9071,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		setSearchable( term, searchable=true ){
 			if( term.isGroupTerm() ){
-				let children = this.getGroupMembers( term.getTermId() );
+				let children = this.getGroupMembers( term.termId );
 
 				let self = this;
 				children.forEach( childTerm => {
 					childTerm.searchable = searchable;
 					self.setSearchable( childTerm );
 				});
+			}
+			else{
+				term.searchable = searchable;
 			}
 		}
 
@@ -8821,7 +9135,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		isAllChildrenDisabled( groupTerm ){
 			let allDisabled = true;
 
-			this.getGroupMembers( groupTerm.getTermId() )
+			this.getGroupMembers( groupTerm.termId )
 				.every( member => {
 					if( !member.disabled ){
 						allDisabled = false;
@@ -8834,19 +9148,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return allDisabled;
 		}
 
-		disableTerm( term, disable=true, forWhat=Constants.FOR_EDITOR, recursive=false ){
-			term.setDisable( disable );
-
+		disableTerm( term, disable=true, recursive=false ){
+			term.disabled = disable;
 
 			if( term.isGroupTerm() ){
-				let members = this.getGroupMembers( term.getTermId() );
+				let members = this.getGroupMembers( term.termId );
 				let self = this;
 				members.forEach( member => {
-					self.disableTerm( member, disable, forWhat, true );
+					self.disableTerm( member, disable, true );
 				});
 			}
 			else if( !recursive && term.isMemberOfGroup() ){
-				let parent = this.getTerm( term.getGroupId() );
+				let parent = this.getTerm( term.groupId );
 
 				if( disable ){
 					if( this.isAllChildrenDisabled( parent ) ){
@@ -8855,41 +9168,39 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				}
 				else{
-					delete parent.disabled;
+					parent.disabled = false;
 					console.log('Not all children disabled: ', parent );
 				}
 
-				this.renderTerm( parent, forWhat, false, false);
-
+				if( parent.isRendered() ){
+					this.renderTerm( parent, false, false);
+				}
+			}
+			else{
+				if( term.isRendered() ){
+					this.renderTerm( term, false );
+				}
 			}
 			
-			this.renderTerm( term, forWhat, false );
-			
-			if( term.isGroupTerm() ){
+			if( term.isGroupTerm() && term.isRendered() ){
 				this.extendGroup( term );
 			}
 
-			this.highlightTerm( term );
+			this.highlightTerm( this.currentTerm );
 		}
 			
 		extendGroup( groupTerm, extended=true ){
-
+			groupTerm.extended = extended;
 			if( extended ){
-				groupTerm.extended = extended;
-				groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
-				groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', 0);
+				//groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
+				//groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', 0);
+				groupTerm.$accordion.accordion('option', 'active', false);
+				groupTerm.$accordion.accordion('option', 'active', 0);
 			}
 			else{
-				delete groupTerm.extended;
-				groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
+				groupTerm.$accordion.accordion('option', 'active', false);
+				//groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
 			}
-
-			/*
-			let members = this.getGroupMembers( groupTerm.getTermId() );
-			members.forEach( member => {
-				if( extended )	member.$rendered.find('.ui-accordion').accordion('option', 'active', 0);
-			});
-			*/
 		}
 
 		countGroupInputItems( groupId ){
@@ -8902,7 +9213,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let inputCount = 0;
 			members.forEach( member => {
 				if( member.isGroupTerm() ){
-					inputCount += this.countGroupInputItems( member.getTermId() );
+					inputCount += this.countGroupInputItems( member.termId );
 				}
 				else{
 					inputCount++;
@@ -8913,7 +9224,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		displayGroupInputStatus( groupTerm ){
-			let groupId = groupTerm instanceof GroupTerm ? groupTerm.getTermId() : this.getTopLevelTermId();
+			let groupId = groupTerm instanceof GroupTerm ? groupTerm.termId : this.getTopLevelTermId();
 			let $statusBar;
 
 			let members = this.getGroupMembers( groupId );
@@ -8925,33 +9236,45 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					inputedCount += this.displayGroupInputStatus( member );
 				}
 				else{
+					inputedCount += member.displayInputStatus(this.#inputStatusDisplay);
+					/*
 					if( member.hasValue() ){
+						console.log('has value inputStatusDisplay: ', this.#inputStatusDisplay);
 						inputedCount++;
 						member.displayInputStatus(false);
 					}
 					else{
+						console.log('no value inputStatusDisplay: ', this.#inputStatusDisplay);
 						member.displayInputStatus(this.#inputStatusDisplay);
 					}
+					*/
 				}
 			});
 			
-			let $status = $( '<span class="input-status" style="margin-left:5px;">(' + inputedCount + '/' + inputItemCount + ')</span>' );
+			let $status = $( '<span class="input-status" style="margin-left:5px;">');
 
-			if( Util.isEmpty(groupTerm) ){
+			if( !groupTerm ){
 				$statusBar = $('#'+NAMESPACE+'inputStatusBar');
+				if( this.#inputStatusDisplay ){
+					$status.text('Input Status: ' + inputedCount + '/' + inputItemCount + ' (' + (inputedCount/inputItemCount*100).toFixed(1) +'%)');
+				}
 			}
 			else{
 				$statusBar = groupTerm.$rendered.find('.ui-accordion-header').first();
+				if( this.#inputStatusDisplay ){
+					$status.text(inputedCount + '/' + inputItemCount + ' (' + (inputedCount/inputItemCount*100).toFixed(1) +'%)');
+				}
 			}
+			
 			let $inputStatus = $statusBar.find('.input-status').first();
 
 			if( $inputStatus.length > 0 ){
 				$inputStatus.remove();
 			}
 
-			if( this.#inputStatusDisplay )
+			if( this.#inputStatusDisplay ){
 				$statusBar.append( $status );
-			
+			}
 			
 			if( groupTerm instanceof GroupTerm ){
 				if( this.#inputStatusDisplay ){
@@ -8984,6 +9307,44 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return inputedCount;
 		}
 
+		getFormData(){
+			let formData = new FormData();
+
+			formData.append(NAMESPACE+'dataTypeName', dataStructure.dataTypeName);
+			formData.append(NAMESPACE+'dataTypeVersion', dataStructure.dataTypeVersion);
+			formData.append(NAMESPACE+'structuredDataId', dataStructure.structuredDataId);
+
+			if( !Util.isNonEmptyArray(this.terms) )	return formData;
+			
+			let dataStructure = this;
+
+			let fileContent = new Object();
+			this.terms.forEach( (term) => {
+				if( !term.isGroupTerm() ){
+					if( term.hasValue() ){
+						if( term.termType === TermTypes.FILE ){
+
+							for( let fileName in term.files ){
+								let file = term.files[fileName];
+
+								if( !file.fileId ){
+									console.log('File uploaded: ', term.files[file]);
+									uploadForm.append(NAMESPACE+term.termName+'[]', term.files[file].file );
+								}
+							}
+					
+						}
+	
+						fileContent[term.termName] = term.value;
+					}
+				}
+			});
+
+			formData.append(NAMESPACE+'data', JSON.stringify( fileContent) );
+
+			return formData;
+		}
+
 		toFileContent(){
 			if( !Util.isNonEmptyArray(this.terms) )	return '{}';
 			
@@ -8996,12 +9357,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
+
 			return JSON.stringify( fileContent );
+		}
+
+		toFile( fileContent ){
+
 		}
 
 		toFileContentLine( key, value ){
 			let line = "";
-			if( this.termDelimiterPosition == false ){
+			if( this.termDelimiterPosition === 'end' ){
 				line = key + ' ' + this.termValueDelimiter + ' ' + value + ' ' + this.termDelimiter + '\n';
 			}
 			else{
@@ -9017,12 +9383,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let lines = fileContent.split( lineDelimiter );
 		}
 
+		fromFile( fileContent ){
+
+		}
 		
 		parse( jsonObj, baseOrder=0 ){
 			let self = this;
-
+			
 			Object.keys(jsonObj).forEach(key=>{
 				switch(key){
+					case 'dataTypeId':
+					case 'dataTypeName':
+					case 'dataTypeVersion':
+					case 'dataTypeDisplayName':
+					case 'structuredDataId':
 					case 'termDelimiter':
 					case 'termDelimiterPosition':
 					case 'termValueDelimiter':
@@ -9037,7 +9411,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 					case 'terms':
 						jsonObj.terms.forEach( jsonTerm=>{
-							self.addTerm( TermTypes.CREATE_TERM(jsonTerm), baseOrder );
+							self.addTerm( self.createTerm(jsonTerm.termType, jsonTerm), baseOrder, Constants.FOR_NOTHING );
 						});
 
 						break;
@@ -9052,18 +9426,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				json.termDelimiter = this.termDelimiter;
 			}
 
+			if( this.dataTypeId )	json.dataTypeId = this.dataTypeId;
+			if( this.dataTypeName )	json.dataTypeName = this.dataTypeName;
+			if( this.dataTypeVersion )	json.dataTypeVersion = this.dataTypeVersion;
+			if( this.dataTypeDisplayName )	json.dataTypeDisplayName = this.dataTypeDisplayName;
+			if( this.structuredDataId )	json.structuredDataId = this.structuredDataId;
+
 			json.termValueDelimiter = this.termValueDelimiter;
 			json.termDelimiterPosition = this.termDelimiterPosition;
 			json.matrixBracketType = this.matrixBracketType;
 			json.matrixElementDelimiter = this.matrixElementDelimiter;
 			json.inputStatusDisplay = this.inputStatusDisplay;
-
-			if( this.commentString ){
-				json.commentString = this.commentString;
+			 
+			if( this.commentChar ){
+				json.commentChar = this.commentChar;
 			}
 
 			if( this.tooltip && !this.tooltip.isEmpty() ){
-				json.tooltip = this.tooltip.getLocalizedMap();
+				json.tooltip = this.tooltip.localizedMap;
 			}
 
 			if( this.terms ){
@@ -9071,6 +9451,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										.map(term=>term.toJSON() );
 			}
 
+			console.log( 'dataStructure JSON: ', json);
 			return json;
 		}
 
@@ -9084,7 +9465,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.clearHighlight();
 			}
 
-			if( term && term.$rendered ){
+			if( term.isRendered() ){
 				term.$rendered.addClass('highlight-border');
 				return true;
 			}
@@ -9093,20 +9474,28 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		clearHighlight(){
+			if( this.isEmptyTerms() )	return;
+
 			this.terms.forEach(term=>{
-				if( term.$rendered ){
+				if( term.isRendered() ){
 					term.$rendered.removeClass('highlight-border');
 				}
 			});
 		}
 
 		clearTermsDirty(){
+			this.dirty = false;
+
+			if( this.isEmptyTerms() )	return;
+
 			this.terms.forEach(term=>{
-				term.clearDirty();
+				term.dirty = false;
 			});
 		}
 
 		setTermsDirty( dirty=true ){
+			if( this.isEmptyTerms() )	return;
+
 			this.terms.forEach(term=>{
 				term.setDirty( dirty );
 			});
@@ -9118,7 +9507,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			devided.others = new Array();
 
 			this.terms.forEach(term=>{
-				if( groupTermId.sameWith(term.getGroupId()) ){
+				if( groupTermId.sameWith(term.groupId) ){
 					devided.hits.push( term );
 				}
 				else{
@@ -9138,11 +9527,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 
 		 * @param {Term} term
 		 * @param {JqueryNode} $canvas 
-		 * @param {int} forWhat 
 		 * @param {boolean} highlight 
 		 */
-		renderTerm( term, forWhat=Constants.FOR_EDITOR, highlight=false, deep=true ){
-			if( forWhat === Constants.FOR_SEARCH && !term.searchable ){
+		renderTerm( term, highlight=false, deep=true ){
+			if( this.forWhat === Constants.FOR_SEARCH && !term.searchable ){
 				console.log( 'Not searchable term: ', term );
 				return;
 			}
@@ -9157,7 +9545,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$panel = this.$canvas;
 			}
 
-			let $row = this.$renderTerm( term, forWhat, deep );
+			let $row = this.$renderTerm( term, deep );
 
 			let rowCount = this.countPreviewRows( $panel );
 
@@ -9174,12 +9562,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( highlight === true ){
 				this.highlightTerm( term );
 			}
-
-			/*
-			if( term.isGroupTerm() && term.extended ){
-				this.extendGroup( term, term.extended );
-			}
-			*/
 		}
 
 		countPreviewRows( $panel ){
@@ -9191,9 +9573,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		displayInputStatus(){
-			this.#inputStatusDisplay ? 
-						$('#'+NAMESPACE+'inputStatusBar').show() :
-						$('#'+NAMESPACE+'inputStatusBar').hide();
+
 			this.displayGroupInputStatus( null );
 		}
 
@@ -9201,42 +9581,38 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * Render all of terms in the term list 
 		 * no matter what those terms alredy have render images
 		 * 
-		 * @param { Integer } forWhat
-		 * 		Rendering mode one of FOR_PREVIEW, FOR_EDITOR, FOR_PRINT
 		 */
-		render( forWhat=Constants.FOR_PREVIEW, $canvas ){
-			if( forWhat === Constants.FOR_PREVIEW ){
-				this.setTermDelimiterFormValue( this.termDelimiter );
-				this.setTermDelimiterPositionFormValue( this.termDelimiterPosition );
-				this.setTermValueDelimiterFormValue( this.termValueDelimiter );
-				this.setMatrixBracketTypeFormValue( this.matrixBracketType );
-				this.setMatrixElementDelimiterFormValue( this.matrixElementDelimiter );
-				this.setCommentCharFormValue( this.commentChar );
-				this.setInputStatusDisplayFormValue( this.#inputStatusDisplay );
+		render(){
+			if( $.isEmptyObject( this.terms ) ){
+				return;
 			}
 
-			$canvas = this.$setCanvas( forWhat, $canvas );
-			
 			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
 			
-			$canvas.empty();
+			this.$canvas.empty();
 			
 			//render from top level terms
 			let self = this;
 			topLevelTerms.forEach(term=>{
-				self.renderTerm(term, forWhat);
+				self.renderTerm(term, false, true);
 			});
 
-			if( this.#inputStatusDisplay && forWhat !== Constants.FOR_SEARCH ){
+			topLevelTerms.forEach(term=>{
+				if( term.isGroupTerm() && term.extended ){
+					self.extendGroup( term );
+				}
+			});
+
+			if( this.forWhat !== Constants.FOR_SEARCH ){
 				this.displayInputStatus();
 			}
 			
-			if( forWhat === Constants.FOR_EDITOR ){
+			if( this.forWhat === Constants.FOR_EDITOR ){
 				this.terms.forEach(term=>{
 					if( term.termType === 'List' ){
 						if( term.hasSlaves() ){
-							let activeTermNames = term.getActiveTermNames( true );
-							let inactiveTermNames = term.getActiveTermNames( false );
+							let activeTermNames = term.getAllSlaveTerms( true );
+							let inactiveTermNames = term.getAllSlaveTerms( false );
 							
 							activeTermNames.forEach( termName => self.activateTerm( termName, true ) );
 							inactiveTermNames.forEach( termName => self.activateTerm( termName, false ) );
@@ -9246,50 +9622,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		$setCanvas( forWhat, $canvas ){
-			if( $canvas ){
-				this.forWhat = forWhat;
-				this.$canvas = $canvas;
+		insertPreviewRow( $row, index ){
+			if( this.$canvas.children( ':nth-child('+index+')' ).length === 0 ){
+				this.$canvas.append($row);
 			}
 			else{
-				if( forWhat === Constants.FOR_PREVIEW ){
-					this.$canvas = DataStructure.$DEFAULT_PREVIEW_PANEL;
-				}
-				else if( forWhat === Constants.FOR_EDITOR ){
-					this.$canvas = DataStructure.$DEFAULT_CANVAS;
-				}
-				else if( forWhat === Constants.FOR_SEARCH ){
-					this.$canvas = DataStructure.$DEFAULT_SEARCH_CANVAS
-				}
-				else{
-					// for PDF
-				}
-			}
-
-			return this.$canvas;
-		}
-
-		$getCanvas(){
-			return this.$canvas;
-		}
-
-		insertPreviewRow( $row, index, $panel=DataStructure.$DEFAULT_PREVIEW_PANEL ){
-			if( $panel.children( ':nth-child('+index+')' ).length === 0 ){
-				$panel.append($row);
-			}
-			else{
-				$panel.children( ':nth-child('+index+')' ).before( $row );
+				this.$canvas.children( ':nth-child('+index+')' ).before( $row );
 			}
 		}
 
-		$renderTerm( term, forWhat=Constants.FOR_PREVIEW, deep ){
+		$renderTerm( term, deep ){
 			if( term.isGroupTerm() ){
-				let termSets = this.devideTermsByGroup( term.getTermId() );
+				let termSets = this.devideTermsByGroup( term.termId );
 
-				return term.$render( termSets.hits, termSets.others, forWhat, deep );
+				return term.$render( termSets.hits, termSets.others, this.forWhat, deep );
 			}
 			else{
-				return term.$render(forWhat);
+				return term.$render(this.forWhat);
 			}
 		}
 		
@@ -9298,23 +9647,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 
 		 * @param {Term} targetTerm 
 		 */
-		refreshTerm( targetTerm, forWhat=Constants.FOR_PREVIEW, deep=true ){
+		refreshTerm( targetTerm, deep=true ){
+			console.log( 'refreshTerm: ', targetTerm );
 			if( !targetTerm.isRendered() ){
-				return null;
+				return;
 			}
 			
-			let $canvas = null;
-			if( targetTerm.isMemberOfGroup() ){
-				let group = this.getTerm(targetTerm.groupTermId);
-				$canvas = group.$groupPanel;
-			}
-			else{ // It means the target term is a top level.
-				$canvas = this.$canvas;
-			}
-
 			targetTerm.$rendered.remove();
 
-			this.renderTerm( targetTerm, forWhat, true );
+			this.renderTerm( targetTerm, true );
 		}
 		
 		addTestSet( forWhat, $canvas ){
@@ -9486,7 +9827,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									'ko_KR': '18세 이상'
 								},
 								value:true,
-								activeTerms:[]
+								slaveTerms:[]
 							},
 							{
 								labelMap:{
@@ -9494,7 +9835,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									'ko_KR': '18세 미만'
 								},
 								value:false,
-								activeTerms:[]
+								slaveTerms:[]
 							}
 						],
 						order: 1
@@ -9922,15 +10263,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let firstTerm = this.terms[0];
 
-			const eventData = {
-				sxeventdata:{
-					sourcePortlet: NAMESPACE,
-					targetPortlet: NAMESPACE,
-					term: firstTerm
-				}
-			};
-			
-			Liferay.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, eventData );
+			let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+			dataPacket.term = firstTerm;
+				
+			Util.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, dataPacket );
 		}
 
 	}
@@ -10062,7 +10398,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 	class AdvancedSearch{
 		constructor( jsonDataStructure, jsonAbstractFields, structuredDataList, $querySection, $resultSection, $resultPagination, baseLinkURL ){
-			this.dataStructure = new DataStructure(jsonDataStructure);
+			this.dataStructure = new DataStructure(
+				jsonDataStructure, 
+				new Object(),
+				Constants.FOR_SEARCH, 
+				$querySection );
+	
 			this.baseLinkURL = baseLinkURL;
 			this.abstractFields = jsonAbstractFields;
 			this.$querySection = $querySection;
@@ -10070,8 +10411,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.$resultPagination = $resultPagination;
 			this.searchHistories = new Array();
 
-			this.dataStructure.$setCanvas(Constants.FOR_SEARCH, $querySection);
-			this.dataStructure.render( Constants.FOR_SEARCH, $querySection );
+			this.dataStructure.render();
 			this.renderAllData( structuredDataList );
 		}
 
@@ -10546,100 +10886,58 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 	}
 
-	class DataPacket{
-		#payloadType;
-		#payload;
-		#dataTypeName;
-		#dataTypeVersion;
+	class Portlet{
+		#portletName;
+		#instanceId;
 
-		constructor( dataTypeName, dataTypeVersion ){
-			this.#dataTypeName = dataTypeName;
-			this.#dataTypeVersion = dataTypeVersion;
+		constructor( portletName, generateInstanceId=true ){
+			this.portletName = portletName;
+			if( generateInstanceId ){
+				this.instanceId = Util.randomString(10, 'aA1');
+			}
 		}
 
-		get url(){
-			if( this.#payloadType === Constants.PayloadType.URL )
-				return this.#payload.url; 
+		get portletName(){return this.#portletName;}
+		set portletName(portletName){this.#portletName=portletName;}
+		get instanceId(){return this.#instanceId;}
+		set instanceId(id){this.#instanceId = id;}
+		get namespace(){
+				return '_'+this.portletId+'_';
+		}
+		get portletId(){
+			if( this.#instanceId ){
+				return this.portletName+'_INSTANCE_'+this.instanceId;
+			}
+			else{
+				return this.portletName;
+			}
+		}
+	}
+
+	class EventDataPacket{
+		constructor( sourcePortlet, targetPortlet ){
+			this.sourcePortlet = sourcePortlet;
+			this.targetPortlet = targetPortlet;
 		}
 
-		set url( url ){
-			if( this.#payloadType !== Constants.PayloadType.URL )
-				delete this.#payload.url;
-			else
-				this.#payload.url = url; 
-		}
-
-		get payloadType(){
-			return this.#payloadType;
-		}
-
-		get payload(){
-			return this.#payload;
-		}
-
-		get dataType(){
-			return {
-				name: this.#dataTypeName,
-				version: this.#dataTypeVersion
-			};
-		}
-
-		createUrlPayload( url ){
-			this.#payloadType = Constants.PayloadType.URL;
-			this.#payload = {
-				url: url
-			};
-		}
-
-		createFilePathPayload( path, fileName ){
-			this.#payloadType = Constants.PayloadType.FILE_PATH;
-			this.#payload = {
-				path: path,
-				name: fileName
-			};
-		}
-
-		createFolderPathPayload( path, folderName ){
-			this.#payloadType = Constants.PayloadType.FOLDER_PATH;
-			this.#payload = {
-				path: path,
-				name: folderName
-			};
-		}
-
-		createExtensionPathPayload( path, extension ){
-			this.#payloadType = Constants.PayloadType.EXTENSION_PATH;
-			this.#payload = {
-				path: path,
-				name: extension
-			};
-		}
-
-		createDLFileEntryPayload( parentFolderId, fileEntryId ){
-			this.#payloadType = Constants.PayloadType.DL_FILE_ENTRY;
-			this.#payload = {
-				parentFolderId: parentFolderId,
-				fileEntryId: fileEntryId
-			};
-		}
-
-		createDataStructurePayload( dataStructure ){
-			this.#payloadType = Constants.PayloadType.DATA_STRUCTURE;
-			this.#payload = {
-				dataStructure: dataStructure
-			};
+		isTargetPortlet(ns){
+			return this.targetPortlet === ns;
 		}
 
 		parse( jsonObj ){
-			this.#payloadType = jsonObj.payloadType;
-			this.#payload = jsonObj.payload;
+			Object.keys(jsonObj).forEach( key => {
+				this[key] = jsonObj[key];
+			});
 		}
 
 		toJSON(){
-			return {
-				payloadType: this.#payloadType,
-				payload: this.#payload
-			}
+			let json = new Object();
+
+			Object.keys(this).forEach(key=>{
+				json[key] = this[key];
+			});
+
+			return json;
 		}
 	}
 
@@ -10655,13 +10953,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		#menuOptions;
 		#disabled;
 		#initData;
-		#currentData;
+		#lastRecvPacket;
+		#lastSentPacket;
+		#content;
 		#baseFolder;
 		#procFuncs;
 		#attachedEventHandlers;
 		#fileExplorerId;
 		#fileExplorerDialog;
-		#dirDirty;
 
 		/*
         get menus(){
@@ -10671,83 +10970,54 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         set menus( val ){
             this.#menus = val;
         }
-
-        get portletId(){
-            return this.#portletId;
-        }
-
-        set portletId( portletId ){
-            this.#portletId = portletId;
-        }
-
-		get namespace(){
-			return this.#namespace;
-		}
-
-		set namespace( ns ){
-			this.#namespace = ns;
-		}
-
-		get canvas(){
-			return this.#canvas;
-		}
-
-		set canvas( canvasTag ){
-			this.#canvas = canvasTag;
-		}
-
-		get disabled(){
-			return this.#disabled;
-		}
-
-		set disabled( disabled ){
-			this.#disabled = disabled;
-		}
-
-		get employer(){
-			return this.#employer;
-		}
-
-		set employer( employer ){
-			this.#employer = employer;
-		}
 		*/
+        get portletId(){return this.#portletId;}
+        set portletId( portletId ){this.#portletId = portletId;}
+		get namespace(){return this.#namespace;}
+		set namespace( ns ){this.#namespace = ns;}
+		get canvas(){return this.#canvas;}
+		set canvas( canvasTag ){this.#canvas = canvasTag;}
+		get disabled(){return this.#disabled;}
+		set disabled( disabled ){this.#disabled = disabled;}
+		get employer(){return this.#employer;}
+		set employer( employer ){this.#employer = employer;}
+		get lastRecvPacket(){ return this.#lastRecvPacket; }
+		set lastRecvPacket(lastRecvPacket){ this.#lastRecvPacket = lastRecvPacket; }
+		get lastSentPacket(){ return this.#lastSentPacket; }
+		set lastSentPacket(lastSentPacket){ this.#lastSentPacket = lastSentPacket; }
+		get content(){ return this.#content; }
+		set content(content){ this.#content = content; }
+		get resourceURL(){ return this.#resourceURL; }
+		set resourceURL(resourceURL){ this.#resourceURL = resourceURL; }
 
         constructor( config ){
 			
-            this.#portletId = config.portletId;
-            this.#namespace  = config.namespace;
-            this.#resourceURL = config.resourceURL;
-            this.#employer = config.employer;
+            this.portletId = config.portletId;
+            this.namespace  = config.namespace;
+            this.resourceURL = config.resourceURL;
+            this.employer = config.employer;
             this.#eventHandlers = config.eventHandlers;
     
             this.#loadCanvasFunc = config.loadCanvas;
-            this.#canvas = config.displayCanvas;
-            this.#menuOptions = config.menuOptions;
+            this.canvas = config.displayCanvas;
+            this.menuOptions = config.menuOptions;
             
-            this.#disabled = config.disabled;
-            this.#initData = null;
+            this.disabled = config.disabled;
+            this.initData = undefined;
     
-            this.#currentData = null;
-            this.#baseFolder = '';
+            this.lastRecvPacket = undefined;
+            this.lastSentPacket = undefined;
+            this.content = undefined;
+            this.baseFolder = '';
             this.#procFuncs = {};
     
             this.#attachedEventHandlers = {};
-            this.#fileExplorerId;
-            this.#fileExplorerDialog;
-            this.#dirDirty = false;
+            this.#fileExplorerId = '';
+            this.#fileExplorerDialog = '';
 
             //Add custom proc funcs
             for( let funcName in config.procFuncs ){
-                let funcs;
-                if( this.#procFuncs.hasOwnProperty(funcName) ){
-                    funcs = this.#procFuncs[funcName];
-                }
-                else{
-                    funcs = [];
-                    this.#procFuncs[funcName] = funcs;
-                }
-                funcs.push( config.procFuncs[funcName] );
+                this.#procFuncs[funcName] = config.procFuncs[funcName];
             }
            
             //Set currentData and baseFolder if initData exists
@@ -10794,15 +11064,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             this.#attachEventHandlers();
 
             //Attach default proc functions
-            this.#procFuncs.readServerFile = [
-                this.readServerFile
-            ];
-            this.#procFuncs.saveAtServerAs = [
-                this.saveAtServerAs
-            ];
-            this.#procFuncs.readServerFileURL = [
-                this.readServerFileURL
-            ];
+            this.#procFuncs.readServerFile = this.readServerFile;
+            this.#procFuncs.saveAtServerAs = this.saveAtServerAs;
+            this.#procFuncs.readServerFileURL = this.readServerFileURL;
 
             /**
              * The following block will be enabled after SX_HANDSHAKE event is deprecated.  
@@ -10818,7 +11082,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             */
             /*	SDE Mandatory Check Event	*/
 
-			console.log( 'visualizeer construction: ', this );
         }
 
         getPortletSection(){
@@ -10874,7 +11137,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         createFormData( jsonData ){
             let formData = new FormData();
             for( let key in jsonData ){
-                formData.append( this.namespace+key, jsonData[key] );
+                formData.append( NAMESPACE+key, jsonData[key] );
             }
 
             return formData;
@@ -10976,16 +11239,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         readServerFile( jsonData, changeAlert ){
             if( jsonData ){
-                setCurrentData( jsonData );
+                this.content = jsonData;
             }
             let params = {
                 command:'READ_FILE',
-                repositoryType: baseFolder.repositoryType(),
-                userScreenName: currentData.user(),
-                dataType: currentData.dataType(),
-                pathType: currentData.type(),
-                parentPath: currentData.parent(),
-                fileName: currentData.name()
             };
             let formData = this.createFormData( params );
 
@@ -11015,7 +11272,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         readServerFileURL( jsonData, changeAlert ){
         	if( jsonData ){
-                this.setCurrentData( jsonData );
+                this.content = jsonData;
             }
             this.createURL('READ_FILE', changeAlert);
         }
@@ -11053,7 +11310,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                             },
                             content_:JSON.parse( data.structuredData )
                         };
-                        this.setCurrentData( result );
+                        this.content = result;
 
                         this.loadCanvas( Util.toJSON(currentData, changeAlert) );
                 },
@@ -11140,9 +11397,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         refreshFileExplorer(){
-            if( !this.dirDirty ){
-                return;
-            }
 
             let eventData = {
                         portletId: this.portletId,
@@ -11158,9 +11412,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                             changeAlert:false
                         }
             };
-            Liferay.fire(Constants.Events.SX_LOAD_DATA, eventData );
-
-            this.dirDirty = false;
+            Liferay.fire(Events.SX_LOAD_DATA, eventData );
         }
 
         refresh(){
@@ -11194,24 +11446,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                     this.currentData.name(fileName);
                     this.currentData.content(content);
                     this.currentData.dirty( false );
-                    this.dirDirty = true;
                 },
                 error: function(data, e ){
                     console.log('Error read file: ', data, e);
                 },
                 complete: this.unblockVisualizer
             });
-        }
-
-        setCurrentData( jsonData ){
-            if( jsonData ){
-                this.currentData.deserialize( jsonData );
-                if( this.currentData.type() === Constants.PathType.FOLDER &&
-                    this.baseFolder.type() === Constants.PathType.EXT ){
-                    this.currentData.type( this.baseFolder.type() );
-                    this.currentData.name( this.baseFolder.name() );
-                }
-            }
         }
 
         runProcFuncs( func ){
@@ -11223,16 +11463,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 newArgs.push(args[i]);
             }
 
-            let funcs = this.procFuncs[funcName];
-            if( !funcs ){
-                console.log('Proc Functions not exist: '+ funcName, this.procFuncs );
-                return;
-            } 
-            // run all functions name by funcName
-            //console.log( 'funcs: ', funcs );
-            funcs.forEach(function( func){
-                func.apply(null, newArgs);
-            });
+            this.#procFuncs[funcName].apply(null, newArgs);
         }
 
         callIframeFunc(funcName, resultProcFunc ){
@@ -11255,26 +11486,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
             let formData = this.createFormData( params );
             
+			let visualizer = this;
             $.ajax({
-                url : this.resourceURL,
+                url : visualizer.resourceURL,
                 type : 'POST',
                 data : formData,
                 dataType:'json',
                 processData: false,  // tell jQuery not to process the data
                 contentType: false,  // tell jQuery not to set contentType
-                beforeSend: this.blockVisualizer,
+                beforeSend: visualizer.blockVisualizer,
                 success : function(result) {
                     let jsonData = {
                         type: Constants.PathType.CONTENT,
                         content_: result
                     };
-                    this.setCurrentData( jsonData );
-                    this.loadCanvas( Util.toJSON(currentData), changeAlert );
+                    visualizer.content( jsonData );
+                    visualizer.loadCanvas( Util.toJSON(currentData), changeAlert );
                 },
                 error: function(data, e ){
-                    this.errorFunc(data, e);
+                    visualizer.errorFunc(data, e);
                 },
-                complete: this.unblockVisualizer
+                complete: visualizer.unblockVisualizer
             });
         }
 
@@ -11412,7 +11644,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                     content_: this.serveResourceURL.toString()
                 };
 
-                this.setCurrentData( jsonData );
+                this.content = jsonData;
                 this.loadCanvas( Util.toJSON(this.currentData), changeAlert);
             });
         }
@@ -11436,28 +11668,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
             window.location.href = url;
         }
 
-        attachEventHandler( event, handler ){
-            if( this.#attachedEventHandlers[event] ){
+        #attachEventHandler( event, handler ){
+            if( this.#attachedEventHandlers.hasOwnProperty(event) ){
                 Liferay.detach( event, this.#attachedEventHandlers[event] );
 				delete this.#attachedEventHandlers[event];
             }
-            else{
-				console.log('attachEventHandler()');
-                this.#attachedEventHandlers[event] = function( e ){
-					console.log('In visualizer: ', event, e );
-					let eventData = e.sxeventdata;
-                	if( eventData.targetPortlet !== this.portletId ) return;
-                    	
-					handler( eventData.data );
-                };
 
-				Liferay.on( event, this.#attachedEventHandlers[event] );
-            }
+			let visualizer = this;
+			this.#attachedEventHandlers[event] = function( e ){
+				let packet = e.dataPacket;
+				if( packet.targetPortlet !== visualizer.namespace ) return;
+					
+				visualizer.lastRecvPacket = packet;
+				handler( packet );
+			};
+
+			Liferay.on( event, this.#attachedEventHandlers[event] );
         }
 
         setBaseFolderAndCurrentData(){
-            this.#currentData = new InputData( this.#initData );
-            this.#currentData.dirty(false);
+            this.content = new InputData( this.#initData );
             this.#baseFolder = new InputData();
 
             for( let key in this.#initData ){
@@ -11483,70 +11713,34 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         }
 
-        defaultHandshakeEventHandler( data, params ){
-            //connector, disabled, and Base folder information
-           this.#employer = params.employer;
-           this.#disabled = params.disabled;
-
-           this.processInitAction(data, false);
-            // console.log('baseFolder: ', baseFolder );
-            
-            let eventData = {
-                        portletId: this.#portletId,
-                        targetPortlet: params.employer,
-                        data: [],
-                        params: params
-            };
-
-            Liferay.fire( Constants.Events.SX_REGISTER_EVENTS, eventData );
-        }
-
-        defaultEventsResigeteredEventHandler( jsonData, params ){
-        } 
-
-        defaultDisableControlsEventHandler( data, params ){
-            this.#disabled = data;
-            if( this.#canvas.tagName.toLowerCase() === 'iframe' && this.#canvas.contentWindow['disable']){
-                this.#canvas.contentWindow['disable']( this.#disabled );
-            }
-        }
-        
-        defaultCheckMandatoryEventHandler(){
-            let eventData = {
-                        targetPortlet : this.portletId
-            };
-            Liferay.fire( Constants.Events.SX_CHECK_MANDATORY , eventData );
-        }
-
         #attachEventHandlers(){
-            console.log( 'Event Handlers: ', this.#eventHandlers);
             for( let event in this.#eventHandlers ){
-            	let handler = this.#eventHandlers[event];
-                this.attachEventHandler( event, handler);
-            }
-            
-            if( ! this.#eventHandlers.hasOwnProperty(Events.SX_HANDSHAKE ) ){
-                this.attachEventHandler( Events.SX_HANDSHAKE, this.defaultHandshakeEventHandler );
-            }
-            if( ! this.#eventHandlers.hasOwnProperty( Events.SX_EVENTS_REGISTERED ) ){
-                this.attachEventHandler(  Events.SX_EVENTS_REGISTERED, this.defaultEventsResigeteredEventHandler );
-            }
-            if( ! this.#eventHandlers.hasOwnProperty( Events.SX_DISABLE_CONTROLS ) ){
-                this.attachEventHandler(  Events.SX_DISABLE_CONTROLS, this.defaultDisableControlsEventHandler );
-            }
-            if( ! this.#eventHandlers.hasOwnProperty( Events.SX_CHECK_MANDATORY ) ){
-            	this.attachEventHandler( Events.SX_CHECK_MANDATORY, this.defaultCheckMandatoryEventHandler);
+                this.#attachEventHandler( event, this.#eventHandlers[event]);
             }
         }
 
-        createEventData( data, params ){
-            return {
-                portletId: this.portletId,
-                targetPortlet: this.connector,
-                data: data ? data : undefined,
-                params: params ? params : undefined
-            };
+        createEventDataPacket( payloadType, payload ){
+			let dataPacket = Util.createEventDataPacket( this.namespace, this.employer );
+
+			dataPacket.payloadType = payloadType;
+			dataPacket.payload = payload;
+
+            return dataPacket;
         }
+
+		fireVisualizerWaitingEvent( payload ){
+			let dataPacket = this.createEventDataPacket( Constants.PayloadType.WARNING, payload );
+			this.lastSentPacket = dataPacket;
+			
+			Util.fire(Events.SX_VISUALIZER_WAITING, dataPacket);
+		}
+
+		fireVisualizerReadyEvent( payload ){
+			let dataPacket = this.createEventDataPacket( Constants.PayloadType.VISUALIZER_READY, payload );
+			this.lastSentPacket = dataPacket;
+			
+			Util.fire(Events.SX_VISUALIZER_READY, dataPacket);
+		}
 
         fireMadatoryCheckEvent(){
             let isPassed = Liferay.fire( Constants.Event.SX_CHECK_MANDATORY, {targetPortlet : this.portletId});
@@ -11555,27 +11749,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         fireRegisterEventsEvent( data, params ){
             // console.log( '++++ EventData: ', createEventData(data, params ));
-            Liferay.fire( Constants.Events.SX__REGISTER_EVENTS, this.createEventData(data, params ));
+            Liferay.fire( Events.SX_REGISTER_EVENTS, this.createEventData(data, params ));
         }
 
-        fireDataChangedEvent( data, params ){
-            if( data ){
-            	if(!data.type){
-            		if(this.currentData.type()===Constants.PathType.FILE_CONTENT){
-            			data.type = this.currentData.type();
-            		}
-            	}
-            	
-                this.setCurrentData( data );
-                this.currentData.dirty(true);
-            }
-            // console.log('Fire data changed event: ', currentData );
-            let eventData = data ? data : Util.toJSON(this.currentData);
+        fireVisualizerDataChangedEvent( payloadType, payload ){
+			let dataPacket = this.createEventDataPacket( payloadType, payload );
+			this.lastSentPacket = dataPacket;
 
-            this.checkInputPortsType(eventData);
-            
-            Liferay.fire( Constants.Events.SX_DATA_CHANGED, this.createEventData(eventData, params ) );
+            Util.fire( Events.SX_VISUALIZER_DATA_CHANGED, dataPacket );
         }
+
+		fireVisualizerDataLoadedEvent( payloadType, payload ){
+			let dataPacket = this.createEventDataPacket( payloadType, payload );
+			this.lastSentPacket = dataPacket;
+
+            Util.fire( Events.SX_VISUALIZER_DATA_LOADED, dataPacket );
+        }
+
         
         /* Strucutred Data's Port type check */
         checkInputPortsType(data) {
@@ -11590,17 +11780,17 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
         fireSampleSelectedEvent( data, params ){
-            Liferay.fire( Constants.Events.SX_SAMPLE_SELECTED, this.createEventData(data, params) );
+            Liferay.fire( Events.SX_SAMPLE_SELECTED, this.createEventData(data, params) );
         }
 
         fireRequestSampleContentEvent( data, params ){
             console.log("sampleFileRead")
             console.log(this.createEventData(data, params))
-        	Liferay.fire( Constants.Events.SX_REQUEST_SAMPLE_CONTENT, this.createEventData(data, params) );
+        	Liferay.fire( Events.SX_REQUEST_SAMPLE_CONTENT, this.createEventData(data, params) );
         }
 
         fireRequestSampleURL( data, params ){
-            Liferay.fire( Constants.Events.SX_REQUEST_SAMPLE_URL, this.createEventData(data, params) );
+            Liferay.fire( Events.SX_REQUEST_SAMPLE_URL, this.createEventData(data, params) );
         }
 
         fireRequestDataEvent( targetPortlet, data, params ){
@@ -11611,19 +11801,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                 params: params
             };
 
-            Liferay.fire( Constants.Events.SX_REQUEST_DATA, eventData );
+            Liferay.fire( Events.SX_REQUEST_DATA, eventData );
         }
 
         fireResponseDataEvent( jsonData, params ){
             console.log('Fire response data event: ', jsonData, params );
             
-            Liferay.fire( Constants.Events.SX_RESPONSE_DATA, this.createEventData( jsonData, params ) );
+            Liferay.fire( Events.SX_RESPONSE_DATA, this.createEventData( jsonData, params ) );
         }
 
         openHtmlIndex( jsonData, changeAlert ){
             console.log('openHtmlIndex: ', jsonData, changeAlert);
             if( jsonData ){
-                this.setCurrentData( jsonData );
+                this.content = jsonData;
             }
 
             let params = {
@@ -11663,16 +11853,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         getCopiedTempFilePath(contextPath, jsonData, changeAlert){
             if( jsonData ){
-                this.setCurrentData( jsonData );
+                this.content = jsonData;
             }
 
             let params = {
                 command: Constants.Commands.SX_GET_COPIED_TEMP_FILE_PATH,
-                repositoryType: this.baseFolder.repositoryType(),
-                userScreenName: this.currentData.user(),
-                pathType: this.currentData.type(),
-                parentPath: this.currentData.parent(),
-                fileName: this.currentData.name()
             };
 
             let formData = this.createFormData( params );
@@ -11703,15 +11888,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
         openLocalFile( contentType, changeAlert ){
             console.log('Open Local File');
-            let domFileSelector = $('<input type=\"file\" id=\"'+this.namespace+'selectFile\"/>');
+            let domFileSelector = $('<input type=\"file\" id=\"'+NAMESPACE+'selectFile\"/>');
             domFileSelector.click();
             domFileSelector.on(
                 'change',
                 function(event){
                     let reader = new FileReader();
-                    let fileName = '';
-                    
-                    fileName = Util.getLocalFileName(this);
+                    let fileName = Util.getLocalFileName(this);
                     let file = Util.getLocalFile( this );
                     switch( contentType ){
                         case 'url':
@@ -11820,18 +12003,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
         }
 
 
-        loadCanvas( jsonData, changeAlert ){
-            // console.log('loadCanvas data: ', jsonData, changeAlert );
-        	this.setCurrentData( jsonData );
-            this.#loadCanvasFunc( Util.toJSON(currentData), changeAlert);
+        loadCanvas( content ){
+        	this.content = content;
+			console.log('loadCanvas: ', this.content);
+            this.#loadCanvasFunc( this.content );
         }
 
         downloadResultFile(){
         	let sendData = Liferay.Util.ns(this.namespace, {
-        		parentPath : this.currentData.parent,
-        		fileName : this.currentData.name,
-        		repositoryType : Constants.RepositoryTypes.USER_JOBS,
-        		command : Constants.Commands.SX_DOWNLOAD_WITH_IB
         	});
         	
         	$.ajax({
@@ -11984,7 +12163,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
                     content: content
                 };
 
-                this.setCurrentData( jsonData );
+                this.content = jsonData;
             }
             
             this.openServerFileExplorer('saveAtServerAs');
@@ -12009,9 +12188,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
     		return new DataType();
     	},
     	DataStructure: DataStructure,
-    	newDataStructure: function ( jsonStructure, forWhat, $canvas ){
-    		let dataStructure = new DataStructure( jsonStructure );
-			dataStructure.$setCanvas(forWhat, $canvas);
+    	newDataStructure: function ( jsonStructure, profile, forWhat, $canvas ){
+    		let dataStructure = new DataStructure( jsonStructure, profile, forWhat, $canvas );
 
 			return dataStructure;
 		},
@@ -12051,8 +12229,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	    			return null;
     		}
     	},
-		createDataPacket: function( dataTypeName, dataTypeVersion ){
-			return new DataPacket( dataTypeName, dataTypeVersion );
+		createEventDataPacket: function( sourcePortlet, targetPortlet ){
+			return new EventDataPacket( sourcePortlet, targetPortlet );
 		},
     	StringTerm: StringTerm,
     	NumericTerm: NumericTerm,
@@ -12062,7 +12240,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		FileTerm: FileTerm,
 		DateTerm: DateTerm,
 		MatrixTerm: MatrixTerm,
-		DataPacket: DataPacket,
 		FormUIUtil: FormUIUtil,
     	Util: Util,
 		AdvancedSearch:AdvancedSearch,
@@ -12071,6 +12248,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return new Visualizer( config );
 		}
     };
-}
+};
 
 

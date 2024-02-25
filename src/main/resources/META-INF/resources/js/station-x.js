@@ -650,7 +650,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		MATRIX_ELEMENT_DELIMITER: 'matrixElementDelimiter',
 		COMMENT_CHAR: 'commentChar',
 		TERMS: 'terms',
-		INPUT_STATUS_DISPLAY: 'inputStatusDisplay'
+		INPUT_STATUS_DISPLAY: 'inputStatusDisplay',
+		GOTO: 'goTo'
 	};
 	
 	const TermAttributes = {
@@ -1089,6 +1090,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$select.prop('disabled', disabled );
 
+			$select.val( value );
+
 			return $('<div class="form-group input-text-wrapper">')
 									.append( $label )
 									.append( $select );
@@ -1206,7 +1209,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $actionBtn;
 		},
-		$getPreviewRowSection: function( $inputSection, popupMenus, rowClickFunc ){
+		$getPreviewRowSection: function( $inputSection, popupMenus ){
 			let $inputTd = $('<span style="width:90%;float:left; padding-right:5px;">').append( $inputSection );
 
 
@@ -1217,20 +1220,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									.append( $inputTd )
 									.append( $buttonTd );
 
-			$previewRow.click( rowClickFunc );
-
 			return $previewRow;
 		},
 		$getEditorRowSection: function( $inputSection ){
-			return $('<span class="sx-form-item-group" style="width:100%; border:none;">').append( $inputSection );
+			return $('<span class="sx-form-item-group" style="display:block;width:100%;padding: 3px; margin:2px;">').append( $inputSection );
 		},
 		$getSearchRowSection: function( $inputSection ){
-			return $('<span class="sx-form-item-group" style="width:100%; border:none;">').append($inputSection);
+			return $('<span class="sx-form-item-group" style="display:block;width:100%;padding: 3px; margin:2px;">').append($inputSection);
 		},
-		$getAccordionForGroup: function( title, $body, disabled, extended=true ){
+		$getAccordionForGroup: function( title, disabled=false, active=true ){
 			let $groupHead = $('<h3>').text(title);
-			let $groupBody = $('<div style="width:100%; padding:3px;">')
-								.append($body);
+			$groupHead.css({'font-size':'1rem', 'font-weight':'600'});
+
+			let $groupBody = $('<div style="overflow:hidden;width:100%; padding:3px;">');
 			let $accordion = $('<div style="width:100%;">')
 								.append($groupHead)
 								.append($groupBody);
@@ -1238,21 +1240,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$accordion.accordion({
 				collapsible: true,
 				highStyle: 'content',
+				disabled: disabled,
+				active: false,
 				activate: function(event, ui){
 					ui.newPanel.css('height', 'auto');
 				}
 			});
-
-			if( disabled ){
-				$groupHead.css({background: '#c5c5c5', border:'none'});
-			}
-
-			if( extended ){
-				$accordion.accordion('option', 'active', 0);
-			}
-			else{
-				$accordion.accordion('option', 'active', false);
-			}
 
 			return $accordion;
 		},
@@ -1399,7 +1392,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		DATATYPE_PREVIEW_REMOVE_TERM: 'DATATYPE_PREVIEW_REMOVE_TERM',
 		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELETE_TERM',
 		DATATYPE_PREVIEW_COPY_TERM: 'DATATYPE_PREVIEW_COPY_TERM',
-		DATATYPE_PREVIEW_TERM_SELECTED: 'DATATYPE_PREVIEW_TERM_SELECTED',
+		DATATYPE_TERM_SELECTED: 'DATATYPE_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
 		DATATYPE_FORM_UI_CHECKBOX_CHANGED: 'DATATYPE_FORM_UI_CHECKBOX_CHANGED',
 		LIST_OPTION_PREVIEW_REMOVED: 'LIST_OPTION_PREVIEW_REMOVED',
@@ -2045,6 +2038,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static STATUS_SCHEDULED = 7;
 		static STATUS_IN_TRASH = 8;
 
+		static GROUP_ACTIVE_COLOR = '#efefef';
+		static GROUP_ACTIVE_FULL_COLOR = '#ec8ff0';
+		static GROUP_INACTIVE_COLOR = '#454545';
+		static GROUP_INACTIVE_FULL_COLOR = '#ec8ff0';
+
+		static TERM_LABEL_COLOR = '#272833';
+		static TERM_LABEL_FULL_COLOR = '#bc0505';
 		
 		static KEYWORD_DELIMITERS = /\s|,/;
 
@@ -2072,7 +2072,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		#standard;
 		#status;
 		#state;
-
+		
 		#$rendered;
 		#$label;
 
@@ -2097,7 +2097,53 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get mandatory(){return this.#mandatory;}
 		set mandatory(val){this.#mandatory=Util.toSafeBoolean(val, false);}
 		get disabled(){return this.#disabled;}
-		set disabled(val){this.#disabled=Util.toSafeBoolean(val, false);}
+		set disabled(val){
+			this.#disabled=Util.toSafeBoolean(val, false);
+
+			if( !this.isRendered() ) return;
+
+			switch( this.termType ){
+				case TermTypes.STRING:
+				{
+					console.log('disable string');
+					let tag = this.multipleLine ? 'textarea' : 'input';
+					this.$rendered.find(tag).first().prop('disabled', this.#disabled );
+					break;
+				}	
+				case TermTypes.NUMERIC:
+				case TermTypes.MATRIX:
+				case TermTypes.EMAIL:
+				case TermTypes.PHONE:
+				case TermTypes.FILE:
+				case TermTypes.DATE:
+				{
+					console.log('disable numeric');
+					this.$rendered.find('input').prop('disabled', this.#disabled );
+					break;
+				}
+				case TermTypes.ADDRESS:
+				{
+					this.$rendered.find('input').last().prop('disabled', this.#disabled );
+					break;
+				}
+				case TermTypes.LIST:
+				case TermTypes.BOOLEAN:
+				{
+					let tag = (this.displayStyle === 'select') ? 'select' : 'input';
+					this.$rendered.find(tag).prop('disabled', this.#disabled );
+					break;
+				}
+				/*
+				case TermTypes.GROUP:
+				{
+					let cmd = val ? 'disable' : 'enable';
+					this.$rendered.find('.ui-accordion').first().accordion(cmd);
+					break;
+				}
+				*/
+				
+			}
+		}
 		get abstractKey(){return this.#abstractKey;}
 		set abstractKey(val){this.#abstractKey=Util.toSafeBoolean(val, false);}
 		get downloadable(){return this.#downloadable;}
@@ -2110,8 +2156,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set masterTerm(val){this.#masterTerm=val;}
 		get $rendered(){return this.#$rendered;}
 		set $rendered(val){this.#$rendered=val;}
-		get $label(){return this.#$label;}
-		set $label(val){this.#$label=val;}
+		get $label(){ return this.#$label; }
+		set $label(val){ this.#$label = val; }
+		
 		get dirty(){return this.#dirty;}
 		set dirty(val){this.#dirty=val;}
 		get state(){return this.#state;}
@@ -2120,7 +2167,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set status(val){this.#status=val;}
 		get order(){return this.#order;}
 		set order(val){this.#order= Util.toSafeNumber(val);}
-		get groupTermId(){return !this.#groupTermId ? new TermId() : this.#groupTermId;}
+		get groupTermId(){
+			if( !this.#groupTermId ){
+				this.#groupTermId = new TermId();
+			}
+			return  this.#groupTermId;
+		}
 		set groupTermId(val){this.#groupTermId=Util.toSafeTermId(val);}
 		get resourceCommandURL(){return this.#resourceCommandURL;}
 		set resourceCommandURL(val){this.#resourceCommandURL=val;}
@@ -2235,53 +2287,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			};
 		}
 
-		getRowClickEventFunc(){
-			let self = this;
-
-			return function( event ){
-				event.stopPropagation();
-				
-				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
-				dataPacket.term = self;
-				
-				Util.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, dataPacket );
-			};
+		isTopLevel(){
+			return this.groupId.isEmpty();
 		}
 
 		isRendered(){
 			return !!this.$rendered;
 		}
 
-		displayInputStatus( status, labelColor ){
+		displayInputStatus( status ){
 			if( !this.isRendered() )	return;
 
 			if( !status ){
-				let color = labelColor ? labelColor : '#454545';
-				this.$label.css('color', color);
 				return 0;
 			} 
-			else if( this.hasValue() ){
-				let color = labelColor ? labelColor : '#454545';
-				this.$label.css('color', color);
+
+			if( this.hasValue() ){
 				return 1;
 			}
 			else{
-				let color = labelColor ? labelColor : '#ef6f6f';
-				this.$label.css('color', color);
 				return 0;
 			}
-
-			/*
-			let color = labelColor ? labelColor : '#454545';
-
-			if( status ){
-				color = labelColor ? labelColor : '#ef6f6f';
-			}
-
-			if( this.$label ){
-				this.$label.css('color', color);
-			}
-			*/
 		}
 
 		isOrdered(){
@@ -2708,7 +2734,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let placeHolder = Liferay.Language.get('keywords-for-search');
 
 			let $section = $('<div class="form-group input-text-wrapper">');
-			FormUIUtil.$getLabelNode(id, label, required, helpMessage).appendTo( $section );
+			let $labelNode = FormUIUtil.$getLabelNode(id, label, required, helpMessage).appendTo( $section );
+			this.$label = $labelNode.find('span').first();
 			
 			let self = this;
 			let eventFuncs = {
@@ -2749,18 +2776,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let helpMessage = this.getLocalizedTooltip();
 			let placeHolder = this.getLocalizedPlaceHolder();
 
-			let $section = $('<div class="form-group input-text-wrapper">')
-			.append( FormUIUtil.$getLabelNode(id, label, required, helpMessage) );
-			
-			let self = this;
-			
+			let $section;
 
 			if( forWhat === Constants.FOR_PREVIEW ){
 				let $textInput = this.$getEditSection();
 				$section = FormUIUtil.$getPreviewRowSection( 
 										$textInput, 
-										this.getPreviewPopupAction(), 
-										this.getRowClickEventFunc() );
+										this.getPreviewPopupAction() );
 			}
 			else if(forWhat === Constants.FOR_EDITOR ){
 				let $textInput = this.$getEditSection();
@@ -2913,6 +2935,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			let $label = FormUIUtil.$getLabelNode( controlName, label, mandatory, helpMessage )
 								.appendTo($searchKeywordSection);
+			this.$label = $label.find('span').first();
+
 			
 			let $controlSection = $('<div class="form-group">').appendTo($searchKeywordSection);
 
@@ -3069,7 +3093,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				event.preventDefault();
 
 				if( term.setToSearchValue( Number( $(this).val() ) ) === false ){
-					console.log( 'term.toSearchValue: ' + term.toSearchValue );
 					$(this).val( term.toSearchValue );
 				}
 				else{
@@ -3225,8 +3248,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				$numericRow = FormUIUtil.$getPreviewRowSection(
 									$numericNode, 
-									this.getPreviewPopupAction(),
-									this.getRowClickEventFunc() );
+									this.getPreviewPopupAction() );
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				$numericRow = FormUIUtil.$getEditorRowSection( $numericNode );
@@ -3852,8 +3874,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 										$fieldset, 
-										this.getPreviewPopupAction(), 
-										this.getRowClickEventFunc() );
+										this.getPreviewPopupAction() );
 
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
@@ -4134,8 +4155,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 										$emailSection,
-										this.getPreviewPopupAction(), 
-										this.getRowClickEventFunc()  );
+										this.getPreviewPopupAction() );
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $emailSection );
@@ -4300,12 +4320,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 											'/>' ).appendTo( $detailNode );
 				if( this.hasValue() ){
 					$detailAddr.val( this.detailAddr );
-					$detailAddr.prop('disabled', false);
+					$detailAddr.prop('disabled', this.disabled);
 				}
 
 				$detailAddr.on('focusout', (event) => {
 					if( !$detailAddr.val() ){
-						alert( 'Detail Address should be provided...');
+						$.alert( 'Detail Address should be provided...');
 					}
 				});
 							
@@ -4372,7 +4392,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let helpMessage = this.getLocalizedTooltip();
 			let $section = $('<div class="form-group input-text-wrapper">');
 			
-			FormUIUtil.$getLabelNode(controlName, label, false, helpMessage).appendTo( $section );
+			let $labelNode = FormUIUtil.$getLabelNode(controlName, label, false, helpMessage).appendTo( $section );
+			this.$label = $labelNode.find('span').first();
 
 			let placeHolder = Liferay.Language.get('keywords-for-search');
 			let searchKeywords = this.searchKeywords instanceof Array ? this.searchKeywords.join(' ') : '';
@@ -4422,8 +4443,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$addrSection = this.$getAddressSection( forWhat );
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 												$addrSection,
-												this.getPreviewPopupAction(), 
-												this.getRowClickEventFunc() ) ;
+												this.getPreviewPopupAction() ) ;
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				$addrSection = this.$getAddressSection( forWhat );
@@ -4641,8 +4661,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 										$matrixSection,
-										this.getPreviewPopupAction(),
-										this.getRowClickEventFunc() ) ;
+										this.getPreviewPopupAction() ) ;
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $matrixSection );
@@ -4790,7 +4809,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								NAMESPACE + this.termName,
 								NAMESPACE + this.termName,
 								'text',
-								this.getLocalizedPlaceHolder(),
+								'',
 								false,
 								false,
 								'',
@@ -4937,8 +4956,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection( 
 													$phoneSection, 
-													this.getPreviewPopupAction(), 
-													this.getRowClickEventFunc() ) ;
+													this.getPreviewPopupAction() ) ;
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection( $phoneSection );
@@ -5133,12 +5151,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let $dateSection = $('<div class="lfr-ddm-field-group field-wrapper">');
 
-			FormUIUtil.$getLabelNode(
+			let $labelNode = FormUIUtil.$getLabelNode(
 						NAMESPACE + term.termName, 
 						term.getLocalizedDisplayName(),
 						term.mandatory ? true : false,
 						term.getLocalizedTooltip())
 						.appendTo($dateSection);
+			this.$label = $labelNode.find('span').first();
 			
 			let $searchKeywordSection = $('<div class="form-group">').appendTo( $dateSection );
 			let $fromSpan = $('<span class="lfr-input-date display-inline-block" style="margin-right: 5px;max-width:28%;">')
@@ -5361,8 +5380,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				this.$rendered =  FormUIUtil.$getPreviewRowSection( 
 												$dateSection, 
-												this.getPreviewPopupAction(), 
-												this.getRowClickEventFunc() ) ;
+												this.getPreviewPopupAction() ) ;
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				$dateSection = this.$getDateInputSection();
@@ -6016,8 +6034,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 									$fileSection,
-									this.getPreviewPopupAction(),
-									this.getRowClickEventFunc() );
+									this.getPreviewPopupAction() );
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection($fileSection);
@@ -6305,8 +6322,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 									$fieldset,
-									this.getPreviewPopupAction(),
-									this.getRowClickEventFunc());
+									this.getPreviewPopupAction() );
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered = FormUIUtil.$getEditorRowSection($fieldset);
@@ -6389,24 +6405,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static InactiveFullColor = '#555555';
 		static InactiveNonFullColor = '#ef6f6f';
 
-		#extended;
+		#expanded;
 		#inputFull;
 		#tempMembers;
-		#$accordion;
 
-		get extended(){return this.#extended;}
-		set extended(val){this.#extended = Util.toSafeBoolean(val);}
+		get expanded(){return this.#expanded;}
+		set expanded(val){this.#expanded = Util.toSafeBoolean(val);}
 		get inputFull(){return this.#inputFull;}
-		set inputFull(val){this.#inputFull = val;}
+		set inputFull(val){ this.#inputFull = val; }
 		get tempMembers(){return this.#tempMembers;}
+		get panelId(){
+			return NAMESPACE + this.termName+ '_'+ this.termVersion + '_GroupPanel';
+		}
 
-		get $accordion(){ return this.#$accordion; }
-		set $accordion(val){ this.#$accordion = val; }
+
+		get $groupPanel(){
+			return this.$accordion.find('div').first();
+		}
+		get $accordion(){ return this.$rendered.find('.ui-accordion').first(); }
+		get $header(){ return this.$accordion.find('h3').first(); }
+
 
 		constructor( jsonObj ){
 			super('Group');
 
-			this.extended = false;
+			this.expanded = false;
 
 			if( jsonObj ){
 				this.parse(jsonObj);
@@ -6417,149 +6440,40 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.#inputFull = true;
 		}
 
-		$newGroupPanel(){
-			this.$groupPanel = $('<div class="col-md-12" id="' + this.getGroupPanelId() + '"></div>');
-
-			return this.$groupPanel;
+		expand( expand ){
+			expand ? this.$accordion.accordion('option', 'active', 0) : 
+						this.$accordion.accordion('option', 'active', false);
 		}
 
-		$getGroupPanel(){
-			if( this.isRendered() ){
-				return this.$groupPanel;
+		getRenderedNextOrderTerm( terms, order ){
+			let nextOrder;
+
+			for( let i=0; i<terms.length; i++ ){
+				if( !terms[i].isRendered() ){
+					continue;
+				}
+
+				if( !nextOrder && terms[i].order > order ){
+					nextOrder = terms[i];
+				}
+				else if( terms[i].order > order && terms[i].order < nextOrder.order ){
+					nextOrder = terms[i];
+				}
 			}
-			else{
-				return this.$newGroupPanel();
-			}
+
+			return nextOrder;
 		}
 
-		getGroupPanelId(){
-			return NAMESPACE + this.termName+ '_'+ this.termVersion + '_GroupPanel';
-		}
-
-		extend( extend ){
-			if( extend === false ){
-				this.$accordion.accordion('option', 'active', false);
-			}
-			else{
-				this.$accordion.accordion('option', 'active', 0);
-			}
-		}
-
-		/**
-		 * 
-		 * @param {Array} terms 
-		 * @param {TermId} groupTermId 
-		 * @returns 
-		 */
-		devideTermsByGroup( terms, groupTermId ){
-			let devided = new Object();
-
-			devided.hits = new Array();
-			devided.others = new Array();
-
-			if( !Util.isNonEmptyArray(terms) ){
-				return devided;
-			}
-
-			terms.forEach(term=>{
-				if( groupTermId.sameWith(term.groupTermId) ){
-					devided.hits.push( term );
-				}
-				else{
-					devided.others.push( term );
-				}
-			});
-
-			return devided;
-		}
-
-		/**
-		 * 
-		 * 
-		 * @param {*} forWhat 
-		 * @param {*} highlight 
-		 * @param {*} children 
-		 * @param {*} others 
-		 * @returns 
-		 */
-		$render( members, others, forWhat, deep=true ){
-			let $panel = this.$newGroupPanel();
-
-			members.forEach(term=>{
-				let $row;
-				if( deep === true ){
-					if( term.isGroupTerm() && Util.isNonEmptyArray(others) ){
-						let termSets = term.devideTermsByGroup( others, term.termId );
-						$row = term.$render( termSets.hits, termSets.others, forWhat ); 
-					}
-					else{
-						$row = term.$render( forWhat );
-					}
-				}
-				else{
-					$row = term.$rendered;
-				}
-				
-				let renderedCount = $panel.children('.sx-form-item-group').length;
-
-				if( term.order === 1 ){
-					$panel.prepend( $row );
-				}
-				else if( term.order > renderedCount ){
-					$panel.append( $row );
-				}
-				else{
-					$panel.children('.sx-form-item-group:nth-child('+term.order+')').before($row);
-				}
-			});
-
-			if( this.$rendered ){
-				this.$rendered.remove();
-			}
-
-			let $container = $('<div class="container-fluid">');
-			let $containerRow = $('<div class="row">').append($panel);
-			$container.append( $containerRow );
-
-			let disabled = this.disabled ? true : false;
-			let extended = this.extended ? true : false;
-			if( forWhat === Constants.FOR_SEARCH ){
-				disabled = false;
-				extended = false; 
-			}
-
+		$render( forWhat ){
 			let $accordion = FormUIUtil.$getAccordionForGroup( 
-											this.getLocalizedDisplayName(),
-											$container,
-											disabled,
-											extended );
+				this.getLocalizedDisplayName(),
+				false,
+				this.expanded );
 			
-			this.$label = $accordion.find('h3').first().css({'font-size':'1rem', 'font-weight':'600'});
-			this.$accordion = $accordion;
-
-			if( forWhat !== Constants.FOR_SEARCH ){
-				let self = this;
-				$accordion.find('h3').first().click(function(event){
-					if( self.isSelected() ){
-						if( self.inputFull )
-							self.$label.css('color', GroupTerm.ActiveFullColor);
-						else
-							self.$label.css('color', GroupTerm.ActiveNonFullColor);
-					}
-					else{
-						if( self.inputFull )
-							self.$label.css('color', GroupTerm.InactiveFullColor);
-						else
-							self.$label.css('color', GroupTerm.InactiveNonFullColor);
-					}
-				});
-			}
-
 			if( forWhat === Constants.FOR_PREVIEW ){
 				this.$rendered = FormUIUtil.$getPreviewRowSection(
 												$accordion,
-												this.getPreviewPopupAction(),
-												this.getRowClickEventFunc() );
+												this.getPreviewPopupAction() );
 			}
 			else if( forWhat === Constants.FOR_EDITOR ){
 				this.$rendered =  FormUIUtil.$getEditorRowSection($accordion);
@@ -6574,22 +6488,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.$rendered;
 		}
 
-		setInputFull( full ){
-			this.inputFull = full;
-		}
-
-		displayInputStatus( status, headColor ){
-			super.displayInputStatus(status, headColor);
-
-			this.headColor = headColor;
-		}
-
 		isRendered(){
 			return this.$rendered ? true : false;
 		}
 
-		isSelected(){
-			return this.$accordion.find('h3').hasClass('ui-state-active') ;
+		isActive(){
+			return (this.$accordion.accordion('option', 'active') === 0) ? true : false;
 		}
 
 		hasValue(){
@@ -6597,7 +6501,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		disable( disable ){
-			this.$rendered.find('.ui-accordion-header').css('background', '#c5c5c5');
+			this.disabled = disable;
 		}
 
 		clearHighlightedChildren(){
@@ -6608,11 +6512,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let unparsed = super.parse( jsonObj );
 
 			let self = this;
-			Object.keys( unparsed ).forEach( key => {
+			for( let key in unparsed ){
 				switch( key ){
 					case 'extended':
-						self[key] = unparsed[key];
-						//FormUIUtil.setFormCheckboxValue( 'extended', self[key] );
+						self.expanded = jsonObj.extended;
+						break;
+					case 'expanded':
+						self[key] = jsonObj.expanded;
+						//FormUIUtil.setFormCheckboxValue( 'expanded', self[key] );
 						break;
 					case 'value':
 					case 'dirty':
@@ -6620,7 +6527,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					default:
 						console.log('Group Term has unparsed attributes: '+ self.termName, key, unparsed[key]);
 				}
-			});
+			}
 		}
 
 		clone(){
@@ -6630,8 +6537,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = super.toJSON();
 
-			if( this.extended ){
-				json.extended = this.extended;
+			if( this.expanded ){
+				json.expanded = this.expanded;
 			}
 
 			return json;
@@ -6678,7 +6585,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		#startYear;
 		#endYear;
 		#allowedExtensions;
-		#extended;
+		#expanded;
 		#rows;
 		#columns;
 		#columnWidth;
@@ -6926,8 +6833,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set endYear(val){ FormUIUtil.setFormValue('endYear', val); }
 		get allowedExtensions(){ return FormUIUtil.getFormValue('allowedExtensions'); }
 		set allowedExtensions(val){ FormUIUtil.setFormValue('allowedExtensions', val); }
-		get extended(){ return FormUIUtil.getFormCheckboxValue('extended'); }
-		set extended(val){ FormUIUtil.setFormCheckboxValue('extended', val); }
+		get expanded(){ return FormUIUtil.getFormCheckboxValue('expanded'); }
+		set expanded(val){ FormUIUtil.setFormCheckboxValue('expanded', val); }
 		get rows(){ return FormUIUtil.getFormValue('rows'); }
 		set rows(val){ FormUIUtil.setFormValue('rows', val); }
 		get columns(){ return FormUIUtil.getFormValue('columns'); }
@@ -7020,7 +6927,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get $startYear(){ return $('#'+NAMESPACE+'startYear')}
 		get $endYear(){ return $('#'+NAMESPACE+'endYear')}
 		get $allowedExtensions(){ return $('#'+NAMESPACE+'allowedExtensions')}
-		get $extended(){ return $('#'+NAMESPACE+'extended')}
+		get $expanded(){ return $('#'+NAMESPACE+'expanded')}
 		get $rows(){ return $('#'+NAMESPACE+'rows')}
 		get $columns(){ return $('#'+NAMESPACE+'columns')}
 		get $columnWidth(){ return $('#'+NAMESPACE+'columnWidth')}
@@ -7208,7 +7115,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		static DEFAULT_FIELD_OPERATOR = 'or';
 		static DEFAULT_INFIELD_OPERATOR = 'or';
 
+		#availableTermNames;
+		#availableDisplayNames;
+
 		#inputStatusDisplay;
+		#goTo;
+		#$goToUI;
 		#resourceCommandURL;
 		#dataTypeId;
 		#dataTypeName;
@@ -7303,6 +7215,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set inputStatusDisplay( val ){
 			this.#inputStatusDisplay = Util.toSafeBoolean(val);
 		}
+		get goTo(){
+			return this.#goTo;
+		}
+		set goTo( val ){
+			this.#goTo = Util.toSafeBoolean(val);
+		}
 
 		get $termDelimiter(){ return $('#'+NAMESPACE+'termDelimiter')}
 		get $termDelimiterPosition(){ return $('#'+NAMESPACE+'termDelimiterPosition')}
@@ -7312,6 +7230,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get $commentChar(){ return $('#'+NAMESPACE+'commentChar')}
 		get $inputStatusDisplay(){ return $('#'+NAMESPACE+'inputStatusDisplay')}
 		get $inputStatusBar(){ return $('#'+NAMESPACE+'inputStatusBar'); }
+		get $goTo(){ return $('#'+NAMESPACE+'goTo'); }
+		get $goToBar(){ return $('#'+NAMESPACE+'goToBar'); }
+		get $goToUI(){ return $('#'+NAMESPACE+'goToUI'); }
+		get $goToCategory(){ return $('#'+NAMESPACE+'goToCategory'); }
+		get $goToSelector(){ return $('#'+NAMESPACE+'goToSelector'); }
 
 		get propertyForm(){ return this.#propertyForm; }
 
@@ -7342,6 +7265,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.matrixElementDelimiter = DataStructure.DEFAULT_MATRIX_ELEMENT_DELIMITER;
 			this.commentChar = DataStructure.DEFAULT_COMMENT_CHAR;
 			this.inputStatusDisplay = false;
+			this.goTo = false;
 
 			this.forWhat = forWhat;
 			this.$canvas = $canvas;
@@ -7362,6 +7286,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.$inputStatusBar.show() :
 					this.$inputStatusBar.hide();
 
+			this.configureGoToOptions();
+
 			/**************************************************
 			 *  Event Handlers for data structure
 			**************************************************/
@@ -7375,6 +7301,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$matrixElementDelimiter.val(this.matrixElementDelimiter);
 				this.$commentChar.val(this.commentChar);
 				this.$inputStatusDisplay.prop('checked', this.inputStatusDisplay);
+				this.$goTo.prop('checked', this.goTo);
 
 				/**************************************************************
 				* Change Event handlers for form controls 
@@ -7410,7 +7337,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								dataStructure.$inputStatusBar.show() :
 								dataStructure.$inputStatusBar.hide();
 				});
-				
+
 				this.propertyForm.$termType.change(function(event){
 					let selectedTermType = dataStructure.propertyForm.termType;
 					let currentTerm = dataStructure.currentTerm;
@@ -7522,8 +7449,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				
 				this.propertyForm.$disabled.change(function(event){
 					dataStructure.currentTerm.disabled = dataStructure.propertyForm.disabled;
-					dataStructure.disableTerm( dataStructure.currentTerm, 
-											   dataStructure.currentTerm.disabled )
+					console.log('dataStructure.currentTerm.disabled: ' + dataStructure.currentTerm.disabled);
+					
+					dataStructure.disableGroup( dataStructure.currentTerm );
 				});
 				
 				this.propertyForm.$searchable.change(function(event){
@@ -7715,10 +7643,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 										dataStructure.propertyForm.allowedExtensions; 
 				});
 				
-				this.propertyForm.$extended.change(function(event){
-					dataStructure.currentTerm.extended = dataStructure.propertyForm.extended;
-					dataStructure.extendGroup( dataStructure.currentTerm, 
-											   dataStructure.currentTerm.extended);
+				this.propertyForm.$expanded.change(function(event){
+					dataStructure.currentTerm.expanded = dataStructure.propertyForm.expanded;
+					dataStructure.expandGroup( dataStructure.currentTerm, 
+											   dataStructure.currentTerm.expanded);
 				});
 				
 				this.propertyForm.$rows.change(function(event){
@@ -7748,34 +7676,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					
 					console.log('DATATYPE_PREVIEW_COPY_TERM', dataPacket);
 					
-					dataStructure.setCurrentTerm(
-						dataStructure.copyTerm( dataPacket.term ) );
-				});
-				
-				Liferay.on(Events.DATATYPE_PREVIEW_TERM_SELECTED, function(event){
-					let dataPacket = event.dataPacket;
-					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
-						return;
-					}
-					
-					if( dataStructure.currentTerm === dataPacket.term ){
-						return;
-					}
-					
-					console.log('dataPacket.term: ', dataPacket.term);
-					dataStructure.setCurrentTerm( dataPacket.term );
+					let copiedTerm = dataStructure.copyTerm( dataPacket.term );
+					dataStructure.setCurrentTerm( copiedTerm, false );
 
-					dataStructure.terms.forEach(term=>{
-						if( term !== dataPacket.term && 
-							term.isGroupTerm() && 
-							term.groupId.sameWith( dataPacket.term.groupId ) &&
-							!term.extended ){
-							term.extend( false );
-						}
-					});
-					
+					if( copiedTerm.isGroupTerm() ){
+						dataStructure.expandGroup( copiedTerm, true, false); 
+					}
 				});
-			
 				
 				Liferay.on( Events.LIST_OPTION_PREVIEW_REMOVED, function( event ){
 					let dataPacket = event.dataPacket;
@@ -7875,7 +7782,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 
 				this.propertyForm.$btnCopyTerm.click(function(){
-					dataStructure.setCurrentTerm( dataStructure.copyTerm( dataStructure.currentTerm ) );
+					let copiedTerm = dataStructure.copyTerm( dataStructure.currentTerm );
+					dataStructure.setCurrentTerm( copiedTerm, false );
+					dataStructure.collapseOtherGroups( copiedTerm, true );
 				});
 			
 				this.propertyForm.$btnClear.click(function(){
@@ -7913,10 +7822,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					}
 
-					dataStructure.addTerm( dataStructure.currentTerm,  0, Constants.FOR_PREVIEW, true );
-					console.log('dataStructure: ', dataStructure);
-				
-					console.log('dataStructure.currentTerm: ',  dataStructure.currentTerm, dataStructure.terms );
+					dataStructure.addTerm( dataStructure.currentTerm,  0, true );
+					dataStructure.insertGroupMember( 
+										null, 
+										dataStructure.currentTerm );
+
+					dataStructure.propertyForm.disableMoveBtnGroup( false );
+
+					if( dataStructure.inputStatusDisplay ){
+						dataStructure.displayGroupInputStatus(null);
+					}
+
+					if( dataStructure.goTo ){
+						dataStructure.configureGoToOptions();
+					}
 				});
 
 				
@@ -7926,6 +7845,44 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			}
 
+			this.$goTo.change( function(event){
+				dataStructure.goTo = FormUIUtil.getFormCheckboxValue( 'goTo' );
+				dataStructure.configureGoToOptions();
+			});
+
+			this.$goToCategory.change( function(event){
+				dataStructure.setGoToCategory();
+			});
+
+			this.$goToSelector.on('change', function(event){
+				let val = dataStructure.$goToSelector.val();
+				console.log('$goToSelector change: val');
+
+				let term = dataStructure.getAvailableGoToTerm( val );
+
+				if( !term ){
+					$.alert('There is no term containing ' + val);
+					return;
+				}
+				
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.source = 'goTo';
+				dataPacket.term = term;
+				dataPacket.fromClick = false;
+			
+				Util.fire( Events.DATATYPE_TERM_SELECTED, dataPacket );
+			});
+
+			Liferay.on(Events.DATATYPE_TERM_SELECTED, function(event){
+				let dataPacket = event.dataPacket;
+				if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+					return;
+				}
+				console.log( 'DATATYPE_TERM_SELECTED: ', event.dataPacket );
+				
+				dataStructure.setCurrentTerm( dataPacket.term, dataPacket.fromClick );
+			});
+			
 			Liferay.on(Events.SX_TERM_VALUE_CHANGED, function(event){
 				let packet = event.dataPacket;
 
@@ -8070,6 +8027,64 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		}
 
+		configureGoToOptions(){
+			console.log( 'confiqure goTo: ', this.goTo );
+			if( !Array.isArray(this.#terms) || this.#terms.length === 0 ){
+				return;
+			}
+
+			if( !this.goTo ){
+				this.$goToBar.hide();
+				return
+			}
+
+			this.$goToBar.show();
+
+			this.refreshGoTo();
+
+			this.setGoToCategory();
+		}
+
+		getAvailableGoToTerm( val ){
+			let category = this.$goToCategory.val();
+			
+			return ( category === 'termName' ) ?
+						this.#availableTermNames[val] : 
+						this.#availableDisplayNames[val];
+		}
+
+		setGoToCategory(){
+			let category = FormUIUtil.getFormValue('goToCategory');
+			let source = (category === 'termName') ? Object.keys(this.#availableTermNames) :
+												 	 Object.keys(this.#availableDisplayNames);
+			
+			let self = this;
+			this.$goToSelector.autocomplete({
+				source: source,
+				select: function( event, ui ){
+					self.$goToSelector.val(ui.item.value);
+					self.$goToSelector.trigger('change');
+				}
+			});
+		}
+
+		refreshGoTo(){
+			if( !this.goTo )	return;
+
+			this.#availableDisplayNames = new Object();
+			this.#availableTermNames = new Object();
+
+			this.#terms.forEach(term=>{
+				if( this.forWhat === Constants.FOR_SEARCH &&
+					!term.isGroupTerm() &&
+					!term.searchable ){
+					return;
+				}
+				this.#availableDisplayNames[term.getLocalizedDisplayName()] = term;
+				this.#availableTermNames[term.termName] = term;
+			});
+		}
+
 		fireStructuredDataChangedEvent(){
 			let dataPacket = new EventDataPacket( NAMESPACE, NAMESPACE );
 			dataPacket.payloadType = Constants.PayloadType.DATA_STRUCTURE;
@@ -8146,35 +8161,108 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				case TermTypes.PHONE:
 					break;
 				case TermTypes.GROUP:
-					this.propertyForm.extended = term.extended;
+					this.propertyForm.expanded = term.expanded;
 					break;
 			}
 		}
 
-		setCurrentTerm( term ){
-			this.currentTerm = term;
+		paintTermHeader( term ){
+			let css= new Object();
 
-			this.replaceVisibleTypeSpecificSection( this.currentTerm.termType );
-			
-			this.clearHighlight();
-			if( this.currentTerm.isRendered() ){
-				this.propertyForm.disableRenderedBtnGroup(true);
-				this.propertyForm.disableMoveBtnGroup(false);
-				this.highlightTerm( this.currentTerm );
+			if(term.isGroupTerm() ){
+				let active = (term.$accordion.accordion('option', 'active') === 0) ? true : false;
+
+				if( this.inputStatusDisplay ){
+					if( active ){
+						css.color = term.inputFull ? Term.GROUP_ACTIVE_COLOR : Term.GROUP_ACTIVE_FULL_COLOR;
+					}
+					else{
+						css.color = term.inputFull ? Term.GROUP_INACTIVE_COLOR : Term.GROUP_INACTIVE_FULL_COLOR;
+					}
+				}
+				else{
+					css.color = active ? Term.ACTIVE_COLOR : Term.INACTIVE_COLOR;
+				}
+
+				term.$header.css(css);
 			}
 			else{
-				this.propertyForm.disableRenderedBtnGroup(false);
-				this.propertyForm.disableMoveBtnGroup(true);
+				if( this.inputStatusDisplay ){
+					css.color = term.hasValue() ? Term.TERM_LABEL_COLOR : Term.TERM_LABEL_FULL_COLOR;
+				}
+				else{
+					css.color = Term.TERM_LABEL_COLOR;
+				}
+
+				term.$label.css( css );
 			}
-			
-			if( this.currentTerm.isGroupTerm() ){
-				this.propertyForm.disableGroupPropertyGroup( true );
+
+			if( term.isMemberOfGroup() ){
+				this.paintTermHeader( this.getTerm(term.groupId) );
+			}
+		}
+
+
+		setCurrentTerm( term, fromClick=true ){
+			if( this.currentTerm === term ){
+				if( term.isGroupTerm() ){
+					if( this.forWhat !== Constants.FOR_SEARCH ){
+						this.paintTermHeader( term );
+					}
+				}
 			}
 			else{
-				this.propertyForm.disableGroupPropertyGroup( false );
+				let prevTerm = this.currentTerm;
+				this.currentTerm = term;
+				
+				if( term.isGroupTerm() ){
+					if( fromClick ){
+						this.collapseOtherGroups( term, true );
+						if( this.forWhat !== Constants.FOR_SEARCH ){
+							this.paintTermHeader( term );
+						}
+					}
+					else{
+						this.expandGroup( term, true, true );
+					}
+				}
+				else{
+					if( term.isMemberOfGroup() ){
+						this.expandGroup( this.getTerm(term.groupId), true, true );
+					}
+					else{
+						this.collapseOtherGroups( term, true );
+					}
+				}
+
+				if( this.forWhat !== Constants.FOR_SEARCH && !!prevTerm ){
+					this.paintTermHeader( prevTerm );
+				}
+				this.highlightTerm( this.currentTerm, true );
+
+				if( this.forWhat === Constants.FOR_PREVIEW ){
+					this.replaceVisibleTypeSpecificSection( this.currentTerm.termType );
+					
+					//this.clearHighlight();
+					if( this.currentTerm.isRendered() ){
+						this.propertyForm.disableRenderedBtnGroup(true);
+						this.propertyForm.disableMoveBtnGroup(false);
+					}
+					else{
+						this.propertyForm.disableRenderedBtnGroup(false);
+						this.propertyForm.disableMoveBtnGroup(true);
+					}
+					
+					if( this.currentTerm.isGroupTerm() ){
+						this.propertyForm.disableGroupPropertyGroup( true );
+					}
+					else{
+						this.propertyForm.disableGroupPropertyGroup( false );
+					}
+					
+					this.setPropertyFormValues();
+				}
 			}
-			
-			this.setPropertyFormValues();
 		}
 
 		replaceVisibleTypeSpecificSection( termType ){
@@ -8282,7 +8370,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			copied.$rendered = undefined;
 
-			this.addTerm( copied, 0, this.forWhat, true, true );
+			this.addTerm( copied, 0, true, true );
 
 			let self = this;
 			if( copied.isGroupTerm() ){
@@ -8291,12 +8379,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				groupMembers.forEach( member => {
 					self.copyTerm( member, copied.termId );
 				});
-
-				copied.$label.trigger('click');
 			}
 			
 			if( this.inputStatusDisplay ){
 				this.displayInputStatus();
+			}
+			if( this.goTo ){
+				this.refreshGoTo();
 			}
 			
 			return copied;
@@ -8444,7 +8533,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( children.length === 0 ||
 				order <= 0 || 
 				order > this.terms.length ){
-				$.alert( '[ERROR:getTermsByOrder] Range Violation: '+order);
+				
 				return null;
 			}
 
@@ -8658,7 +8747,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return groupTerm === null ? 
 						this.$canvas : 
-						groupTerm.$getGroupPanel();
+						groupTerm.$groupPanel;
 		}
 
 		/********************************************************
@@ -8815,12 +8904,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 *  	term : Term instance to be added or inserted
 		 *  	preview: boolean - preview or not
 		 ********************************************************************/
-		addTerm( term, baseOrder=0, forWhat=Constants.FOR_NOTHING, highlight=false, validate=true ){
+		addTerm( term, baseOrder=0, highlight=false, validate=true ){
 			if( validate && term.validate() === false ) {
 				return false;
 			}
 			
-			this.setOrder( term, baseOrder );
+			this.setTermOrder( term, baseOrder );
 
 			if( this.isEmptyTerms() ){
 				this.terms = new Array();
@@ -8828,8 +8917,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.#terms.push( term );
 
-			if( forWhat !== Constants.FOR_NOTHING ){
-				this.renderTerm( term, highlight );
+			term.$render( this.forWhat );
+
+			if( highlight ){
+				this.highlightTerm( term, true );
+			}
+			/*
+			if( this.forWhat !== Constants.FOR_NOTHING ){
+				this.$renderTerm( term, highlight );
 
 				if( this.forWhat === Constants.FOR_PREVIEW ){
 					if( term === this.currentTerm ){
@@ -8837,14 +8932,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				}
 			}
+			*/
 
 			return true;
 		}
 
-		setOrder( term, baseOrder=0 ){
+		/**
+		 * Assign an order for a term.
+		 * 
+		 * @param {Term} term 
+		 * @param {integer} baseOrder 
+		 * @returns 
+		 */
+		setTermOrder( term, baseOrder=0 ){
 			let groupTermId = term.isMemberOfGroup() ? 
-								term.groupTermId : this.getTopLevelTermId();
+								term.groupId : this.getTopLevelTermId();
 			let maxOrder = this.getGroupMembers( groupTermId ).length;
+
+			if( term.order > 0 ){
+				let dupTerm = this.getTermByOrder( groupTermId, term.order );
+				
+				if( !!dupTerm && term != dupTerm ){
+					console.log('Term order is duplicated to be initialized: ', term);
+					term.order = 0;
+				}
+			}
 
 			term.order = (term.order > 0) ?
 							(term.order + baseOrder) : (maxOrder + baseOrder + 1);
@@ -8934,13 +9046,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				text: Liferay.Language.get('move-group-up'),
 				click: function(){
 					self.moveTermGroupUp( targetTerm );
-					self.highlightTerm( targetTerm );
 					self.removeSlaveTerm( targetTerm );
-					targetTerm.masterTerm = undefined;
 					if( targetTerm.termType === 'List' || targetTerm.termType === 'Boolean' ){
 						targetTerm.deleteAllSlaveTerms();
 					}
 					self.render();
+					self.highlightTerm( targetTerm );
 					
 					$(this).dialog('destroy');
 				}
@@ -8994,14 +9105,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		removeSlaveTerm( slaveTerm ){
 			let terms = this.getGroupMembers( slaveTerm.groupId );
 			let master = this.getTermByName( slaveTerm.masterTerm );
-			master.removeSlaveTerm( slaveTerm.termName );
-			/*
-			terms.every((term)=>{
-				if( term.termType === TermTypes.LIST || term.termType === TermTypes.BOOLEAN ){
-					term.removeSlaveTerm( slaveTerm.termName );
-				}
-			});
-			*/
+			if( master ){
+				master.removeSlaveTerm( slaveTerm.termName );
+			}
+
+			slaveTerm.masterTerm = undefined;
 		}
 
 		isEmptyTerms(){
@@ -9148,58 +9256,59 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return allDisabled;
 		}
 
-		disableTerm( term, disable=true, recursive=false ){
-			term.disabled = disable;
-
-			if( term.isGroupTerm() ){
+		disableGroup( term, down=true ){
+			if( term.isGroupTerm() && down ){
 				let members = this.getGroupMembers( term.termId );
 				let self = this;
 				members.forEach( member => {
-					self.disableTerm( member, disable, true );
+					member.disabled = term.disabled;
+					if(member.isGroupTerm()){
+						self.disableGroup( member, down );
+					} 
 				});
 			}
-			else if( !recursive && term.isMemberOfGroup() ){
-				let parent = this.getTerm( term.groupId );
-
-				if( disable ){
-					if( this.isAllChildrenDisabled( parent ) ){
-						parent.disabled = true;
-						console.log('all children disabled: ', parent );
-					}
-				}
-				else{
-					parent.disabled = false;
-					console.log('Not all children disabled: ', parent );
-				}
-
-				if( parent.isRendered() ){
-					this.renderTerm( parent, false, false);
-				}
-			}
 			else{
-				if( term.isRendered() ){
-					this.renderTerm( term, false );
+				if( term.isMemberOfGroup() ){
+					let parent = this.getTerm( term.groupId );
+					
+					parent.disabled = this.isAllChildrenDisabled( parent );
+					this.disableGroup( parent, false );
 				}
 			}
-			
-			if( term.isGroupTerm() && term.isRendered() ){
-				this.extendGroup( term );
-			}
-
-			this.highlightTerm( this.currentTerm );
 		}
 			
-		extendGroup( groupTerm, extended=true ){
-			groupTerm.extended = extended;
-			if( extended ){
-				//groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
-				//groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', 0);
-				groupTerm.$accordion.accordion('option', 'active', false);
-				groupTerm.$accordion.accordion('option', 'active', 0);
+		expandGroup( groupTerm, expand=true, deep=true ){
+			if( !(groupTerm instanceof GroupTerm) )	return;
+
+			if( groupTerm.isMemberOfGroup() && deep ){
+				let parentTerm = this.getTerm( groupTerm.groupId );
+	
+				this.expandGroup( parentTerm, expand, deep );
+
 			}
-			else{
-				groupTerm.$accordion.accordion('option', 'active', false);
-				//groupTerm.$rendered.find('.ui-accordion').accordion('option', 'active', false);
+			
+			let active = expand ? 0 : false;
+			groupTerm.$accordion.accordion('option', 'active', active);
+
+			if( active === 0 ){
+				this.collapseOtherGroups( groupTerm, true );
+			}
+		}
+
+		collapseOtherGroups( term, onlySibligs=true ){
+			let siblings = this.getGroupMembers( term.groupId );
+
+			let self = this;
+			siblings.forEach( sibling=>{
+				if( sibling !== term ){
+					self.expandGroup( sibling, false, false );
+				}
+			});
+			
+			if( !onlySibligs ){
+				if( term.isMemberOfGroup() ){
+					this.collapseOtherGroups( this.getTerm( term.groupId ), false );
+				}
 			}
 		}
 
@@ -9231,24 +9340,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let inputItemCount = this.countGroupInputItems( groupId );
 			let inputedCount = 0;
+			let self = this;
 			members.forEach( member => {
 				if( member.isGroupTerm() ){
-					inputedCount += this.displayGroupInputStatus( member );
+					inputedCount += self.displayGroupInputStatus( member );
 				}
 				else{
 					inputedCount += member.displayInputStatus(this.#inputStatusDisplay);
-					/*
-					if( member.hasValue() ){
-						console.log('has value inputStatusDisplay: ', this.#inputStatusDisplay);
-						inputedCount++;
-						member.displayInputStatus(false);
-					}
-					else{
-						console.log('no value inputStatusDisplay: ', this.#inputStatusDisplay);
-						member.displayInputStatus(this.#inputStatusDisplay);
-					}
-					*/
 				}
+
+				self.paintTermHeader( member );
 			});
 			
 			let $status = $( '<span class="input-status" style="margin-left:5px;">');
@@ -9279,28 +9380,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( groupTerm instanceof GroupTerm ){
 				if( this.#inputStatusDisplay ){
 					if(inputedCount !== inputItemCount ){
-						groupTerm.displayInputStatus(true, GroupTerm.InactiveNonFullColor);
-						groupTerm.setInputFull( false );
+						groupTerm.inputFull = false;
 					}
 					else{
-						if( groupTerm.isSelected() ){
-							groupTerm.displayInputStatus(true, GroupTerm.ActiveFullColor);	
-						}
-						else{
-							groupTerm.displayInputStatus(true, GroupTerm.InactiveFullColor);
-						}
-						
-						groupTerm.setInputFull( true );
+						groupTerm.inputFull = true;
 					}
 				}
-				else{
-					if( groupTerm.isSelected() ){
-						groupTerm.displayInputStatus(true, GroupTerm.ActiveFullColor);	
-					}
-					else{
-						groupTerm.displayInputStatus(true, GroupTerm.InactiveFullColor);
-					}
-				}
+			
+				groupTerm.displayInputStatus(this.#inputStatusDisplay);	
 			}  
 			
 
@@ -9403,6 +9490,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case 'matrixBracketType':
 					case 'matrixElementDelimiter':
 					case 'inputStatusDisplay':
+					case 'goTo':
 					case 'commentChar':
 						self[key] = jsonObj[key];
 						break;
@@ -9411,7 +9499,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 					case 'terms':
 						jsonObj.terms.forEach( jsonTerm=>{
-							self.addTerm( self.createTerm(jsonTerm.termType, jsonTerm), baseOrder, Constants.FOR_NOTHING );
+							self.addTerm( self.createTerm(jsonTerm.termType, jsonTerm), baseOrder );
 						});
 
 						break;
@@ -9437,6 +9525,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			json.matrixBracketType = this.matrixBracketType;
 			json.matrixElementDelimiter = this.matrixElementDelimiter;
 			json.inputStatusDisplay = this.inputStatusDisplay;
+			json.goTo = this.goTo;
 			 
 			if( this.commentChar ){
 				json.commentChar = this.commentChar;
@@ -9501,23 +9590,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		devideTermsByGroup( groupTermId ){
-			let devided = new Object();
-			devided.hits = new Array();
-			devided.others = new Array();
-
-			this.terms.forEach(term=>{
-				if( groupTermId.sameWith(term.groupId) ){
-					devided.hits.push( term );
-				}
-				else{
-					devided.others.push( term );
-				}
-			});
-
-			return devided;
-		}
-
 		/**
 		 * Render term and attach a panel. If the term is a top level member
 		 * it is appended to the data structure's preview panel, otherwise,
@@ -9529,39 +9601,51 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {JqueryNode} $canvas 
 		 * @param {boolean} highlight 
 		 */
-		renderTerm( term, highlight=false, deep=true ){
+		$renderTerm( term, highlight=false ){
 			if( this.forWhat === Constants.FOR_SEARCH && !term.searchable ){
 				console.log( 'Not searchable term: ', term );
 				return;
 			}
 
-			let $panel = null;
+			term.$render( this.forWhat );
 
-			if( term.isMemberOfGroup() ){
-				let group = this.getTerm(term.groupTermId);
-				$panel = group.$getGroupPanel();
-			}
-			else {
-				$panel = this.$canvas;
-			}
+			term.$rendered.on('click', function( event ){
+				event.stopPropagation();
+				
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.source = '$renderTerm()';
+				dataPacket.term = term;
+				dataPacket.fromClick = true;
+				
+				Util.fire( Events.DATATYPE_TERM_SELECTED, dataPacket );
+			});
 
-			let $row = this.$renderTerm( term, deep );
+			this.insertGroupMember( this.getGroupTerm(term), term );
 
-			let rowCount = this.countPreviewRows( $panel );
-
-			if( term.order > rowCount ){
-				$panel.append( $row );
-			}
-			else if( term.order === 1 ){
-				$panel.prepend( $row );
-			}
-			else{
-				$panel.children('.sx-form-item-group:nth-child('+term.order+')').before($row);
-			}
-
-			if( highlight === true ){
+			if( highlight ){
 				this.highlightTerm( term );
 			}
+
+			return term.$rendered;
+		}
+
+		getRenderedNextOrderTerm( terms, order ){
+			let nextOrder;
+
+			for( let i=0; i<terms.length; i++ ){
+				if( !terms[i].isRendered() ){
+					continue;
+				}
+
+				if( !nextOrder && terms[i].order > order ){
+					nextOrder = terms[i];
+				}
+				else if( terms[i].order > order && terms[i].order < nextOrder.order ){
+					nextOrder = terms[i];
+				}
+			}
+
+			return nextOrder;
 		}
 
 		countPreviewRows( $panel ){
@@ -9573,7 +9657,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		displayInputStatus(){
-
+			if( this.forWhat === Constants.FOR_SEARCH )	return;
 			this.displayGroupInputStatus( null );
 		}
 
@@ -9587,21 +9671,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			let topLevelTerms = this.getGroupMembers( this.getTopLevelTermId() );
 			
 			this.$canvas.empty();
 			
-			//render from top level terms
+			// for goto
+			this.#availableTermNames;
+			this.#availableDisplayNames;
+			
 			let self = this;
-			topLevelTerms.forEach(term=>{
-				self.renderTerm(term, false, true);
+			this.terms.forEach( term => {
+				self.$renderTerm( term, false );
 			});
-
-			topLevelTerms.forEach(term=>{
-				if( term.isGroupTerm() && term.extended ){
-					self.extendGroup( term );
-				}
-			});
+			
+			this.configureRenderedGroup( null );
+			
+			this.setCurrentTerm( this.terms[0], false );
 
 			if( this.forWhat !== Constants.FOR_SEARCH ){
 				this.displayInputStatus();
@@ -9631,17 +9715,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		$renderTerm( term, deep ){
-			if( term.isGroupTerm() ){
-				let termSets = this.devideTermsByGroup( term.termId );
-
-				return term.$render( termSets.hits, termSets.others, this.forWhat, deep );
-			}
-			else{
-				return term.$render(this.forWhat);
-			}
-		}
-		
 		/**
 		 * Refresh term's render image on the preview panel.
 		 * 
@@ -9655,7 +9728,74 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			targetTerm.$rendered.remove();
 
-			this.renderTerm( targetTerm, true );
+			this.$renderTerm( targetTerm, true );
+		}
+
+		/**
+		 * Insert the member to the group's accordion panel.
+		 * If member's order is duplicated or undefined or 0,
+		 * member is appended to the panel.
+		 * 
+		 * @param {GroupTerm} group 
+		 * @param {Term} member 
+		 * @returns 
+		 */
+		insertGroupMember( group, member ){
+			let $panel;
+			
+			if( !group ){
+				$panel = this.$canvas;
+				member.groupTermId = this.getTopLevelTermId();
+			}
+			else{
+				member.groupTermId = group.termId;
+				if( !group.isRendered() )	return;
+				$panel = group.$groupPanel;
+			}
+
+			this.setTermOrder( member );
+
+			let siblings = this.getGroupMembers( member.groupId );
+			let nextTerm = this.getRenderedNextOrderTerm(siblings, member.order);
+
+			if( !nextTerm ){
+				$panel.append( member.$rendered );
+			}
+			else{
+				nextTerm.$rendered.before( member.$rendered );
+			}
+		}
+
+		/**
+		 * Configurating rendered group.
+		 * All rendered terms of a rendered group are
+		 * attached to the group's accordion panel
+		 * 
+		 * @param {*} groupTerm 
+		 */
+		configureRenderedGroup( groupTerm ){
+			let groupId = !groupTerm ? this.getTopLevelTermId() : groupTerm.termId ;
+			let members = this.getGroupMembers( groupId );
+			
+			let $panel = !groupTerm ? this.$canvas : groupTerm.$groupPanel;
+
+			let self = this;
+			let arrangedTerms = new Array();
+			members.forEach( member => {
+				if( member.isGroupTerm() ){
+					self.configureRenderedGroup( member );
+				}
+
+				let nextTerm = self.getRenderedNextOrderTerm( arrangedTerms, member.order );
+				if( !nextTerm ){
+					$panel.append( member.$rendered );
+				}
+				else{
+					nextTerm.$rendered.before( member.$rendered  );
+				}
+
+				arrangedTerms.push( member );
+			});
 		}
 		
 		addTestSet( forWhat, $canvas ){
@@ -10256,9 +10396,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.parse( dataStructure, this.terms ? this.terms.length : 0 );
 			
 			this.setTermsDirty( false );
-			let devided = this.devideTermsByGroup( this.getTopLevelTermId() );
-			this.sortTermsByOrder( devided.hits, devided.others );
-			this.terms = devided.hits.concat(devided.others);
 			this.render( Constants.FOR_PREVIEW, $canvas );
 
 			let firstTerm = this.terms[0];
@@ -10266,7 +10403,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
 			dataPacket.term = firstTerm;
 				
-			Util.fire( Events.DATATYPE_PREVIEW_TERM_SELECTED, dataPacket );
+			Util.fire( Events.DATATYPE_TERM_SELECTED, dataPacket );
 		}
 
 	}

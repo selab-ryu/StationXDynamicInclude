@@ -8166,7 +8166,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
+		/**
+		 * Coloring a terms's label
+		 * 
+		 * @param {Term} term 
+		 * @returns 
+		 */
 		paintTermHeader( term ){
+			if( !term )	return;
 			let css= new Object();
 
 			if(term.isGroupTerm() ){

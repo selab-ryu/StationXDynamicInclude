@@ -6736,17 +6736,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					Util.fire( Events.LIST_OPTION_PREVIEW_CHANGED, dataPacket );
 				}
 			});
-			
-			/*
-			Liferay.on( Events.LIST_OPTION_PREVIEW_SELECTED, function( event ){
-				let dataPacket = event.dataPacket;
-				if( !dataPacket.isTargetPortlet(NAMESPACE) ){
-					return;
-				}
-		
-				self.currentOption = dataPacket.option;
-			});
-			*/
 		}
 
 		get termType(){ return FormUIUtil.getFormValue('termType'); }
@@ -9011,6 +9000,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( targetTerm.isRendered() ){
 				targetTerm.emptyRender();
+			}
+
+			if( this.currentTerm === targetTerm ){
+				console.log( 'current term empty...', targetTerm );
+				this.currentTerm = undefined;
 			}
 		}
 

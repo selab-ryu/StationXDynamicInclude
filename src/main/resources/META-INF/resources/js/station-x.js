@@ -2259,6 +2259,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		getPreviewPopupAction(){
 			let self = this;
+
+			let items = new Object();
+			
 			return {
 				items: {
 					copy: {
@@ -8366,7 +8369,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			copied.$rendered = undefined;
 
-			this.addTerm( copied, 0, true, true );
+			this.addTerm( copied, 0, false, true );
+			this.insertGroupMember( this.getGroupTerm(copied), copied );
 
 			let self = this;
 			if( copied.isGroupTerm() ){
@@ -8383,7 +8387,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( this.goTo ){
 				this.refreshGoTo();
 			}
-			
+
 			return copied;
 		}
 		
@@ -8915,21 +8919,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			term.$render( this.forWhat );
 
-			if( highlight ){
-				this.highlightTerm( term, true );
-			}
-			/*
-			if( this.forWhat !== Constants.FOR_NOTHING ){
-				this.$renderTerm( term, highlight );
-
-				if( this.forWhat === Constants.FOR_PREVIEW ){
-					if( term === this.currentTerm ){
-						this.#propertyForm.disableRenderedBtnGroup( true );
-					}
-				}
-			}
-			*/
-
 			return true;
 		}
 
@@ -9038,7 +9027,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				click: function(){
 					self.deleteTerm(targetTerm, true);
 					self.removeSlaveTerm( targetTerm );
-					self.render();
+					//self.render();
 					$(this).dialog('destroy');
 				}
 			}
@@ -9052,7 +9041,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						targetTerm.deleteAllSlaveTerms();
 					}
 					self.render();
-					self.highlightTerm( targetTerm );
+					self.setCurrentTerm( targetTerm, true );
 					
 					$(this).dialog('destroy');
 				}

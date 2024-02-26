@@ -1389,8 +1389,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	};
 	
 	const Events = {
-		DATATYPE_PREVIEW_REMOVE_TERM: 'DATATYPE_PREVIEW_REMOVE_TERM',
 		DATATYPE_PREVIEW_DELETE_TERM: 'DATATYPE_PREVIEW_DELETE_TERM',
+		DATATYPE_PREVIEW_GROUPUP_TERM: 'DATATYPE_PREVIEW_GROUPUP_TERM',
 		DATATYPE_PREVIEW_COPY_TERM: 'DATATYPE_PREVIEW_COPY_TERM',
 		DATATYPE_TERM_SELECTED: 'DATATYPE_TERM_SELECTED',
 		DATATYPE_FORM_UI_SHOW_TERMS: 'DATATYPE_FORM_UI_SHOW_TERMS',
@@ -2260,28 +2260,59 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		getPreviewPopupAction(){
 			let self = this;
 
-			let items = new Object();
-			
-			return {
-				items: {
-					copy: {
-						name: 'Copy'
-					},
-					delete: {
-						name: 'Delete'
-					}
+			let items = {
+				copy: {
+					name: 'Copy'
 				},
+				delete: {
+					name: 'Delete'
+				}
+			};
+
+			if( this.isMemberOfGroup() ){
+				items.moveUp = {
+					name: 'Group Up'
+				};
+			}
+
+			if( this. isGroupTerm() ){
+				items.deleteAll = {
+					name: 'Delete All'
+				};
+			}
+
+			return {
+				items: items,
 				callback: function( item ){
 					let dataPacket = Util.createEventDataPacket( NAMESPACE, NAMESPACE );
+					dataPacket.source = 'getPreviewPopupAction()';
 					dataPacket.term = self;
 	
 					let message;
 
-					if( $(item).prop('id') === 'copy'){
-						message = Events.DATATYPE_PREVIEW_COPY_TERM;
-					}
-					else if( $(item).prop('id') === 'delete' ){
-						message = Events.DATATYPE_PREVIEW_REMOVE_TERM;
+					switch( $(item).prop('id') ){
+						case 'copy':
+						{
+							message = Events.DATATYPE_PREVIEW_COPY_TERM;
+							break;
+						}
+						case 'delete':
+						{
+							message = Events.DATATYPE_PREVIEW_DELETE_TERM;
+							dataPacket.children = false;
+							break;
+						}
+						case 'moveUp':
+						{
+							message = Events.DATATYPE_PREVIEW_GROUPUP_TERM;
+							break;
+						}
+						case 'deleteAll':
+						{
+							message = Events.DATATYPE_PREVIEW_DELETE_TERM;
+							dataPacket.children = true;
+							break;
+						}
 					}
 
 					Util.fire( message, dataPacket );
@@ -2332,7 +2363,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		emptyRender(){
 			if( this.$rendered ){
-				this.$rendered.empty();
+				this.$rendered.remove();
 				this.$rendered = undefined;
 			}
 		}
@@ -7723,25 +7754,54 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 				Liferay.on( Events.DATATYPE_PREVIEW_DELETE_TERM, function( event ){
 					let dataPacket = event.dataPacket;
-					// console.log( 'SX.Events.DATATYPE_PREVIEW_DELETE_TERM received...', dataPacket);
 					
 					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
 						return;
 					}
+					console.log( 'received DATATYPE_PREVIEW_DELETE_TERM: ', dataPacket);
+
+					let targetTerm = dataPacket.term;
+					let deleteChildren = dataPacket.children;
+
+					dataStructure.deleteTerm( targetTerm, deleteChildren );
 					
-					dataStructure.deleteTerm( dataPacket.term );
-					
-					// console.log('Data Structure: ', dataStructure );
+					dataStructure.refreshGroupMemberOrders( targetTerm.groupId );
+
+					if( dataStructure.currentTerm === targetTerm ){
+						console.log( 'current term empty...', targetTerm );
+						dataStructure.currentTerm = undefined;
+					}
+		
+					let siblings = dataStructure.getGroupMembers(targetTerm.groupId);
+		
+					if( siblings.length > 0 ){
+						dataStructure.setCurrentTerm( siblings[0], true );
+					}
+					else{
+						if( targetTerm.isMemberOfGroup() ){
+							dataStructure.setCurrentTerm( dataStructure.getGroupTerm(targetTerm), true );
+						}
+						else{
+							let topLevelTerms = dataStructure.getGroupMembers();
+							if( topLevelTerms.length > 0 ){
+								dataStructure.setCurrentTerm( topLevelTerms[0] )
+							}
+						}
+					}
+		
+					dataStructure.configureGoToOptions();
 				});
-				Liferay.on( Events.DATATYPE_PREVIEW_REMOVE_TERM, function( event ){
+
+				Liferay.on( Events.DATATYPE_PREVIEW_GROUPUP_TERM, function( event ){
 					let dataPacket = event.dataPacket;
 					
 					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
 						return;
 					}
-					console.log( 'Events.DATATYPE_PREVIEW_REMOVE_TERM received...', dataPacket);
+					console.log( 'received DATATYPE_PREVIEW_GROUPUP_TERM: ', dataPacket);
 					
-					dataStructure.removeTerm( dataPacket.term );
+					dataStructure.moveTermGroupUp( dataPacket.term );
+					dataStructure.setCurrentTerm( dataPacket.term );
 				});
 	
 				
@@ -7814,7 +7874,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					}
 
-					dataStructure.addTerm( dataStructure.currentTerm,  0, true );
+					dataStructure.addTerm( dataStructure.currentTerm,  0 );
 					dataStructure.insertGroupMember( 
 										null, 
 										dataStructure.currentTerm );
@@ -8369,8 +8429,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			copied.$rendered = undefined;
 
-			this.addTerm( copied, 0, false, true );
-			this.insertGroupMember( this.getGroupTerm(copied), copied );
+			this.addTerm( copied, 0 );
+			this.$renderTerm( copied );
 
 			let self = this;
 			if( copied.isGroupTerm() ){
@@ -8484,7 +8544,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * the fuinction returns top level members.
 		 * 
 		 * @param {TermId} groupTermId 
-		 * @returns 
+		 * @returns
+		 * 	{Array} array of Terms.
 		 */
 		getGroupMembers( groupTermId ){
 			if( !Util.isNonEmptyArray(this.terms) ){
@@ -8896,19 +8957,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 		
 		/*******************************************************************
-		 * Add a term to the data structure. If preview is true, 
-		 * than the term will be previewd on the preview panel which is 
-		 * specified when the data structure instance was created.
+		 * Add a term to the data structure. The order of the term is set
+		 * based on baseOrder. 
 		 *  
-		 *  @PARAMS
-		 *  	term : Term instance to be added or inserted
-		 *  	preview: boolean - preview or not
+		 * @param {Term} term 
+		 * @param {int} baseOrder 
+		 * @returns 
 		 ********************************************************************/
-		addTerm( term, baseOrder=0, highlight=false, validate=true ){
-			if( validate && term.validate() === false ) {
-				return false;
-			}
-			
+		addTerm( term, baseOrder=0 ){
 			this.setTermOrder( term, baseOrder );
 
 			if( this.isEmptyTerms() ){
@@ -8916,8 +8972,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			this.#terms.push( term );
-
-			term.$render( this.forWhat );
 
 			return true;
 		}
@@ -8958,7 +9012,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			term.groupTermId = group.groupTermId;
 
 			this.refreshGroupMemberOrders( group.groupTermId );
-			this.refreshGroupMemberOrders( term.groupTermId );
+			//this.refreshGroupMemberOrders( term.groupTermId );
+			this.setTermOrder( term, 0);
+
+			if( term.isMemberOfGroup() ){
+				this.insertGroupMember( this.getGroupTerm(term), term );
+			}
+			else{
+				let $prevRendered = term.$rendered;
+				console.log('before $prevRendered: ', $prevRendered);
+
+				this.$renderTerm( term, true );
+				this.configureRenderedGroup(term);
+				this.displayGroupInputStatus(term);
+				this.paintTermHeader( term );
+				console.log('after $prevRendered: ', $prevRendered);
+				$prevRendered.remove();
+			}
 		}
 
 		/**
@@ -8983,23 +9053,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else if( targetTerm.isGroupTerm() && deep === true ){
 				let members = this.getGroupMembers(targetId);
+				
 				members.forEach(member=>this.deleteTerm(member, true));
 			}
-			this.refreshGroupMemberOrders( groupTermId );
 
 			if( targetTerm.isRendered() ){
 				targetTerm.emptyRender();
 			}
-
-			if( this.currentTerm === targetTerm ){
-				console.log( 'current term empty...', targetTerm );
-				this.currentTerm = undefined;
-			}
-		}
-
-		deleteTermById( termId, deep ){
-			let targetTerm = this.getTerm(termId);
-			this.deleteTerm(targetTerm, deep);
 		}
 
 		/**

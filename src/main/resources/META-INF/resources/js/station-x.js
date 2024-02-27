@@ -7768,7 +7768,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					dataStructure.refreshGroupMemberOrders( targetTerm.groupId );
 
 					if( dataStructure.currentTerm === targetTerm ){
-						console.log( 'current term empty...', targetTerm );
 						dataStructure.currentTerm = undefined;
 					}
 		
@@ -7788,8 +7787,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						}
 					}
+
+					if( dataStructure.inputStatusDisplay ){
+						dataStructure.displayInputStatus();
+					}
 		
-					dataStructure.configureGoToOptions();
+					if( dataStructure.goTo ){
+						dataStructure.configureGoToOptions();
+					}
 				});
 
 				Liferay.on( Events.DATATYPE_PREVIEW_GROUPUP_TERM, function( event ){
@@ -7875,10 +7880,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 
 					dataStructure.addTerm( dataStructure.currentTerm,  0 );
+					if( !dataStructure.currentTerm.isRendered() ){
+						dataStructure.$renderTerm( dataStructure.currentTerm, true );
+					}
+					/*
 					dataStructure.insertGroupMember( 
 										null, 
 										dataStructure.currentTerm );
-
+					*/
 					dataStructure.propertyForm.disableMoveBtnGroup( false );
 
 					if( dataStructure.inputStatusDisplay ){
@@ -7908,7 +7917,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.$goToSelector.on('change', function(event){
 				let val = dataStructure.$goToSelector.val();
-				console.log('$goToSelector change: val');
 
 				let term = dataStructure.getAvailableGoToTerm( val );
 
@@ -8080,7 +8088,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		configureGoToOptions(){
-			console.log( 'confiqure goTo: ', this.goTo );
 			if( !Array.isArray(this.#terms) || this.#terms.length === 0 ){
 				return;
 			}
@@ -8225,7 +8232,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @returns 
 		 */
 		paintTermHeader( term ){
-			if( !term )	return;
+			if( !term || !term.isRendered() )	return;
 			let css= new Object();
 
 			if(term.isGroupTerm() ){

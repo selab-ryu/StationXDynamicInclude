@@ -1914,22 +1914,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let $option = $( '<option>' );
 				
 				$option.prop('value', this.value);
-				if( selected === true ){
-					$option.prop( 'selected', true );
-				};
-				$option.click(function(event){
-					event.stopPropagation();
-
-					let wasSelected =  $radio.data('selected');
-					
-					$(this).prop('selected', !wasSelected);
-					$(this).data('selected', !wasChecked);
-					
-					$(this).siblings().data('selected', false);
-
-					$radio.trigger('change');
-				});
-
+				$option.prop( 'selected', selected );
 				$option.text(this.label.getText(CURRENT_LANGUAGE));
 
 				return $option;
@@ -8913,6 +8898,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 
 							console.log('Slave Terms: ', targetTerm );
+
+							self.activateSlaveTerms( targetTerm );
 
 							$(this).dialog('destroy');
 						}

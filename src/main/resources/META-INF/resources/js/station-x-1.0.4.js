@@ -1084,13 +1084,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									selected );
 				
 				$option.text(option.labelMap[CURRENT_LANGUAGE]);
-
+				
 				$select.append( $option );
+
 			});
 
 			$select.prop('disabled', disabled );
 
 			$select.val( value );
+			$select.click(function(event){
+				let prevVal = $(this).data('prevVal');
+				let value = $(this).val();
+
+				if( prevVal === value ){
+					$(this).val(undefined);
+
+					$(this).trigger('change');
+				}
+				$(this).data('prevVal', value);
+			});
 
 			return $('<div class="form-group input-text-wrapper">')
 									.append( $label )
@@ -1401,6 +1413,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		LIST_DISPLAY_STYLE_CHANGED:'LIST_DISPLAY_STYLE_CHANGED',
 		LIST_OPTION_PREVIEW_SELECTED: 'LIST_OPTION_PREVIEW_SELECTED',
 		LIST_OPTION_CHOOSE_SLAVE_TERMS: 'LIST_OPTION_CHOOSE_SLAVE_TERMS',
+		BOOLEAN_OPTION_CHOOSE_SLAVE_TERMS: 'BOOLEAN_OPTION_CHOOSE_SLAVE_TERMS',
 		
 		SD_SEARCH_FROM_DATE_CHANGED: 'SD_SEARCH_FROM_DATE_CHANGED',
 		SD_SEARCH_TO_DATE_CHANGED: 'SD_SEARCH_TO_DATE_CHANGED',
@@ -1917,6 +1930,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( selected === true ){
 					$option.prop( 'selected', true );
 				};
+				$option.click(function(event){
+					event.stopPropagation();
+
+					let wasSelected =  $radio.data('selected');
+					
+					$(this).prop('selected', !wasSelected);
+					$(this).data('selected', !wasChecked);
+					
+					$(this).siblings().data('selected', false);
+
+					$radio.trigger('change');
+				});
 
 				$option.text(this.label.getText(CURRENT_LANGUAGE));
 
@@ -2546,38 +2571,48 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 **************************************************/
 		get minLength(){return this.#minLength;}
 		set minLength(minLength){
-			let safeVal = Util.toSafeNumber(minLength, this.minLength);
-			if( !isNaN(safeVal) ){
-				if( !Util.isSafeNumber(this.maxLength) ){
-					this.#minLength = safeVal;
-				} 
-				else if( this.maxLength >= safeVal){
-					this.#minLength = safeVal;
-				}
-				else{
-					$.alert('Non-proper minimum length:' + safeVal);
-				}
+			if( minLength === undefined ){
+				this.#minLength = undefined;
 			}
 			else{
-				this.#minLength = undefined;
+				let safeVal = Util.toSafeNumber(minLength, this.minLength);
+				if( !isNaN(safeVal) ){
+					if( !Util.isSafeNumber(this.maxLength) ){
+						this.#minLength = safeVal;
+					} 
+					else if( this.maxLength >= safeVal){
+						this.#minLength = safeVal;
+					}
+					else{
+						$.alert('Non-proper minimum length:' + safeVal);
+					}
+				}
+				else{
+					this.#minLength = undefined;
+				}
 			}
 		}
 		get maxLength(){return this.#maxLength;}
 		set maxLength(maxLength){
-			let safeVal = Util.toSafeNumber(maxLength, this.maxLength);
-			if( !isNaN(safeVal) ){
-				if( !Util.isSafeNumber(this.minLength) ){
-					this.#maxLength = safeVal;
-				}
-				else if( this.minLength <= safeVal){
-					this.#maxLength = safeVal;
-				}
-				else{
-					$.alert('Non-proper maximum length:' + safeVal);
-				}
+			if( maxLength === undefined ){
+				this.#maxLength = undefined;
 			}
 			else{
-				this.#maxLength = undefined;
+				let safeVal = Util.toSafeNumber(maxLength, this.maxLength);
+				if( !isNaN(safeVal) ){
+					if( !Util.isSafeNumber(this.minLength) ){
+						this.#maxLength = safeVal;
+					}
+					else if( this.minLength <= safeVal){
+						this.#maxLength = safeVal;
+					}
+					else{
+						$.alert('Non-proper maximum length:' + safeVal);
+					}
+				}
+				else{
+					this.#maxLength = undefined;
+				}
 			}
 		}
 		get multipleLine(){return this.#multipleLine ? this.#multipleLine : false;}
@@ -2886,62 +2921,82 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 **************************************************/
 		get value(){ return this.#value; }
 		set value(val){
-			let safeVal = Util.toSafeNumber(val, this.value);
-
-			if( safeVal === undefined ){
-				this.#value = undefined;
-			}
-			else if( Util.isSafeNumber(safeVal) ){
-				if( this.minmaxValidation(safeVal) ){
-					this.#value = safeVal;
-				}
-				else{
-					$.alert('Not proper number for [ ' + this.getLocalizedDisplayName() + ' ]: ' + safeVal);
-				}
+			if( val === undefined ){
+				this.#minValue = undefined;
 			}
 			else{
-				$.alert(Liferay.Language.get('only-numbers-allowed-for-numeric-term'));
-				this.#value = undefined;
+				let safeVal = Util.toSafeNumber(val, this.value);
+
+				if( safeVal === undefined ){
+					this.#value = undefined;
+				}
+				else if( Util.isSafeNumber(safeVal) ){
+					if( this.minmaxValidation(safeVal) ){
+						this.#value = safeVal;
+					}
+					else{
+						$.alert('Not proper number for [ ' + this.getLocalizedDisplayName() + ' ]: ' + safeVal);
+					}
+				}
+				else{
+					$.alert(Liferay.Language.get('only-numbers-allowed-for-numeric-term'));
+					this.#value = undefined;
+				}
 			}
 		}
 		get uncertaintyValue(){ return this.#uncertaintyValue; }
 		set uncertaintyValue(val){ 
-			this.#uncertaintyValue = Util.toSafeNumber(val, this.uncertaintyValue);
-			if( isNaN(this.#uncertaintyValue) ){
-				$.alert(Liferay.Language.get('only-numbers-allowed-for-uncertainty-value'));
-				this.#uncertaintyValue = nudefined;
+			if( val === undefined ){
+				this.#minValue = undefined;
+			}
+			else{
+				this.#uncertaintyValue = Util.toSafeNumber(val, this.uncertaintyValue);
+				if( isNaN(this.#uncertaintyValue) ){
+					$.alert(Liferay.Language.get('only-numbers-allowed-for-uncertainty-value'));
+					this.#uncertaintyValue = nudefined;
+				}
 			}
 		}
 		get minValue(){ return this.#minValue; }
 		set minValue(val){ 
-			let safeVal = Util.toSafeNumber(val, this.minValue);
-			if( Util.isSafeNumber(safeVal) ){
-				if( this.maxValidation(safeVal) ){
-					this.#minValue = safeVal;
-				}
-				else{
-					$.alert('Not proper minimum number for [ ' + this.termName + ' ]: ' + safeVal);
-				}
+			if( val === undefined ){
+				this.#minValue = undefined;
 			}
 			else{
-				$.alert(Liferay.Language.get('only-numbers-allowed-for-min-value'));
-				this.#minValue = undefined;
+				let safeVal = Util.toSafeNumber(val, this.minValue);
+				if( Util.isSafeNumber(safeVal) ){
+					if( this.maxValidation(safeVal) ){
+						this.#minValue = safeVal;
+					}
+					else{
+						$.alert('Not proper minimum number for [ ' + this.termName + ' ]: ' + safeVal);
+					}
+				}
+				else{
+					$.alert(Liferay.Language.get('only-numbers-allowed-for-min-value'));
+					this.#minValue = undefined;
+				}
 			}
 		}
 		get maxValue(){ return this.#maxValue; }
 		set maxValue(val){ 
-			let safeVal = Util.toSafeNumber(val, this.maxValue);
-			if( Util.isSafeNumber(safeVal) ){
-				if( this.minValidation(safeVal) ){
-					this.#maxValue = safeVal;
-				}
-				else{
-					$.alert('Not proper number: ' + safeVal);
-				}
+			if( val === undefined ){
+				this.#minValue = undefined;
 			}
 			else{
-				$.alert(Liferay.Language.get('only-numbers-allowed-for-max-value'));
-				this.#maxValue = undefined;
+				let safeVal = Util.toSafeNumber(val, this.maxValue);
+				if( Util.isSafeNumber(safeVal) ){
+					if( this.minValidation(safeVal) ){
+						this.#maxValue = safeVal;
+					}
+					else{
+						$.alert('Not proper number: ' + safeVal);
+					}
+				}
+				else{
+					$.alert(Liferay.Language.get('only-numbers-allowed-for-max-value'));
+					this.#maxValue = undefined;
+				}
 			}
 		}
 		get uncertainty(){ return this.#uncertainty; }
@@ -3644,7 +3699,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get value() { return this.#value; }
 		set value(value){ 
 			if( Util.isNotEmptyString(value) ){
-				this.#value = JSON.parse(value);
+				if( value.startsWith('[') && value.endsWith(']') ){
+					this.#value = JSON.parse(value);
+				}
+				else{
+					let values = value.split(',');
+					values = values.map(val=>val.trim());
+
+					if( this.displayStyle === Constants.DISPLAY_STYLE_CHECK ){
+						this.#value = values;
+					}
+					else{
+						this.#value = [values[0]];
+					}
+				}
 			}
 			else if( Util.isNonEmptyArray(value) ){
 				this.#value = value;
@@ -3762,7 +3830,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let label = term.getLocalizedDisplayName();
 			let helpMessage = term.getLocalizedTooltip();
 			let mandatory = !!term.mandatory ? true : false;
-			let value = term.hasValue() ? term.value : null;
+			let value = this.hasValue() ? this.value : null;
 			let displayStyle = !!term.displayStyle ? term.displayStyle : 'select';
 			let options = !!term.options ? term.options : new Array();
 			let disabled = !!term.disabled ? true : false;
@@ -6770,6 +6838,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					Util.fire( Events.LIST_OPTION_PREVIEW_CHANGED, dataPacket );
 				}
 			});
+
+			this.$btnBooleanTrueSlaveTerms.click(function(event){
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.option = true;
+
+				Util.fire( Events.BOOLEAN_OPTION_CHOOSE_SLAVE_TERMS, dataPacket);
+			});
+
+			this.$btnBooleanFalseSlaveTerms.click(function(event){
+				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
+				dataPacket.option = false;
+
+				Util.fire( Events.BOOLEAN_OPTION_CHOOSE_SLAVE_TERMS, dataPacket);
+			});
 		}
 
 		get termType(){ return FormUIUtil.getFormValue('termType'); }
@@ -6815,9 +6897,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get numericPlaceHolder(){ return FormUIUtil.getFormLocalizedValue('numericPlaceHolder'); }
 		set numericPlaceHolder(val){ FormUIUtil.setFormLocalizedValue('numericPlaceHolder', val); }
 		get minValue(){ return FormUIUtil.getFormValue('minValue'); }
-		set minValue(val){ FormUIUtil.setFormValue('minValue', val); }
+		set minValue(val){ 
+				FormUIUtil.setFormValue('minValue', val);
+				this.$minBoundary = isNaN(val) ? true : false;
+			}
 		get maxValue(){ return FormUIUtil.getFormValue('maxValue'); }
-		set maxValue(val){ FormUIUtil.setFormValue('maxValue', val); }
+		set maxValue(val){ 
+				FormUIUtil.setFormValue('maxValue', val);
+				this.$maxBoundary = isNaN(val) ? true : false;
+			}
 		get minBoundary(){ return FormUIUtil.getFormCheckboxValue('minBoundary'); }
 		set minBoundary(val){ FormUIUtil.setFormCheckboxValue('minBoundary', val); }
 		get maxBoundary(){ return FormUIUtil.getFormCheckboxValue('maxBoundary'); }
@@ -6977,6 +7065,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get $btnChooseGroupTerms(){ return $('#'+NAMESPACE+'btnChooseGroupTerms')}
 		get $btnListChooseSlaveTerms(){ return $('#'+NAMESPACE+'btnListChooseSlaveTerms')}
 		set $btnListChooseSlaveTerms(val){ this.$btnListChooseSlaveTerms.prop('disabled', val)}
+		get $btnBooleanTrueSlaveTerms(){ return $('#'+NAMESPACE+'btnBooleanTrueSlaveTerms')}
+		get $btnBooleanFalseSlaveTerms(){ return $('#'+NAMESPACE+'btnBooleanFalseSlaveTerms')}
 
 		$getOptionTableColumns( $tr, optionLabel, optionValue, selected, btnClickFunc ){
 			$('<td class="option-label" style="width:50%;">' + optionLabel + '</td>').appendTo($tr);
@@ -7009,6 +7099,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				
 				let dataPacket = Util.createEventDataPacket(NAMESPACE, NAMESPACE);
 				dataPacket.options = self.listOptions;
+				dataPacket.option = option;
 				Util.fire( Events.LIST_OPTION_PREVIEW_REMOVED, dataPacket);
 			};
 
@@ -7542,23 +7633,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					const preValue = currentTerm.minValue;
 					const minValue = Util.toSafeNumber(dataStructure.propertyForm.minValue);
 					
-					if( isNaN(minValue) ){
-						if( isNaN(preValue) ){
-							currentTerm.minBoundary = false;
-							dataStructure.propertyForm.minBoundary = false;
-							dataStructure.propertyForm.$minBoundary = true;
-							dataStructure.propertyForm.minValue = '';
-						}
-						else{
-							dataStructure.propertyForm.minValue = preValue;
-							dataStructure.propertyForm.$minBoundary = false;
-						}
+					if( minValue === undefined ){
+						currentTerm.minValue = undefined;
+						currentTerm.minBoundary = undefined;
+						dataStructure.propertyForm.minBoundary = false;
+						dataStructure.propertyForm.$minBoundary = true;
 					}
 					else{
-						dataStructure.propertyForm.$minBoundary = false;
-						currentTerm.minValue = minValue;
+						if( isNaN(minValue) ){
+							if( isNaN(preValue) ){
+								currentTerm.minBoundary = false;
+								dataStructure.propertyForm.minBoundary = false;
+								dataStructure.propertyForm.$minBoundary = true;
+								dataStructure.propertyForm.minValue = undefined;
+							}
+							else{
+								dataStructure.propertyForm.minValue = preValue;
+								dataStructure.propertyForm.$minBoundary = false;
+							}
+						}
+						else{
+							dataStructure.propertyForm.$minBoundary = false;
+							currentTerm.minValue = minValue;
+							dataStructure.propertyForm.minValue = currentTerm.minValue;
+						}
 					}
-					
+	
 					if( preValue !== minValue ){
 						dataStructure.refreshTerm( currentTerm );
 					}
@@ -7574,24 +7674,33 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					const preValue = currentTerm.maxValue;
 					const maxValue = Util.toSafeNumber(dataStructure.propertyForm.maxValue);
-					
-					if( isNaN(maxValue) ){
-						if( isNaN(preValue) ){
-							currentTerm.maxBoundary = false;
-							dataStructure.propertyForm.maxBoundary = false;
-							dataStructure.propertyForm.maxValue = '';
-							dataStructure.propertyForm.$maxBoundary = true;
-						}
-						else{
-							dataStructure.propertyForm.maxValue = preValue;
-							dataStructure.propertyForm.$maxBoundary = false;
-						}
+
+					if( maxValue === undefined ){
+						currentTerm.maxValue = undefined;
+						currentTerm.maxBoundary = undefined;
+						dataStructure.propertyForm.maxBoundary = false;
+						dataStructure.propertyForm.$maxBoundary = true;
 					}
 					else{
-						dataStructure.propertyForm.$maxBoundary = false;
-						currentTerm.maxValue = maxValue;
+						if( isNaN(maxValue) ){
+							if( isNaN(preValue) ){
+								currentTerm.maxBoundary = false;
+								dataStructure.propertyForm.maxBoundary = false;
+								dataStructure.propertyForm.maxValue = undefined;
+								dataStructure.propertyForm.$maxBoundary = true;
+							}
+							else{
+								dataStructure.propertyForm.maxValue = preValue;
+								dataStructure.propertyForm.$maxBoundary = false;
+							}
+						}
+						else{
+							dataStructure.propertyForm.$maxBoundary = false;
+							currentTerm.maxValue = maxValue;
+							dataStructure.propertyForm.maxValue = currentTerm.maxValue;
+						}
 					}
-					
+
 					if( preValue !== maxValue ){
 						dataStructure.refreshTerm( currentTerm );
 					}
@@ -7715,6 +7824,16 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 			
 					dataStructure.currentTerm.options = dataPacket.options;
+
+					console.log( 'LIST_OPTION_PREVIEW_REMOVED: ', dataPacket );
+
+					let slaveTermNames = dataPacket.option.slaveTerms;
+
+					slaveTermNames.forEach( termName => {
+						let term = dataStructure.getTermByName( termName );
+						term.masterTerm = undefined;
+						term.$rendered.show();
+					});
 					
 					dataStructure.refreshTerm( dataStructure.currentTerm );
 				});
@@ -7750,6 +7869,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 			
 					dataStructure.chooseSlaveTerms( dataStructure.currentTerm, dataPacket.option );
+				});
+
+				Liferay.on( Events.BOOLEAN_OPTION_CHOOSE_SLAVE_TERMS, function( event ){
+					let dataPacket = event.dataPacket;
+							
+					if( !dataPacket.isTargetPortlet(NAMESPACE) ){
+						return;
+					}
+
+					let option = dataPacket.option ? dataStructure.currentTerm.trueOption :
+													 dataStructure.currentTerm.falseOption ;
+			
+					dataStructure.chooseSlaveTerms( dataStructure.currentTerm, option );
 				});
 			
 				Liferay.on( Events.DATATYPE_PREVIEW_DELETE_TERM, function( event ){
@@ -8830,8 +8962,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let availableTerms = this.getGroupMembers( targetTerm.groupId );
 			availableTerms = availableTerms.filter( term => term !== targetTerm );
 									 
-			console.log( 'available Terms: ', availableTerms );
-
 			let $slaveTermsSelector = $('<div>');
 			availableTerms.forEach((term, index)=>{
 				if( term === targetTerm ){
@@ -8902,6 +9032,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 							console.log('Slave Terms: ', targetTerm );
 
+							self.activateSlaveTerms( targetTerm );
+
 							$(this).dialog('destroy');
 						}
 					},
@@ -8936,7 +9068,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let dataStructure = this;
 
-			let allSlavesActivated = false;
 			options.forEach( option => {
 				if( values.includes( option.value ) ){
 					if( option.slaveTerms ){
@@ -8954,7 +9085,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 					*/
 				}
-				else{ // if( !allSlavesActivated ){
+				else{ // all slave term are deactivated.
 					if( option.slaveTerms ){
 						let slaveTermNames = option.slaveTerms;
 						slaveTermNames.forEach( termName => dataStructure.activateTerm( termName, false ) );
@@ -9748,15 +9879,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.displayInputStatus();
 			}
 			
-			if( this.forWhat === Constants.FOR_EDITOR ){
+			if( this.forWhat !== Constants.FOR_SEARCH ){
 				this.terms.forEach(term=>{
-					if( term.termType === 'List' ){
+					if( term.termType === 'List' || term.termType === 'boolean' ){
 						if( term.hasSlaves() ){
-							let activeTermNames = term.getAllSlaveTerms( true );
-							let inactiveTermNames = term.getAllSlaveTerms( false );
-							
-							activeTermNames.forEach( termName => self.activateTerm( termName, true ) );
-							inactiveTermNames.forEach( termName => self.activateTerm( termName, false ) );
+							self.activateSlaveTerms( term );
 						}
 					}
 				});
@@ -9786,6 +9913,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			targetTerm.$rendered.remove();
 
 			this.$renderTerm( targetTerm, true );
+
+			if( this.inputStatusDisplay ){
+				this.paintTermHeader( targetTerm );
+			}
 		}
 
 		/**

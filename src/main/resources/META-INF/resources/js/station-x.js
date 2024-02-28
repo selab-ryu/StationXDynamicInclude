@@ -3699,7 +3699,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get value() { return this.#value; }
 		set value(value){ 
 			if( Util.isNotEmptyString(value) ){
-				this.#value = JSON.parse(value);
+				if( value.startsWith('[') && value.endsWith(']') ){
+					this.#value = JSON.parse(value);
+				}
+				else{
+					let values = value.split(',');
+					values = values.map(val=>val.trim());
+
+					if( this.displayStyle === Constants.DISPLAY_STYLE_CHECK ){
+						this.#value = values;
+					}
+					else{
+						this.#value = [values[0]];
+					}
+				}
 			}
 			else if( Util.isNonEmptyArray(value) ){
 				this.#value = value;

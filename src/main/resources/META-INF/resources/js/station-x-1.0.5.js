@@ -2922,7 +2922,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get value(){ return this.#value; }
 		set value(val){
 			if( val === undefined ){
-				this.#minValue = undefined;
+				this.#value = undefined;
 			}
 			else{
 				let safeVal = Util.toSafeNumber(val, this.value);

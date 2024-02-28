@@ -2947,7 +2947,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get uncertaintyValue(){ return this.#uncertaintyValue; }
 		set uncertaintyValue(val){ 
 			if( val === undefined ){
-				this.#minValue = undefined;
+				this.#uncertaintyValue = undefined;
 			}
 			else{
 				this.#uncertaintyValue = Util.toSafeNumber(val, this.uncertaintyValue);

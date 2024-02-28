@@ -2981,7 +2981,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get maxValue(){ return this.#maxValue; }
 		set maxValue(val){ 
 			if( val === undefined ){
-				this.#minValue = undefined;
+				this.#maxValue = undefined;
 			}
 			else{
 				let safeVal = Util.toSafeNumber(val, this.maxValue);

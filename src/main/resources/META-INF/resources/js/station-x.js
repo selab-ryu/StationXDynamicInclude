@@ -8088,26 +8088,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						this.$accordion.accordion('option', 'active', false);
 		}
 
-		getRenderedNextOrderTerm( terms, order ){
-			let nextOrder;
-
-			for( let i=0; i<terms.length; i++ ){
-				if( !terms[i].isRendered() ){
-					continue;
-				}
-
-				if( !nextOrder && terms[i].order > order ){
-					nextOrder = terms[i];
-				}
-				else if( terms[i].order > order && terms[i].order < nextOrder.order ){
-					nextOrder = terms[i];
-				}
+		$render( forWhat ){
+			if( this.$rendered ){
+				this.$rendered.remove();
 			}
 
-			return nextOrder;
-		}
-
-		$render( forWhat ){
 			let $accordion = FormUIUtil.$getAccordionForGroup( 
 				this.getLocalizedDisplayName(),
 				false,
@@ -8128,6 +8113,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				//Rendering for PDF here
 				return;
 			}
+
+			this.$rendered.css( 'width', this.cssWidth );
 
 			return this.$rendered;
 		}
@@ -9443,7 +9430,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 						case TermAttributes.CSS_WIDTH:{
 							dataStructure.currentTerm.cssWidth = dataPacket.value;
-							dataStructure.refreshTerm( dataStructure.currentTerm );
+							dataStructure.currentTerm.$rendered.css( 'width', 
+										dataStructure.currentTerm.cssWidth );
 							break;
 						}
 						case TermAttributes.CSS_CUSTOM:{
@@ -11796,12 +11784,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			
 			this.$canvas.empty();
-			
-			// for goto
-			this.#availableTermNames;
-			this.#availableDisplayNames;
 			
 			let self = this;
 			this.terms.forEach( term => {
@@ -11838,25 +11821,38 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * 
 		 * @param {Term} targetTerm 
 		 */
-		refreshTerm( targetTerm, deep=true ){
+		refreshTerm( targetTerm, highlight=true ){
 			console.log( 'refreshTerm: ', targetTerm );
 			if( targetTerm.isCell() ){
 				this.refreshTerm(targetTerm.gridTerm);
-				targetTerm.gridTerm.setColumnSelected( targetTerm.termName, true );
+				//targetTerm.gridTerm.setColumnSelected( targetTerm.termName, true );
 			}
 			else{
-				if( !targetTerm.isRendered() ){
-					return;
+				//targetTerm.$rendered.remove();
+				this.$renderTerm( targetTerm, highlight );
+
+				if( targetTerm.isGroupTerm() ){
+					this.refreshGroup( targetTerm );
 				}
 				
-				targetTerm.$rendered.remove();
-				
-				this.$renderTerm( targetTerm, true );
-				
-				if( this.inputStatusDisplay ){
-					this.paintTermHeader( targetTerm );
-				}
+				this.displayInputStatus();
+				this.paintTermHeader( targetTerm );
 			}
+
+			this.configureRenderedGroup();
+		}
+
+		refreshGroup( group ){
+			let children = this.getGroupMembers( group.termId );
+
+			children.forEach( child => {
+				if( child.isGroupTerm() ){
+					this.refreshGroup(child);
+				}
+				else{
+					this.$renderTerm( child );
+				}
+			});
 		}
 
 		/**
@@ -11883,8 +11879,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			this.setTermOrder( member );
 
-			let siblings = this.getGroupMembers( member.groupId );
+			let siblings = this.getSiblings( member );
 			let nextTerm = this.getRenderedNextOrderTerm(siblings, member.order);
+			console.log('nextTerm: ', $panel, nextTerm, member.$rendered);
 
 			if( !nextTerm ){
 				$panel.append( member.$rendered );
@@ -11892,6 +11889,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else{
 				nextTerm.$rendered.before( member.$rendered );
 			}
+		}
+
+		getSiblings( term ){
+			let siblings = this.getGroupMembers( term.groupId );
+
+			return siblings.filter( sibling => sibling !== term );
 		}
 
 		/**

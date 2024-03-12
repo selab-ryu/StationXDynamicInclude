@@ -40,7 +40,7 @@ function popmenu($tag, options) {
 
 		menu_items += "<li id='" + item + "' name='"+ name +"''>" + icon + opts.items[item].name + "</li>" + divid;
 	}
-	menu_items = $("<div role='popmenu-layer'><ul role='popmenu'>" + menu_items + "</ul></div>");
+	menu_items = $("<div role='popmenu-layer' class='popmenu-layer'><ul role='popmenu'>" + menu_items + "</ul></div>");
 
 	$("body").append(menu_items);
 
@@ -100,4 +100,6 @@ function popmenu($tag, options) {
 		$("[role='popmenu']").hide();
 		$("[role='popmenu-layer']").remove();
 	});
+	
+	return menu_items;
 }

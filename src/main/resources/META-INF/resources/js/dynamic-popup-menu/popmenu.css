@@ -34,10 +34,14 @@
     -ms-user-select: none;
     user-select: none;
     background-color: #fff;
+     font-size:0.8rem;
 }
 [role='popmenu'] hr {
     border: 0;
-    border-bottom: 1px solid #eee;
+     height:1px; 
+     background:#dedede; 
+     margin:5px 10px;
+     box-shadow: 2px 2px 1px 0px  #bcbcbc'
 }
 .popmenu-hover {
 	background-color: #2980b9 !important;

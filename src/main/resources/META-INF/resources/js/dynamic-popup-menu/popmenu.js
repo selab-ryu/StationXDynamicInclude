@@ -38,7 +38,7 @@ function popmenu($tag, options) {
 			divid = "<hr>";
 		} 
 
-		menu_items += "<li id='" + item + "' name='"+ name +"''>" + icon + opts.items[item].name + "</li>" + divid;
+		menu_items += "<li id='" + item + "' name='"+ name +"'>" + icon + opts.items[item].name + "</li>" + divid;
 	}
 	menu_items = $("<div role='popmenu-layer' class='popmenu-layer'><ul role='popmenu'>" + menu_items + "</ul></div>");
 

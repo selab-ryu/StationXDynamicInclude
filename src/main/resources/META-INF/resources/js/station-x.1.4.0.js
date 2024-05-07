@@ -13471,6 +13471,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set dataList(val){ this.#dataList = val; }
 		get writingQuery(){ return this.#writingQuery; }
 		set writingQuery(val){ this.#writingQuery = val; }
+		get writingQueryRoot() { 
+			let root;
+			this.#writingQuery.every( query => {
+				if( Util.isEmpty(query.parentId) ){
+					root = query;
+					return Constants.STOP_EVERY;
+				}
+				else{
+					return Constants.CONTINUE_EVERY;
+				}
+			});
+
+			return root;
+		}
 
 		get currentHistory(){ 
 			return (this.#searchHistories.length > 0) ? 
@@ -13481,14 +13495,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get fieldOperator(){ return $('#'+NAMESPACE+'fieldOperator').val(); }
 		get infieldOperator(){ return $('#'+NAMESPACE+'infieldOperator').val(); }
 
-
 		constructor( structuredDataList, $querySection, $resultSection, baseLinkURL ){
 			this.dataList = structuredDataList;
 			this.baseLinkURL = baseLinkURL;
 			this.$querySection = $querySection;
 			this.$resultSection = $resultSection;
 			this.searchHistories = new Array();
-			this.#writingQuery = new Array();
+			this.writingQuery = new Array();
 
 			//console.log( 'structuredDataList: ', structuredDataList );
 			//this.#renderAllData( structuredDataList );
@@ -13513,8 +13526,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 				searchHistory = advancedSearch.searchHistories[advancedSearch.searchHistories.length-1];
 				
-				advancedSearch.writingQuery = advancedSearch.writingQuery.filter( query => query.parent !==  );
-
 				if( (!dataPacket.rangeSearch &&
 					 Util.isEmpty(dataPacket.keywords)) ||
 					(dataPacket.rangeSearch &&

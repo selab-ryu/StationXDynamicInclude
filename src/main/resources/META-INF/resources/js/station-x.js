@@ -6421,26 +6421,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		/**
-		 * Deletes a row values.
-		 * 
-		 * @param {int} rowIndex 
-		 */
-		deleteRowValues( rowIndex ){
-			delete this.#value[rowIndex];
-
-			for( let key in this.#value ){
-				let index = Number( key );
-				if( rowIndex < index ){
-					this.#value[index-1] = this.#value[index];
-					delete this.#value[index];
-					
-					console.log( key + ' adjusted to ' + (index-1) + ': ' + JSON.stringify(this.#value) );
-				}
-
-			};
-		}
-
-		/**
 		 * Deletes a row from the grid term, both of UI and Value
 		 * 
 		 * @param {*} rowIndex 
@@ -6481,15 +6461,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				}
 			});
-
-//			if( $parent ){
-//				$parent.remove();
-//			}
-//			else{
-//				console.log( 'Something wrong to delete row: ' + rowIndex);
-//			}
-
-			this.deleteRowValues( rowIndex );
 		}
 
 		
@@ -7381,11 +7352,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									gridTerm.insertValueChamber( clickIndex, true );
 									let $newRow = gridTerm.$createRow( clickIndex, forWhat, true );
 									$row.after( $newRow );
+									let dataPacket = new EventDataPacket(NAMESPACE,NAMESPACE);
+									dataPacket.term = gridTerm;
+									dataPacket.attribute = TermAttributes.VALUE;
+									Util.fire(Events.TERM_VALUE_CHANGED, dataPacket);
 									break;
 								}
 								case 'delete':{
 									gridTerm.removeValueChamber( clickIndex );
 									gridTerm.deleteRow( clickIndex );
+									let dataPacket = new EventDataPacket(NAMESPACE,NAMESPACE);
+									dataPacket.term = gridTerm;
+									dataPacket.attribute = TermAttributes.VALUE;
+									Util.fire(Events.TERM_VALUE_CHANGED, dataPacket);
 									break;
 								}
 							}
@@ -7574,6 +7553,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					delete this.#value[index];
 				}
 			}
+
+			console.log('removeValueChamber: ', JSON.stringify(this.#value,null,4));
 		}
 
 		/**
@@ -9859,8 +9840,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let term = packet.term;
 				if( term.termType === TermTypes.GRID ){
 					let column = packet.column;
+					let columnType = column ? column.termType : '';
 
-					switch( column.termType ){
+					switch( columnType ){
 						case TermTypes.STRING:{
 							if( !column.validate( packet.value ) ){
 								$.alert( 'Invalid string for: ' + column.termName );

@@ -1006,7 +1006,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				$(this).data('prevVal', value);
-				$(this).data('clickCount', 1);
+				$(this).data('clickCount', 1); 
 			});
 
 			return $select;

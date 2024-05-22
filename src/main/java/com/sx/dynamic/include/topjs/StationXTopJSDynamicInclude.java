@@ -49,6 +49,8 @@ public class StationXTopJSDynamicInclude extends BaseDynamicInclude {
 		*/
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/dynamic-popup-menu/popmenu.js\"></script>";
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/dynamic-popup-menu/popmenu.css\">";
+		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/multi-select/jquery.multi-select.js\"></script>";
+		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/multi-select/multi-select.css\">";
 		content += "<script charset=\"utf-8\" src=\"/o/com.sx.dynamic.include/js/simple-pagenation/jquery.simplePagination.js\"></script>";
 		content += "<link rel=\"stylesheet\" href=\"/o/com.sx.dynamic.include/js/simple-pagenation/simplePagination.css\">";
 		content += "<script src=\"//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js\"></script>";

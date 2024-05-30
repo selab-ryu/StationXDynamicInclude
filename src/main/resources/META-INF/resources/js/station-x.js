@@ -1357,8 +1357,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_DATE_RANGE_SEARCH_STATE_CHANGED: 'SD_DATE_RANGE_SEARCH_STATE_CHANGED',
 		SEARCH_STATE_CHANGED: 'SEARCH_STATE_CHANGED',
 		SEARCH_KEYWORD_REMOVED: 'SEARCH_KEYWORD_REMOVED',
-		SEARCH_KEYWORD_CHANGED: 'SEARCH_KEYWORD_REMOVED',
-		SEARCH_KEYWORD_CHANGED: 'SEARCH_KEYWORDS_REMOVED',
+		SEARCH_KEYWORD_CHANGED: 'SEARCH_KEYWORD_CHANGED',
 		SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED',
 		OPEN_QUERY_EDITOR: 'OPEN_QUERY_EDITOR',
 		QUERY_CHANGED: 'QUERY_CHANGED',
@@ -12858,22 +12857,45 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.operator = operator;
 		}
 
-		renderHits( start, end, $canvas, queriedFields ){
-			for( let i=start; i < end && i<this.hits.length; i++ ){
-				this.$renderHit( this.hits[i], i+1, $canvas );
+		renderHits( start, delta, $container, queriedFields ){
+			for( let i=start; i < (delta+start-1) && i<this.hits.length; i++ ){
+				$container.append( this.$renderHit( this.hits[i], i+1, queriedFields ) );
 			};
 		}
 
-		$renderHit( hit, $canvas ){
-			console.log( '$renderHit: ', hit );
-			/*
+		getSearchedContent( record, queriedFields ){
+			let content = new Object();
+			
+			queriedFields.forEach( fieldName => {
+				let names = fieldName.split('.');
+				
+				let fieldData = record.data[names[0]];
+				if(names.length === 2){
+					content[names[1]] = GridTerm.getColumnValues( fieldData, names[1] );
+				}
+				else{
+					content[names[0]] = fieldData;
+				}
+			});
+
+			return JSON.stringify(content);
+		}
+
+		$renderHit( hit, index, queriedFields ){
 			let $row = $('<div class="row" style="padding-top:3px; padding-bottom:3px;width:100%;">');
 			
-			let $col_1 = $('<div class="col-md-1 index-col" style:"text-align:right;">');
-			//$col_1.text( index );
-			$row.append( $col_1 );
+			let $indexCol = $('<div class="col-md-1 index-col" style:"text-align:center;">');
+			$indexCol.text( index );
+			$row.append( $indexCol );
+
+			let $idCol = $('<div class="col-md-1" style:"text-align:center;">');
+			$idCol.text( hit.id );
+			$row.append( $idCol );
 			
-			let $col_2 = $('<div class="col-md-10 abstract-col">');
+			let $contentCol = $('<div class="col-md-9" style="display:flex;">');
+			let $content = $('<span>').appendTo( $contentCol );
+			$content.text( this.getSearchedContent(hit, queriedFields) );
+			/*
 			let $href = $('<a>');
 			
 			
@@ -12882,20 +12904,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			$href.prop('target', '_blank' );
 			$href.prop('href', renderUrl.toString() );
-			$col_2.append( $href );
+			$contentCol.append( $href );
 			
 			
 			$href.text( this.abstract );
-			$row.append( $col_2 );
-			
-			let $col_3 = $('<div class="col-md-1 action-col">');
-			$col_3.append( FormUIUtil.$getActionButton() );
-			$row.append( $col_3 );
-			
-			$row = visibility ? $row.show() : $row.hide();
-
-			this.#$rendered = $row;
 			*/
+
+			$row.append( $contentCol );
+			
+			let $actionCol = $('<div class="col-md-1 action-col">');
+			$actionCol.append( FormUIUtil.$getActionButton() );
+			$row.append( $actionCol );
+			
+			return $row;
+		}
+
+		isLeaf(){
+			return  this instanceof FieldKeyword ||
+					this instanceof ColumnKeyword;
 		}
 
 		toZTreeJSON(){
@@ -12978,7 +13004,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let val = '';
 
 			if( this.operator === Constants.SearchOperators.RANGE ){
-				if( this.fieldType === TermTypes.DATE ){
+				if( this.fieldType === TermTypes.DATE ||
+					this.columnType === TermTypes.DATE ){
 					val += this.keyword.from ? (Util.toDateString(this.keyword.from) + '~') : '~';
 					val += this.keyword.to ? Util.toDateString(this.keyword.to) : '';
 				}
@@ -13019,12 +13046,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		hasKeyword(){
 			return Util.isNotEmpty( this.#keyword );
-		}
-
-		renderHits( start, end, $canvas ){
-			for( let i=start; i < end && i<this.hits.length; i++ ){
-				this.$renderHit( this.hits[i], i+1, $canvas );
-			};
 		}
 
 		toZTreeJSON(){
@@ -13087,8 +13108,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set subject(val){ this.#subject = val; }
 		get queries(){ return this.#queries; }
 		set queries(val){ this.#queries = val; }
-		get rootQuery(){ return this.#rootQuery; }
-		set rootQuery(val){ this.#rootQuery = val; }
+		get rootQuery(){ 
+			let rootQuery;
+			this.#queries.every( query => {
+				if( !query.parentId ){
+					rootQuery = query;
+					return Constants.STOP_EVERY;
+				}
+				return Constants.CONTINUE_EVERY;
+			});
+
+			return rootQuery; 
+		}
+		
 		get hits(){ return this.#hits; }
 		set dataList(val){ this.#dataList = val; }
 		get dataList(){ return this.#dataList; }
@@ -13114,6 +13146,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		/**
+		 * Appends queries as children of parentQueryId to
+		 * SearchHistory queries.
+		 * 
+		 * @param {String} parentQueryId 
+		 * @param {Array[Query]} queries 
+		 * @returns 
+		 */
+		appendQueries( parentQueryId, queries ){
+			queries.forEach( query => {
+				if( !query.parentId ){
+					query.parentId = parentQueryId;
+				}
+
+				this.#queries.push( query );
+			});
+		}
+
+		constructTreeRoot( queries, operator ){
+			let newRoot = new Query( operator, null );
+			this.#queries.push( newRoot );
+
+			this.rootQuery.parentId = newRoot.id;
+			this.appendQueries( newRoot.id, queries );
+		}
+
+		/**
 		 * adds a query part to the query stack.
 		 * 
 		 * @param {Query} partRoot 
@@ -13121,42 +13179,33 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 */
 		addQuery( partRoot, newQueries ){
 			console.log('addQuery: ', partRoot, newQueries);
-			
-			if( Util.isEmpty(this.#rootQuery) ){
-				this.rootQuery = partRoot;
+			let rootQuery = this.rootQuery;
+
+			if( Util.isEmpty(rootQuery) ){
 				newQueries.forEach( query => this.#queries.push(query) );
 			}
-			else if( this.rootQuery instanceof FieldKeyword ||
-					 this.rootQuery instanceof ColumnKeyword ||
-					 this.rootQuery instanceof GridQuery ){
-				let newRoot = new Query( Constants.SearchOperators.AND, null );
-				this.#queries.push( newRoot );
-				this.rootQuery.parentId = newRoot.id;
-				this.rootQuery = newRoot;
-				partRoot.parentId = newRoot.id;
-				this.#queries.push(partRoot);
-				newQueries.forEach( query => {
-					if( query.id !== partRoot.id ){
-						this.#queries.push(query) 
-					}
-				});
-			}
-			else{
-				if( this.rootQuery.operator !== partRoot.operator ){
-					let newRoot = new Query( Constants.SearchOperators.AND, null );
-					this.rootQuery.parentId = newRoot.id;
-					this.rootQuery = newRoot;
-					this.#queries.push( newRoot );
-					partRoot.parentId = newRoot.id;
-					newQueries.forEach( query => this.#queries.push(query) );
+			else if( rootQuery instanceof FieldKeyword ){
+				if( partRoot instanceof FieldKeyword &&
+					rootQuery.fieldName === partRoot.fieldName &&
+					rootQuery.operator === partRoot.operator ){
+					this.constructTreeRoot( newQueries, Constants.SearchOperators.OR );
 				}
 				else{
-					newQueries.forEach( query => {
-						if( query.parentId === partRoot.id ){
-							query.parentId = this.rootQuery.id;
-						} 
-					});
+					this.constructTreeRoot( newQueries,  Constants.SearchOperators.AND );
 				}
+			}
+			else if( rootQuery instanceof GridQuery ){
+				if( partRoot instanceof GridQuery &&
+					rootQuery.fieldName === partRoot.fieldName &&
+					rootQuery.operator === partRoot.operator ){
+					this.appendQueries( rootQuery.id, newQueries );
+				}
+				else{
+					this.constructTreeRoot( newQueries,  Constants.SearchOperators.AND );
+				}
+			}
+			else{
+				this.constructTreeRoot( newQueries, Constants.SearchOperators.AND );
 			}
 		}
 
@@ -13219,24 +13268,102 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		/**
-		 * Removes a FieldKeyword by field name and returns true if
-		 * there is instances of FieldKeyword
+		 * Removes the query defined as queryId. if removeTree is true,
+		 * all children queries would be removed.
 		 * 
-		 * @param {String} fieldName 
+		 * @param {String} queryId 
+		 * @param {boolean} removeTree 
 		 * @returns 
-		 * 	boolean
+		 * 	Query object removed
 		 */
-		removeQuery( fieldName ){
+		removeQuery( queryId, removeTree=false ){
 			if( !this.queries )	return;
 
+			let removedQuery, children;
 			this.queries = this.queries.filter( query => {
-				return query.fieldName !== fieldName;
+				if( query.id === queryId ){
+					removedQuery = query;
+					return Constants.FILTER_SKIP;
+				}
+
+				return Constants.FILTER_ADD;
 			});
+
+			if( !!removedQuery ){
+				children = this.getQueryChildren( removedQuery.id );
+				children.forEach( child => {
+					if( removeTree ){
+						this.removeQuery( child.id, true );
+					}
+					else{
+						child.parentId = removedQuery.parentId;
+					}
+				});
+			}
+
+			console.log( 'removedQuery: ', removedQuery, JSON.stringify(children));
+			let parent = !!removedQuery ? this.getQuery( removedQuery.parentId ) : null;
+			console.log('parent: ', parent);
+			if( !!parent ){
+				children = this.getQueryChildren( parent.id );
+				if( children.length <= 1 ){
+					removedQuery = this.removeQuery( parent.id );
+				}
+			}
+
+			return removedQuery;
+		}
+
+		/**
+		 * Gets a query tree from this.#queries as if query as the root.
+		 * 
+		 * @param {Query} query 
+		 * @returns
+		 * 	Array[Query]
+		 */
+		getQueryTree( query ){
+			let queryTree = new Array();
+
+			queryTree.push( query );
+			let children = this.getQueryChildren( query.id );
+			children.forEach( child => {
+				queryTree = queryTree.concat( this.getQueryTree( child ) );
+			});
+
+			return queryTree;
+		}
+
+		/**
+		 * Evaluates search queries of the SearchHistory.
+		 * All asendant query results of the query maybe changed.
+		 * 
+		 * @param {Query} query 
+		 */
+		evaluateQuery( query ){
+			if( !query ){
+				this.retrieve( this.rootQuery, this.#dataList );
+			}
+			else if( !!query.parentId ){
+				let parent = this.getQuery( query.parentId );
+				let children = this.getQueryChildren( parent.id );
+				if( parent.operator === Constants.SearchOperators.OR ){
+					this.#doORSearch( parent, children );
+				}
+				else{
+					this.#doANDSearch( parent, children );
+				}
+
+				if( !!parent.parentId ){
+					this.evaluateQuery( parent );
+				}
+			}
 		}
 
 		retrieve( query, dataList ){
+			if( !query )	return dataList;
+
 			let children = this.getQueryChildren( query.id );
-			console.log('retrieve: ', query, children );
+			console.log('retrieve '+query.operator +': ', query, children );
 			children.forEach( child => {
 				if( child instanceof FieldKeyword ||
 					child instanceof ColumnKeyword ){
@@ -13248,7 +13375,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.retrieve( child, dataList );
 				}
 			});
-			console.log('End of childrens retrieve...');
+			console.log('End of ' + query.operator + ' childrens retrieve...');
 
 			switch( query.operator ){
 				case Constants.SearchOperators.OR:{
@@ -13316,7 +13443,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * Range search is allowed for only numeric and date
 		 * 
-		 * @param {Array[SearchData]} dataList 
+		 * @param {Array} dataList 
 		 * @returns 
 		 */
 		#doRangeSearch( query, dataList ){
@@ -13355,43 +13482,72 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
+			let searchType = query instanceof ColumnKeyword ? query.columnType : query.fieldType;
+
 			query.hits = dataList.filter( record => {
-				let fieldContent = record[query.fieldName];
+				let fieldContent = record.data[query.fieldName];
+				console.log(' fieldContent: ', record, query, fieldContent);
 				if( !fieldContent ) return Constants.FILTER_SKIP;
 
-				let searchIndex = query instanceof ColumnKeyword ?
-										fieldContent[query.columnName]:
+				let searchContent = query instanceof ColumnKeyword ?
+										GridTerm.getColumnValues(fieldContent, query.columnName) :
 										fieldContent;
-				if( !searchIndex ) return Constants.FILTER_SKIP;
+				console.log(' doExactSearch: ', record, query, searchContent, searchType);
+				if( Util.isEmpty(searchContent) ) return Constants.FILTER_SKIP;
+
 
 				switch( searchType ){
 					case TermTypes.LIST:{
 						if( query instanceof ColumnKeyword ){
 							let equal = false;
 							// searchIndex format: [[a],[a.b],[a,b,c]]
-							searchIndex.every( index => {
-								equal = index.includes(query.keyword);
+							searchContent.every( content => {
+								console.log('content: ', content);
+								let lower = content.map( elem => elem.toLowerCase() );
+								equal = lower.includes( query.keyword.toLowerCase() );
 								return !equal;
 							});
 
 							return equal;
 						}
 						else{
-							return searchIndex.includes( query.keyword );
+							let content = searchContent.map( content => content.toLowerCase() );
+							return content.includes( query.keyword.toLowerCase() );
 						};
+
+						break;
+					}
+					case TermTypes.NUMERIC:{
+						if( query instanceof ColumnKeyword ){
+							let equal = false;
+							// searchIndex format: [1,2,3] or [{}, {}, {}]
+							searchContent.every( content => {
+								let value = typeof content === 'object' ? content.value : content;
+								equal = value == query.keyword;
+								return !equal;
+							});
+
+							return equal;
+						}
+						else{
+							let value = typeof searchContent === 'object' ? searchContent.value : searchContent;
+							return value == query.keyword;
+						};
+
+						break;
 					}
 					default:{
 						if( query instanceof ColumnKeyword ){
 							let equal = false;
-							searchIndex.every( index => {
-								equal = index === query.keyword;
+							searchContent.every( content => {
+								equal = content === query.keyword;
 								return !equal;
 							});
 
 							return equal;
 						}
 						else{
-							return searchIndex.includes( query.keyword );
+							return searchContent === query.keyword;
 						};
 					}
 				}
@@ -13403,7 +13559,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * LIKE search is allowed for String-based types and File type.
 		 * 
 		 * @param {Query} query 
-		 * @param {Array[SearchData]} dataList 
+		 * @param {Array} dataList 
 		 * @returns 
 		 */
 		#doLikeSearch( query, dataList ){
@@ -13411,14 +13567,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			
 			query.hits = dataList.filter( record => {
-				console.log( 'doLikeSearch: ', query, record );
 				let fieldContent = record.data[query.fieldName];
 				if( Util.isEmpty(fieldContent) ) return Constants.FILTER_SKIP;
 
 				let searchContent = query instanceof ColumnKeyword ?
-										fieldContent[query.columnName]:
+										GridTerm.getColumnValues(fieldContent, query.columnName) :
 										fieldContent;
 				if( Util.isEmpty(searchContent) )	return Constants.FILTER_SKIP;
 
@@ -13427,10 +13581,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					case TermTypes.FILE:{
 						let fileNames = Object.keys( searchContent );
 
-						console.log( 'fileNames: ', fileNames);
 						let included = false;
 						fileNames.every( fileName => {
-							included = fileName.includes( query.keyword );
+							included = fileName.toLowerCase().includes( query.keyword.toLowerCase() );
 							return !included;
 						});
 
@@ -13440,26 +13593,25 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						if( query instanceof ColumnKeyword ){
 							let included = false;
 							searchContent.every( content => {
-								included = content.includes( query.keyword );
+								included = content.toLowerCase().includes( query.keyword.toLowerCase() );
 								return !included;
 							});
 
 							return included;
 						}
 						else{
-							return searchContent.includes( query.keyword );
+							return searchContent.toLowerCase().includes( query.keyword.toLowerCase() );
 						};
 					}
 				}
 			});
-
-			console.log('history.query: ', this.#queries );
 		}
 
 		/**
 		 * NOT operator performs only exact match
 		 * 
-		 * @param {Array[SearchData]} dataList 
+		 * @param {Query} query 
+		 * @param {Array} dataList 
 		 * @returns
 		 * 	array of hits
 		 */
@@ -13469,7 +13621,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			query.hits = dataList.filter( record => {
-				let fieldContent = data[query.fieldName];
+				let fieldContent = record.data[query.fieldName];
 				if( !fieldContent ) return Constants.FILTER_SKIP;
 
 				let searchIndex = query instanceof ColumnKeyword ?
@@ -13483,14 +13635,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							let equal = false;
 							// searchIndex format: [[a],[a.b],[a,b,c]]
 							searchIndex.every( index => {
-								equal = index.includes(query.keyword);
+								equal = index.toLowerCase().includes(query.keyword.toLowerCase());
 								return !equal;
 							});
 
 							return !equal;
 						}
 						else{
-							return !searchIndex.includes( query.keyword );
+							return !searchIndex.toLowerCase().includes( query.keyword.toLowerCase() );
 						};
 					}
 					case TermTypes.FILE:{
@@ -13498,7 +13650,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 						let included = false;
 						fileNames.every( fileName => {
-							included = fileName.includes( query.keyword );
+							included = fileName.toLowerCase().includes( query.keyword.toLowerCase() );
 							return !included;
 						});
 
@@ -13523,7 +13675,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		getQueryById( queryId ){
+		getQuery( queryId ){
+			if( !this.#queries )	return null;
+			if( !queryId )	return null;
+
 			let searchedQuery = null;
 			this.#queries.every( query => {
 				if( query.id === queryId ){
@@ -13537,34 +13692,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return searchedQuery;
 		}
 
+		getQueries( fieldName ){
+			if( !this.#queries )	return new Array();
+			
+			return this.#queries.filter( query => (fieldName === query.fieldName || 
+												   fieldName === query.columnName) );
+		}
+
 		getQueriedFields( query ){
 			let queriedFields = new Array();
 
 			if( query instanceof ColumnKeyword ){
-				queriedFields.push( query );
+				queriedFields.push( query.fieldName+'.'+query.columnName );
 			}
 			else if( query instanceof FieldKeyword ){
-				queriedFields.push( query );
+				queriedFields.push( query.fieldName );
 			}
 			else{
 				let childFields = this.getQueryChildren( query.id );
 				childFields.forEach( child => {
-					let subFields = this.getQueriedFields(child);
-					subFields = subFields.filter( field => {
-						if( (queriedField instanceof ColumnKeyword && child instanceof FieldKeyword) ||
-							(queriedField instanceof FieldKeyword && child instanceof ColumnKeyword) ){
-							queriedFields.push( child );
-						}
-						else if( child instanceof ColumnKeyword &&
-									queryField.columnName !== child.columnName	){
-							queriedFields.push( child );
-						}
-						else if( child instanceof FieldKeyword &&
-									queryField.fieldName !== child.fieldName ){
-							queriedFields.push( child );
+					let subFieldNames = this.getQueriedFields( child );
+					subFieldNames.forEach( fieldName => {
+						if( !queriedFields.includes(fieldName) ){
+							queriedFields.push( fieldName );
 						}
 					});
-					queriedFields = queriedFields.concat( subFields );
 				});
 			}
 			
@@ -13572,27 +13724,31 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		showSearchResults( queryId, $canvas ){
-			let query = this.getQueryById( queryId );
-
-			console.log('searched query: ', query);
-			if( !(query && query.hitCount) )	return;
-
-			$canvas.empty();
+			let query = this.getQuery( queryId );
+			let results = query.hits;
 
 			let queriedFields = this.getQueriedFields( query );
-			console.log('queriedFields: ', queriedFields);
+			$canvas.empty();
 
+			let delta = 10;
+			let $pagination = $('<div>').appendTo( $canvas );
+			let $container = $('<div class="container">').appendTo($canvas);
 
-			let delta = 20;
-			let $pagenation = $('<div>').appendTo( $canvas );
-
-			let $table = $('<table>').appendTo( $canvas );
-
-			query.renderHits( 0, 20, $table, queriedFields );
+			$pagination.pagination({
+				items: results.length,
+				itemsOnPage: delta,
+				displayedPages: 3,
+				onPageClick: function( pageNumber, event){
+					query.renderHits( (pageNumber-1)*delta, delta, $container, queriedFields );
+				},
+				onInit: function(){
+					query.renderHits( 0, delta, $container, queriedFields );
+				}
+			});
 		}
 
 		updateQueryOperator( queryId, operator ){
-			let query = this.getQueryById( queryId );
+			let query = this.getQuery( queryId );
 			query.operator = operator;
 			
 			return query;
@@ -13892,39 +14048,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let fieldOperator = advancedSearch.fieldOperator;
 				let infieldOperator = advancedSearch.infieldOperator;
 
-				let parentQuery = advancedSearch.writingQueryRoot;
-				if( Util.isNotEmpty(parentQuery) ){
-					console.log('parentQuery: ', parentQuery);
-					if( parentQuery instanceof FieldKeyword ||
-						parentQuery instanceof ColumnKeyword ||
-						parentQuery instanceof GridQuery ){
-						let newParent = new Query(fieldOperator, null);
-						parentQuery.parentId = newParent.id;
-						parentQuery = newParent;
-						advancedSearch.addWritingQuery( newParent );
+				let parentQueryId;
+				let writingQueryRoot = advancedSearch.writingQueryRoot;
+
+				if( !!writingQueryRoot ){
+					if( fieldOperator !== writingQueryRoot.operator ){
+						let parentQuery = new Query( fieldOperator, null );
+						advancedSearch.addWritingQuery( parentQuery );
+						writingQueryRoot.parentId = parentQuery.id;
+						parentQueryId = parentQuery.id;
 					}
 					else{
-						if( parentQuery.operator !== fieldOperator ){
-							let newParent = new Query( fieldOperator, null );
-							parentQuery.parentId = newParent.id;
-							parentQuery = newParent;
-							advancedSearch.addWritingQuery( newParent );
-						}
+						parentQueryId = writingQueryRoot.id;
 					}
-				}
-
-				let parentQueryId = !!parentQuery ? parentQuery.id : undefined; 
-
-				if( term.isColumn() ){
-					let gridQuery = advancedSearch.getWritingGridQuery( fieldName );
-					if( !gridQuery ){
-						parentQuery = gridQuery = new GridQuery( gridTerm.termName, parentQueryId );
-						advancedSearch.addWritingQuery( gridQuery );
-					}
-					else{
-						parentQuery = gridQuery;
-					}
-					parentQueryId = parentQuery.id;
 				}
 
 				if( keywords.length > 1 ){
@@ -14103,8 +14239,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return wQuery;
 		}
 
-		getParantWritingFieldQuery( fieldName ){
+		getParantWritingQuery( fieldName ){
 			let parentQuery;
+
 			this.#writingQuery.every( query => {
 				if( query.fieldName === fieldName ){
 					parentQuery = this.getWritingQuery( query.parentId );
@@ -14121,19 +14258,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.#writingQuery.filter( query => query.parentId === gridId );
 		}
 
-		hasWritingQueryChildren( id ){
-			let parentQuery = this.getWritingQuery( id );
-			let hasChildren = false;
-			this.#writingQuery.every( query => {
-				if( query.parentId === parentQuery.id ){
-					hasChildren = true;
-					return Constants.STOP_EVERY;
+		hasWritingQueryChildren( parentId ){
+			let hasChildren = 0;
+			this.#writingQuery.forEach( query => {
+				if( query.parentId === parentId ){
+					hasChildren++;
 				}
-
-				return Constants.CONTINUE_EVERY;
 			});
 
-			return hasChildren;
+			return hasChildren > 1;
 		}
 
 		removeWritingFieldQuery( fieldName ){
@@ -14148,9 +14281,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 
 			if( !!removedQuery ){
-				let parentQuery = this.getWritingQuery( removedQuery.parentId );
-				if( !!parentQuery && !this.hasWritingQueryChildren(parentQuery.id) ){
-					this.removeWritingFieldQuery( parentQuery.fieldName );
+				let parentId = removedQuery.parentId;
+				if( !!parentId && !this.hasWritingQueryChildren(parentId) ){
+					this.removeWritingQuery( parentId );
 				}
 			}
 		}
@@ -14169,11 +14302,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			console.log('removedQuery: ', removedQuery );
 			if( !!removedQuery ){
-				let columns =  this.getWritingColumnQueries( removedQuery.parentId );
-				console.log('dasfasdf: ', columns); 
-				if( columns.length < 1 ){
-					let gridQuery = this.getWritingQuery( removedQuery.parentId );
-					this.removeWritingFieldQuery( gridQuery.fieldName );
+				let parentId = removedQuery.parentId;
+				if( !!parentId && !this.hasWritingQueryChildren(parentId) ){
+					this.removeWritingQuery( parentId );
 				}
 			}
 
@@ -14232,18 +14363,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						console.log( 'onclick: ', event, treeId, node, clickFlag );
 						searchHistory.showSearchResults( node.id, advancedSearch.$resultSection );
 					},
-					onDrop: function(  event, treeId, node, clickFlag ){
-						console.log( 'onDrop: ', event, searchHistory.zTreeObj.getNodes() );
+					onDrop: function(  event, treeId, nodes, clickFlag ){
+						console.log( 'onDrop: ', event, nodes, clickFlag );
+						nodes.forEach( node => {
+							let query = searchHistory.getQuery( node.id );
+							query.parentId = node.pid;
+							searchHistory.evaluateQuery( query );
+						});
+
+						advancedSearch.refreshQueryEditor();
 					},
 					onRemove: function(  event, treeId, node, clickFlag ){
 						console.log( 'onRemove: ', event, treeId, node, clickFlag );
+						let query = searchHistory.removeQuery( node.id );
+						//searchHistory.evaluateQuery( query );
+
+						advancedSearch.refreshQueryEditor();
 					},
 					onRightClick: function( event, treeId, node, clickFlag ){
 						console.log( 'onRightClick: ', event, treeId, node, clickFlag );
 
 						let popItems = {
 							delete: {
-								name: 'Delete',
+								name: Liferay.Language.get('delete'),
 								icon: '<span class="ui-icon ui-icon-trash"></span>',
 								divid: true
 							}
@@ -14301,33 +14443,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							switch( $(item).prop('id') ){
 								case 'delete':{
 									let selectedNodes = searchHistory.zTreeObj.getSelectedNodes();
+									console.log( 'selectedNodes: ', selectedNodes );
 									if (selectedNodes && selectedNodes.length>0) {
-
 										selectedNodes.forEach( selectedNode => {
-											searchHistory.removeQuery( node.id );
-											searchHistory.removeZTreeNode(node);
+											searchHistory.removeQuery( selectedNode.id, true );
 										});
+									}
 
-										searchHistory.retrieve( advancedSearch.dataList );
-										//searchHistory.synchronizeZTreeNodes();
-										
-										searchHistory.refreshZTree();
-									}
-									else{
-										$.alert(Liferay.Language.get('select-nodes-to-be-deleted') );
-									}
+									let query = searchHistory.getQuery( node.id );
+									searchHistory.evaluateQuery( query );
+									advancedSearch.refreshQueryEditor();
 									break;
 								}
 								default:{
-									node.operator = $(item).prop('id');
-									searchHistory.updateQueryOperator( node.id, node.operator );
-									searchHistory.retrieve( advancedSearch.dataList );
+									let operator = $(item).prop('id');
+									searchHistory.updateQueryOperator( node.id, operator );
+									searchHistory.retrieve( searchHistory.rootQuery, advancedSearch.dataList );
 
-									searchHistory.synchronizeZTreeNode( node );
-									//node.title = node.getTitle();
-									searchHistory.refreshZTree();
-									
-									console.log('Change Operator: ', searchHistory.zTreeObj.getNodes(), node, $(item).prop('id'));
+									advancedSearch.refreshQueryEditor();
 								}
 							}
 						};
@@ -14353,6 +14486,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			searchHistory.zTreeObj = $.fn.zTree.init($canvas, setting, zTreeQuery);
 
 			console.log('Tree Nodes: ', searchHistory.zTreeObj.getNodes() );
+		}
+
+		refreshQueryEditor(){
+			this.openQueryEditor( this.#$querySection );
 		}
 
 		countSearchHistories(){

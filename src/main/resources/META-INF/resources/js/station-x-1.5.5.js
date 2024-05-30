@@ -17,6 +17,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	let Util = {
 		isEmptyObject: function(obj){
 			if( obj === null || obj === undefined )	return true;
+			if( typeof obj.isEmpty === 'function' )	return obj.isEmpty();
+
 			if( typeof obj === 'number' || typeof obj === 'boolean' )	return false;
 			if( typeof obj === 'string' ){
 				if( obj === '' )	return true;
@@ -26,8 +28,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( obj.length === 0 )	return true;
 				else	return false;
 			}
-
-			if( typeof obj.isEmpty === 'function' )	return obj.isEmpty();
 
 			return false;
 		},
@@ -697,6 +697,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 MIN_BOUNDARY : 'minBoundary',
 		 MIN_LENGTH :'minLength',
 		 MIN_VALUE :'minValue',
+		 MULTIPLE:'multiple',
 		 MULTIPLE_LINE :'multipleLine',
 		 NUMERIC_PLACE_HOLDER : 'numericPlaceHolder',
 		 OPTION_LABEL: 'optionLabel',
@@ -1005,13 +1006,40 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				$(this).data('prevVal', value);
-				$(this).data('clickCount', 1);
+				$(this).data('clickCount', 1); 
 			});
 
 			return $select;
 
 		},
-		$getRadioButtonTag: function (controlId, controlName, option, selected, disabled=false ){
+		$getMultiSelectTag: function( controlId, controlName, options, values, placeHolder, multiple, disabled ){
+			let $select;
+			if( multiple ){
+				let select = '<select id="' + controlId + '" name="' + controlName + '" multiple>';
+
+				options.forEach( option=>{
+					select += '<option value="'+ option.value;
+					if( values && values.includes(option.value) ){
+						select += '" selected>';
+					}
+					else{
+						select += '">';
+					}
+					select += option.labelMap[CURRENT_LANGUAGE];
+					select += '</option>'
+				});
+
+				select += '</select>';
+
+				$select = $(select);
+			}
+			else{
+				$select = FormUIUtil.$getSelectTag(controlName, options, values, placeHolder, disabled);
+			}
+
+			return $select;
+		},
+		$getRadioButtonTag: function (controlId, controlName, option, selected, disabled ){
 			let $radio = option.$render( ListTerm.DISPLAY_STYLE_RADIO, controlId, controlName, selected );
 			$radio.find('input[type="radio"]').prop({
 				disabled: disabled
@@ -1085,27 +1113,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return $fieldset;
 		},
-		$getFieldSetGroupNode : function( controlName, label, mandatory, helpMessage ){
-			let $label = this.$getLabelNode( label, mandatory, helpMessage );
-
-			let $panelTitle = $('<div class="form-group input-text-wrapper control-label panel-title" id="' + controlName + 'Title">')
-										.append($label);
-
-			let $fieldsetHeader = $('<div class="panel-heading" id="' + controlName + 'Header" role="presentation">')
-								.append( $panelTitle );
-
-			let $panelBody = $('<div class="panel-body">').css('padding', '0 20px 0.75rem 10px');
-
-			let $fieldsetContent = $('<div aria-labelledby="' + controlName + 'Header" class="in  " id="' + controlName + 'Content" role="presentation">')
-									.append($panelBody);
-			let $fieldSet = $('<fieldset aria-labelledby="' + controlName + 'Title" role="group">')
-								.append( $fieldsetHeader )
-								.append($fieldsetContent);
-
-
-			return $('<div aria-multiselectable="true" class="panel-group" role="tablist">')
-								.append( $fieldSet );
-		},
 		$getActionButton( popupMenu ){
 			let $actionBtn = $(
 				'<div class="dropdown dropdown-action show" style="width:fit-content;float:right">' +
@@ -1168,7 +1175,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let $groupHead = $('<h3>').text(title);
 			$groupHead.css({'font-size':'1rem', 'font-weight':'600'});
 
-			let $groupBody = $('<div style="overflow:hidden;width:100%; padding:3px;">');
+			let $groupBody = $('<div style="overflow:visible;width:100%; padding:3px;">');
 			let $accordion = $('<div style="width:100%;">')
 								.append($groupHead)
 								.append($groupBody);
@@ -1350,8 +1357,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		SD_DATE_RANGE_SEARCH_STATE_CHANGED: 'SD_DATE_RANGE_SEARCH_STATE_CHANGED',
 		SEARCH_STATE_CHANGED: 'SEARCH_STATE_CHANGED',
 		SEARCH_KEYWORD_REMOVED: 'SEARCH_KEYWORD_REMOVED',
-		SEARCH_KEYWORD_CHANGED: 'SEARCH_KEYWORD_REMOVED',
-		SEARCH_KEYWORD_CHANGED: 'SEARCH_KEYWORDS_REMOVED',
+		SEARCH_KEYWORD_CHANGED: 'SEARCH_KEYWORD_CHANGED',
 		SEARCH_HISTORY_CHANGED: 'SEARCH_HISTORY_CHANGED',
 		OPEN_QUERY_EDITOR: 'OPEN_QUERY_EDITOR',
 		QUERY_CHANGED: 'QUERY_CHANGED',
@@ -2006,37 +2012,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		static WIDTH_UNIT = 'rem';
 
-		/**
-		 * v.0.1.0
-		 * Gets search index of a term or a column
-		 * 
-		 * @param {JSONObject} searchData 
-		 * @param {Term} term 
-		 * @param {string} columnName 
-		 * @returns
-		 * 	- Array of data if term type is grid,
-		 *  - just data otherwise.
-		 */
-		static getSearchIndex( searchData, term, columnName ){
-			if( term.isColumn() ){
-				switch( term.termType ){
-					case TermTypes.STRING:
-					case TermTypes.EMAIL:
-					case TermTypes.ADDRESS:
-					case TermTypes.PHONE:{
-						let gridData = GridTerm.getColumnData( searchData[term.termName], columnName );
-						break;
-					}
-					case TermTypes.FILE:{
-
-					}
-				}
-			}
-			else{
-
-			}
-		}
-
 		#termType;
 		#termName;
 		#termVersion;
@@ -2410,6 +2385,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return tooltip ? tooltip : this.tooltip.getText(DEFAULT_LANGUAGE);
 			}
 		}
+
+		multiSelectize(){}
 
 		/**
 		 *  Validate the term name matches naming pattern.
@@ -3419,6 +3396,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		#options;
 		#placeHolder;
 		#displayStyle;
+		#multiple;
 
 		constructor( jsonObj ){
 			super('List');
@@ -3439,12 +3417,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					values = values.map(val=>val.trim())
 								   .filter(val=>this.validate(val));
 
-					if( this.displayStyle === ListTerm.DISPLAY_STYLE_CHECK ){
-						this.#value = values;
-					}
-					else{
-						this.#value = (values.length > 0) ? [values[0]] : undefined;
-					}
+					this.#value = (values.length > 0) ? values : undefined;
 				}
 			}
 			else if( Util.isNonEmptyArray(value) ){
@@ -3458,6 +3431,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set options(val){this.#options = val;}
 		get displayStyle() {return this.#displayStyle;}
 		set displayStyle(val){this.#displayStyle = val;}
+		get multiple() {return this.#multiple;}
+		set multiple(val){this.#multiple = val;}
 		get placeHolder(){ return this.#placeHolder; }
 		set placeHolder(val){ this.#placeHolder = Util.toSafeLocalizedObject(val, this.placeHolder); }
 
@@ -3527,58 +3502,71 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 		}
 
-		$getControlNode( forWhat ){
+		$getControlNode( forWhat, prefix ){
 			let term = this;
 
-			let controlName = NAMESPACE + this.termName;
+			let controlName = prefix ? NAMESPACE + this.termName + '_' + prefix : 
+										NAMESPACE + this.termName;
 			let value = this.hasValue() ? this.value : null;
 
 			let $node;
 			if( forWhat === Constants.FOR_SEARCH ){
 				$node = FormUIUtil.$getFieldsetTag( 
-									null, 
-									null, 
-									false, 
-									this.getLocalizedTooltip() );
+					null, 
+					null, 
+					this.mandatory, 
+					this.getLocalizedTooltip() );
 
 				this.options.forEach((option, index)=>{
-					option.$render( 
-								ListTerm.DISPLAY_STYLE_CHECK, 
-								controlName+'_'+(index+1), 
-								controlName, 
-								false).appendTo($node);
+						let selected = this.hasValue() ? this.#value.includes(option.value) : false;
+						$node.append( FormUIUtil.$getCheckboxTag( 
+													controlName+'_'+(index+1),
+													controlName,
+													option.labelMap[CURRENT_LANGUAGE],
+													selected,
+													option.value,
+													this.disabled,
+													{} ) );
 				});
-
+					
 				$node.change(function(event){
 					event.stopPropagation();
 
-					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
+					let checkedValues = new Array();
+
+					$.each( $(this).find('input[type="checkbox"]:checked'), function(){
+						checkedValues.push( $(this).val() );
+					});
+
+					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
 					dataPacket.term = term;
-					dataPacket.keywords = FormUIUtil.getFormCheckedArray( term.termName );
-
+					dataPacket.keywords = checkedValues;
+					
 					Util.fire(
-						Events.SEARCH_KEYWORD_CHANGED, 
-						dataPacket );
-
+						Events.SEARCH_KEYWORD_CHANGED,
+						dataPacket
+					);
 				});
 			}
 			else if( forWhat === Constants.FOR_EDITOR || forWhat === Constants.FOR_PREVIEW ){
 				if( this.displayStyle === ListTerm.DISPLAY_STYLE_SELECT ){
-					let optionValue = this.hasValue() ? this.#value[0] : '';
-					$node = FormUIUtil.$getSelectTag(
+					let optionValue = this.hasValue() ? this.#value : '';
+					$node = FormUIUtil.$getMultiSelectTag(
+									controlName,
 									controlName, 
 									this.options, 
 									optionValue, 
-									this.getLocalizedPlaceHolder(), 
+									this.getLocalizedPlaceHolder(),
+									this.multiple,
 									this.disabled);
 
 					$node.change(function(event){
-						event.stopPropagation();
+						//event.stopPropagation();
 
 						let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
 						dataPacket.term = term;
 						dataPacket.attribute = TermAttributes.VALUE;
-						dataPacket.value = [$(this).val()];
+						dataPacket.value = term.multiple ? $(this).val() : [$(this).val()];
 						dataPacket.$source = $(this);
 						Util.fire(
 							Events.TERM_VALUE_CHANGED,
@@ -3718,6 +3706,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return Util.isNonEmptyArray(this.value);
 		}
 
+		multiSelectize(){
+			if( !this.multiple )	return;
+
+			this.$rendered.find('select[multiple]').multiSelect({
+				noneText: this.getLocalizedPlaceHolder()
+			});
+		}
+
 		parse( json ){
 			let unparsed = super.parse( json );
 			let unvalid = new Object();
@@ -3733,6 +3729,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						break;
 					case 'placeHolder':
 						self.placeHolder = json.placeHolder;
+						break;
+					case 'multiple':
+						self.multiple = json.multiple;
 						break;
 					case 'options':
 						if( typeof json.options === 'string' ){
@@ -3770,6 +3769,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let json = super.toJSON();
 			
 			json.displayStyle = this.displayStyle;
+			json.multiple = this.multiple ? true : false;
 
 			if( Util.isSafeLocalizedObject(this.placeHolder) ){
 				json.placeHolder = this.placeHolder.localizedMap;
@@ -5952,7 +5952,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					let dataPacket = Util.createEventDataPacket(NAMESPACE,NAMESPACE);
 					dataPacket.term = self;
-					dataPacket.keywords = Util.toSafeBoolean( changedVal );
+					dataPacket.keywords = [Util.toSafeBoolean( changedVal )];
 
 					Util.fire(
 						Events.SEARCH_KEYWORD_CHANGED, 
@@ -6183,14 +6183,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {String} colName 
 		 * @returns
 		 * 	Array of JQuery Objects
-		 */
+		*/
 		$getColumnCells( colName ){
 			if( !this.#$renderedCells ) return;
-
+			
 			let columnCells = new Array();
-			let keys = Object.keys( this.#$renderedCells );
-			keys.forEach( key => columnCells.push( this.#$renderedCells[key][colName] ) );
-
+			for( let row in this.#$renderedCells){
+				columnCells.push( this.#$renderedCells[row][colName] );
+			}
+			
 			return columnCells;
 		}
 
@@ -6253,24 +6254,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return colDef.order;
 		}
 
-		#getColumnRenders( colName ){
-			if( Util.isEmpty(this.#$renderedCells) )	return;
-			
-			let renders = new Array();
-
-			let rowIndexes = Object.keys( this.#$renderedCells );
-			rowIndexes.forEach( rowIndex => {
-				let rowRenders = this.#$renderedCells[rowIndex];
-				renders.push( rowRenders[colName] );
-			});
-
-			return renders;
-		}
-
 		#removeColumnRenders( colName ){
 			if( Util.isEmpty(this.#$renderedCells) )	return;
 
-			let renders = this.#getColumnRenders( colName );
+			let renders = this.$getColumnCells( colName );
 			renders.forEach( $render => $render.remove() );
 		}
 
@@ -6599,14 +6586,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {numeric} val 
 		 */
 		setNumericCellValue( rowIndex, colName, val ){
+			let colDef = this.getColumnDef( colName );
+
+			if( Util.isEmpty(val) ){
+				if( !this.#value )	return;
+				if( !this.#value[rowIndex] )	return;	
+				if( Util.isEmpty(this.#value[rowIndex][colName]) )	return;	
+				if( colDef.uncertainty ){
+					delete this.#value[rowIndex][colName].value;
+				}
+
+				if( Util.isEmpty(this.#value[rowIndex][colName].value) && 
+					Util.isEmpty(this.#value[rowIndex][colName].uncertainty) ){
+					delete this.#value[rowIndex][colName];
+				}
+				return;	
+			}
+
 			if( !this.#value ){
 				this.#value = new Object();
 			}
 			if( !this.#value[rowIndex] ){
 				this.#value[rowIndex] = new Object();
 			}
-
-			let colDef = this.getColumnDef( colName );
 
 			if( colDef.uncertainty ){
 				let cellVal = this.getCellValue( rowIndex, colName );
@@ -6629,14 +6631,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {numeric} val 
 		 */
 		setNumericCellUncertainty( rowIndex, colName, val ){
+			let colDef = this.getColumnDef( colName );
+
+			if( Util.isEmpty(val) ){
+				if( !this.#value )	return;
+				if( !this.#value[rowIndex] )	return;	
+				if( Util.isEmpty(this.#value[rowIndex][colName]) )	return;	
+				if( colDef.uncertainty ){
+					delete this.#value[rowIndex][colName].uncertainty;
+				}
+
+				if( Util.isEmpty(this.#value[rowIndex][colName].value) && 
+					Util.isEmpty(this.#value[rowIndex][colName].uncertainty) ){
+					delete this.#value[rowIndex][colName];
+				}
+				return;	
+			}
+
 			if( !this.#value ){
 				this.#value = new Object();
 			}
 			if( !this.#value[rowIndex] ){
 				this.#value[rowIndex] = new Object();
 			}
-
-			let colDef = this.getColumnDef( colName );
 
 			if( colDef.uncertainty ){
 				let cellVal = this.getCellValue( rowIndex, colName );
@@ -6993,7 +7010,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $cell;
 		}
 
-		#$createListCell( rowIndex, colDef ){
+		#$createListCell( rowIndex, colDef, forWhat ){
 			let $cell = $('<td style="width:fit-content;">');
 
 			let controlName = NAMESPACE+colDef.termName;
@@ -7002,11 +7019,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let disabled = !!colDef.disabled ? true : false;
 			let placeHolder = colDef.getLocalizedPlaceHolder();
 
-			let $select = FormUIUtil.$getSelectTag(
+
+			let $select = FormUIUtil.$getMultiSelectTag(
+				controlName+'_'+rowIndex,
 				controlName,
 				options,
 				value,
 				placeHolder,
+				colDef.multiple,
 				disabled
 			).css({
 				'width': colDef.cssWidth
@@ -7663,7 +7683,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let gridTerm = this;
 			if( on ){
-				let $columnCells = this.#getColumnRenders( colName );
+				let $columnCells = this.$getColumnCells( colName );
 
 				$columnCells.forEach( ($cell, index) => {
 					if( index === 0 ){
@@ -7769,7 +7789,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$getControlNode( forWhat ){
-			let $gridBody = $('<div style="border:1px solid #d5dbe3;padding:0;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;">');
+			let $gridBody = $('<div style="border:1px solid #d5dbe3;padding:0;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
 			let $table = $('<table>').appendTo( $gridBody );
 
 			if( forWhat === Constants.FOR_EDITOR || forWhat === Constants.FOR_PREVIEW ){
@@ -7855,6 +7875,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			else{
 				return this.placeHolder.getText(locale);
+			}
+		}
+
+		multiSelectize(){
+			for( let colName in this.#columnDefs ){
+				let colDef = this.#columnDefs[colName];
+				if( colDef.termType === TermTypes.LIST && colDef.multiple ){
+					let $cells = this.$getColumnCells( colDef.termName );
+					$cells.forEach( $cell => {
+						$cell.find('select[multiple]').multiSelect({
+							noneText: colDef.getLocalizedPlaceHolder()
+						});
+					});
+				}
 			}
 		}
 
@@ -8126,6 +8160,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		#sweepable;
 		#listOptions;
 		#displayStyle;
+		#multiple;
 		#optionLabel;
 		#optionValue;
 		#optionSelected;
@@ -8326,6 +8361,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set sweepable(val){ FormUIUtil.setFormCheckboxValue('sweepable', val); }
 		get displayStyle(){ return FormUIUtil.getFormRadioValue('displayStyle'); }
 		set displayStyle(val){ FormUIUtil.setFormRadioValue('displayStyle', val); }
+		get multiple(){ return FormUIUtil.getFormCheckboxValue('multiple'); }
+		set multiple(val){ FormUIUtil.setFormCheckboxValue('multiple', val); }
 		get optionLabel(){ return FormUIUtil.getFormLocalizedValue('optionLabel'); }
 		set optionLabel(val){ FormUIUtil.setFormLocalizedValue('optionLabel', val); }
 		get optionValue(){ return FormUIUtil.getFormValue('optionValue'); }
@@ -8389,29 +8426,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 		}
 
-		get $termType(){ return $('#'+NAMESPACE+'termType')}
-		set $termType(val){ this.$termType.prop('disabled', val); }
-		get $termName(){ return $('#'+NAMESPACE+'termName')}
-		get $termVersion(){ return $('#'+NAMESPACE+'termVersion')}
-		get $termDisplayName(){ return $('#'+NAMESPACE+'termDisplayName')}
-		get $termDefinition(){ return $('#'+NAMESPACE+'termDefinition')}
-		get $termTooltip(){ return $('#'+NAMESPACE+'termTooltip')}
-		get $synonyms(){ return $('#'+NAMESPACE+'synonyms')}
-		get $mandatory(){ return $('#'+NAMESPACE+'mandatory')}
+		get $termType(){ return $('#'+NAMESPACE+'termType'); }
+		set $termType(val){ this.$termType.val(val); }
+		get $termName(){ return $('#'+NAMESPACE+'termName'); }
+		set $termName(val){ this.$termName.val(val); }
+		get $termVersion(){ return $('#'+NAMESPACE+'termVersion'); }
+		get $termDisplayName(){ return $('#'+NAMESPACE+'termDisplayName'); }
+		get $termDefinition(){ return $('#'+NAMESPACE+'termDefinition'); }
+		get $termTooltip(){ return $('#'+NAMESPACE+'termTooltip'); }
+		get $synonyms(){ return $('#'+NAMESPACE+'synonyms'); }
+		get $mandatory(){ return $('#'+NAMESPACE+'mandatory'); }
 		set $mandatory(val){ this.$mandatory.prop('disabled', val); }
-		get $value(){ return $('#'+NAMESPACE+'value')}
-		set $value(val){ this.$value.prop('disabled', val);}
-		get $abstractKey(){ return $('#'+NAMESPACE+'abstractKey')}
-		set $abstractKey(val){ this.$abstractKey.prop('disabled', val);}
-		get $searchable(){ return $('#'+NAMESPACE+'searchable')}
-		set $searchable(val){ this.$searchable.prop('disabled', val);}
-		get $downloadable(){ return $('#'+NAMESPACE+'downloadable')}
-		set $downloadable(val){ this.$downloadable.prop('disabled', val);}
-		get $disabled(){ return $('#'+NAMESPACE+'disabled')}
-		get $placeHolder(){ return $('#'+NAMESPACE+'placeHolder')}
-		get $minLength(){ return $('#'+NAMESPACE+'minLength')}
-		get $maxLength(){ return $('#'+NAMESPACE+'maxLength')}
-		get $multipleLine(){ return $('#'+NAMESPACE+'multipleLine')}
+		get $value(){ return $('#'+NAMESPACE+'value'); }
+		set $value(val){ this.$value.val(val); }
+		get $abstractKey(){ return $('#'+NAMESPACE+'abstractKey'); }
+		set $abstractKey(val){ this.$abstractKey.val(val); }
+		get $searchable(){ return $('#'+NAMESPACE+'searchable'); }
+		set $searchable(val){ this.$searchable.val(val); }
+		get $downloadable(){ return $('#'+NAMESPACE+'downloadable'); }
+		set $downloadable(val){ this.$downloadable.val(val); }
+		get $disabled(){ return $('#'+NAMESPACE+'disabled'); }
+		get $placeHolder(){ return $('#'+NAMESPACE+'placeHolder'); }
+		get $minLength(){ return $('#'+NAMESPACE+'minLength'); }
+		get $maxLength(){ return $('#'+NAMESPACE+'maxLength'); }
+		get $multipleLine(){ return $('#'+NAMESPACE+'multipleLine'); }
 		get $validationRule(){ return $('#'+NAMESPACE+'validationRule')}
 		get $stringInputSize(){ return $('#'+NAMESPACE+'stringInputSize')}
 		get $lineBreak(){ return $('#'+NAMESPACE+'lineBreak')}
@@ -8428,6 +8466,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get $sweepable(){ return $('#'+NAMESPACE+'sweepable')}
 //		get $displayStyle(){ return $('#'+NAMESPACE+'displayStyle');}
 		get $displayStyle(){ return $('input[name="'+NAMESPACE+'displayStyle"]'); }
+		get $multiple(){ return $('input[name="'+NAMESPACE+'multiple"]'); }
 		get $optionLabel(){ return $('#'+NAMESPACE+'optionLabel')}
 		get $optionValue(){ return $('#'+NAMESPACE+'optionValue')}
 		get $optionSelected(){ return $('#'+NAMESPACE+'optionSelected')}
@@ -8590,6 +8629,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.$displayStyle.off('change').on('change', function(event){
 						dataPacket.value = self.displayStyle;
 						dataPacket.attributeName = TermAttributes.DISPLAY_STYLE;
+						Util.fire( Events.TERM_PROPERTY_CHANGED, dataPacket );
+					});
+
+					this.$multiple.off('change').on('change', function(event){
+						dataPacket.value = self.multiple;
+						dataPacket.attributeName = TermAttributes.MULTIPLE;
 						Util.fire( Events.TERM_PROPERTY_CHANGED, dataPacket );
 					});
 
@@ -8952,7 +8997,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		disableRenderedBtnGroup( disable ){
 			this.$btnAdd = disable;
-			this.$termType = disable;
+			this.$termType.prop('disabled', disable);
 			this.$btnClear = disable;
 			this.$btnCopy = !disable;
 		}
@@ -8963,11 +9008,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		disableGroupPropertyGroup( disable ){
-			this.$mandatory = disable;
-			this.$abstractKey = disable;
-			this.$downloadable = disable;
-			this.$searchable = disable;
-			this.$value = disable;
+			this.$mandatory.prop('disabled', disable);
+			this.$abstractKey.prop('disabled', disable);
+			this.$downloadable.prop('disabled', disable);
+			this.$searchable.prop('disabled', disable);
+			this.$value.prop('disabled', disable);
 		}
 	}
 
@@ -9151,8 +9196,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 			
 			this.dirty = false;
-			this.fieldOperator = DataStructure.DEFAULT_FIELD_OPERATOR;
-			this.infieldOperator = DataStructure.DEFAULT_INFIELD_OPERATOR;
 
 			this.inputStatusDisplay ? 
 					this.$inputStatusBar.show() :
@@ -9502,6 +9545,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 						case TermAttributes.DISPLAY_STYLE:{
 							dataStructure.currentTerm.displayStyle = dataPacket.value;
+							dataStructure.refreshTerm( dataStructure.currentTerm );
+							break;
+						}
+						case TermAttributes.MULTIPLE:{
+							dataStructure.currentTerm.multiple = dataPacket.value;
 							dataStructure.refreshTerm( dataStructure.currentTerm );
 							break;
 						}
@@ -10002,6 +10050,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							break;
 						}
 						case TermTypes.LIST:{
+							console.log('List value changed: ', packet);
 							term.value = packet.value;
 
 							dataStructure.activateSlaveTerms( term );
@@ -10268,7 +10317,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		setGoToCategory(){
 			let category = FormUIUtil.getFormValue('goToCategory');
 			let source = (category === 'termName') ? Object.keys(this.#availableTermNames) :
-												 	 Object.keys(this.#availableDisplayNames);
+													 Object.keys(this.#availableDisplayNames);
 			
 			let self = this;
 			this.$goToSelector.autocomplete({
@@ -10287,11 +10336,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.#availableTermNames = new Object();
 
 			this.#terms.forEach(term=>{
-				if( this.forWhat === Constants.FOR_SEARCH &&
-					!term.isGroupTerm() &&
+				if( term.isGroupTerm() ||
 					!term.searchable ){
 					return;
 				}
+
 				this.#availableDisplayNames[term.getLocalizedDisplayName()] = term;
 				this.#availableTermNames[term.termName] = term;
 			});
@@ -10358,6 +10407,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				case TermTypes.LIST:
 					this.propertyForm.placeHolder = term.placeHolder;
 					this.propertyForm.displayStyle = term.displayStyle;
+					this.propertyForm.multiple = term.multiple;
 					this.propertyForm.listOptions = term.options;
 					break;
 				case TermTypes.BOOLEAN:
@@ -11955,6 +12005,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.highlightTerm( term );
 			}
 
+			if( this.forWhat !== Constants.FOR_SEARCH &&
+				(term.termType === TermTypes.LIST ||
+				 term.termType === TermTypes.GRID) ){
+				term.multiSelectize();
+			}
+
 			return term.$rendered;
 		}
 
@@ -12006,8 +12062,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.terms.forEach( term => {
 				self.$renderTerm( term, false );
 			});
+
 			
 			this.configureRenderedGroup( null );
+			//this.$canvas.find('select[multiple]').multiSelect();
 			
 			this.setCurrentTerm( this.terms[0], false );
 
@@ -12041,6 +12099,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( targetTerm.isColumn() ){
 				this.refreshTerm(targetTerm.gridTerm);
 				//targetTerm.gridTerm.setColumnSelected( targetTerm.termName, true );
+				if( !this.forWhat === Constants.FOR_SEARCH ){
+					targetTerm.gridTerm.multiSelectize();
+				}
 			}
 			else{
 				if( !targetTerm.isRendered() ){
@@ -12052,7 +12113,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( targetTerm.isGroupTerm() ){
 					this.refreshGroup( targetTerm );
 				}
-				
+
 				this.displayInputStatus();
 				this.paintTermHeader( targetTerm );
 			}
@@ -12796,22 +12857,45 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.operator = operator;
 		}
 
-		renderHits( start, end, $canvas ){
-			for( let i=start; i < end && i<this.hits.length; i++ ){
-				this.$renderHit( this.hits[i], i+1, $canvas );
+		renderHits( start, delta, $container, queriedFields ){
+			for( let i=start; i < (delta+start-1) && i<this.hits.length; i++ ){
+				$container.append( this.$renderHit( this.hits[i], i+1, queriedFields ) );
 			};
 		}
 
-		$renderHit( hit, $canvas ){
-			console.log( '$renderHit: ', hit );
-			/*
+		getSearchedContent( record, queriedFields ){
+			let content = new Object();
+			
+			queriedFields.forEach( fieldName => {
+				let names = fieldName.split('.');
+				
+				let fieldData = record.data[names[0]];
+				if(names.length === 2){
+					content[names[1]] = GridTerm.getColumnValues( fieldData, names[1] );
+				}
+				else{
+					content[names[0]] = fieldData;
+				}
+			});
+
+			return JSON.stringify(content);
+		}
+
+		$renderHit( hit, index, queriedFields ){
 			let $row = $('<div class="row" style="padding-top:3px; padding-bottom:3px;width:100%;">');
 			
-			let $col_1 = $('<div class="col-md-1 index-col" style:"text-align:right;">');
-			//$col_1.text( index );
-			$row.append( $col_1 );
+			let $indexCol = $('<div class="col-md-1 index-col" style:"text-align:center;">');
+			$indexCol.text( index );
+			$row.append( $indexCol );
+
+			let $idCol = $('<div class="col-md-1" style:"text-align:center;">');
+			$idCol.text( hit.id );
+			$row.append( $idCol );
 			
-			let $col_2 = $('<div class="col-md-10 abstract-col">');
+			let $contentCol = $('<div class="col-md-9" style="display:flex;">');
+			let $content = $('<span>').appendTo( $contentCol );
+			$content.text( this.getSearchedContent(hit, queriedFields) );
+			/*
 			let $href = $('<a>');
 			
 			
@@ -12820,20 +12904,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			
 			$href.prop('target', '_blank' );
 			$href.prop('href', renderUrl.toString() );
-			$col_2.append( $href );
+			$contentCol.append( $href );
 			
 			
 			$href.text( this.abstract );
-			$row.append( $col_2 );
-			
-			let $col_3 = $('<div class="col-md-1 action-col">');
-			$col_3.append( FormUIUtil.$getActionButton() );
-			$row.append( $col_3 );
-			
-			$row = visibility ? $row.show() : $row.hide();
-
-			this.#$rendered = $row;
 			*/
+
+			$row.append( $contentCol );
+			
+			let $actionCol = $('<div class="col-md-1 action-col">');
+			$actionCol.append( FormUIUtil.$getActionButton() );
+			$row.append( $actionCol );
+			
+			return $row;
+		}
+
+		isLeaf(){
+			return  this instanceof FieldKeyword ||
+					this instanceof ColumnKeyword;
 		}
 
 		toZTreeJSON(){
@@ -12916,7 +13004,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let val = '';
 
 			if( this.operator === Constants.SearchOperators.RANGE ){
-				if( this.fieldType === TermTypes.DATE ){
+				if( this.fieldType === TermTypes.DATE ||
+					this.columnType === TermTypes.DATE ){
 					val += this.keyword.from ? (Util.toDateString(this.keyword.from) + '~') : '~';
 					val += this.keyword.to ? Util.toDateString(this.keyword.to) : '';
 				}
@@ -12957,40 +13046,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		hasKeyword(){
 			return Util.isNotEmpty( this.#keyword );
-		}
-
-		renderHits( start, end, $canvas ){
-			for( let i=start; i < end && i<this.hits.length; i++ ){
-				this.$renderHit( this.hits[i], i+1, $canvas );
-			};
-		}
-
-		$renderHit( hit, order, $canvas ){
-			console.log( '$renderHit: ', hit );
-
-			let $row = $('<div style="display:flex;padding-top:3px; padding-bottom:3px;width:100%;">').appendTo($canvas);
-			
-			let $orderCol = $('<div style:"text-align:right;">').text( order );
-			$row.append( $orderCol );
-			
-			let $dataCol = $('<div>').appendTo( $row );
-
-			let data = this.field + ':' + hit.data[this.fieldName];
-			$dataCol.text( data );
-			/*
-			let $href = $('<a>');
-			
-			
-			let renderUrl = Liferay.PortletURL.createURL(this.baseLinkURL);
-			renderUrl.setParameter("structuredDataId", this.id);
-			
-			$href.prop('target', '_blank' );
-			$href.prop('href', renderUrl.toString() );
-			$col_2.append( $href );
-			
-			
-			$href.text( this.abstract );
-			*/
 		}
 
 		toZTreeJSON(){
@@ -13037,22 +13092,51 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 	}
 
 	class SearchHistory{
+		#subject;
 		#rootQuery;
 		#queries;
 		#hits;
 		#dataList;
 		#zTreeObj;
+		#createDate;
+		#modifiedDate;
 
+		get subject(){ 
+			if( !this.#subject )	return new Date(this.#modifiedDate).toLocaleString();
+			else	return this.#subject;
+		}
+		set subject(val){ this.#subject = val; }
 		get queries(){ return this.#queries; }
 		set queries(val){ this.#queries = val; }
-		get rootQuery(){ return this.#rootQuery; }
-		set rootQuery(val){ this.#rootQuery = val; }
+		get rootQuery(){ 
+			let rootQuery;
+			this.#queries.every( query => {
+				if( !query.parentId ){
+					rootQuery = query;
+					return Constants.STOP_EVERY;
+				}
+				return Constants.CONTINUE_EVERY;
+			});
+
+			return rootQuery; 
+		}
+		
 		get hits(){ return this.#hits; }
 		set dataList(val){ this.#dataList = val; }
 		get dataList(){ return this.#dataList; }
 		set hits(val){ this.#hits = val; }
 		get zTreeObj(){ return this.#zTreeObj; }
 		set zTreeObj(val){ this.#zTreeObj = val; }
+		get createDate(){ return this.#createDate; }
+		set createDate(val){ this.#createDate = val; }
+		get localeCreateDate(){
+			return new Date(this.#createDate).toLocaleString();
+		}
+		get modifiedDate(){ return this.#modifiedDate; }
+		set modifiedDate(val){ this.#modifiedDate = val; }
+		get localeModifiedDate(){
+			return new Date(this.#modifiedDate).toLocaleString();
+		}
 		
 		get hitCount(){ return this.#hits.length; }
 
@@ -13062,35 +13146,67 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		/**
+		 * Appends queries as children of parentQueryId to
+		 * SearchHistory queries.
+		 * 
+		 * @param {String} parentQueryId 
+		 * @param {Array[Query]} queries 
+		 * @returns 
+		 */
+		appendQueries( parentQueryId, queries ){
+			queries.forEach( query => {
+				if( !query.parentId ){
+					query.parentId = parentQueryId;
+				}
+
+				this.#queries.push( query );
+			});
+		}
+
+		constructTreeRoot( queries, operator ){
+			let newRoot = new Query( operator, null );
+			this.#queries.push( newRoot );
+
+			this.rootQuery.parentId = newRoot.id;
+			this.appendQueries( newRoot.id, queries );
+		}
+
+		/**
 		 * adds a query part to the query stack.
 		 * 
 		 * @param {Query} partRoot 
 		 * @param {Array} newQueries 
 		 */
 		addQuery( partRoot, newQueries ){
-			if( Util.isEmpty(this.#rootQuery) ){
-				this.rootQuery = partRoot;
-				this.#queries.push( partRoot );
+			console.log('addQuery: ', partRoot, newQueries);
+			let rootQuery = this.rootQuery;
+
+			if( Util.isEmpty(rootQuery) ){
+				newQueries.forEach( query => this.#queries.push(query) );
 			}
-			else if( this.rootQuery.fieldName ){
-				let newRoot = new Query( Constants.SearchOperators.AND, null );
-				this.#queries.push( newRoot );
-				this.rootQuery = newRoot;
-				this.rootQuery.parentId = newRoot.id;
-				partRoot.parentId = newRoot.id;
-				this.#queries.push(partRoot);
-			}
-			else{
-				if( this.rootQuery.operator !== partRoot.operator ){
-					let newRoot = new Query( Constants.SearchOperators.AND, null );
-					this.rootQuery.parentId = newRoot.id;
-					this.rootQuery = newRoot;
-					this.#queries.push( newRoot );
+			else if( rootQuery instanceof FieldKeyword ){
+				if( partRoot instanceof FieldKeyword &&
+					rootQuery.fieldName === partRoot.fieldName &&
+					rootQuery.operator === partRoot.operator ){
+					this.constructTreeRoot( newQueries, Constants.SearchOperators.OR );
+				}
+				else{
+					this.constructTreeRoot( newQueries,  Constants.SearchOperators.AND );
 				}
 			}
-
-			let queries = newQueries.filter( query => query !== partRoot );
-			queries.forEach( query => this.#queries.push(query) );
+			else if( rootQuery instanceof GridQuery ){
+				if( partRoot instanceof GridQuery &&
+					rootQuery.fieldName === partRoot.fieldName &&
+					rootQuery.operator === partRoot.operator ){
+					this.appendQueries( rootQuery.id, newQueries );
+				}
+				else{
+					this.constructTreeRoot( newQueries,  Constants.SearchOperators.AND );
+				}
+			}
+			else{
+				this.constructTreeRoot( newQueries, Constants.SearchOperators.AND );
+			}
 		}
 
 		/**
@@ -13152,28 +13268,114 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		/**
-		 * Removes a FieldKeyword by field name and returns true if
-		 * there is instances of FieldKeyword
+		 * Removes the query defined as queryId. if removeTree is true,
+		 * all children queries would be removed.
 		 * 
-		 * @param {String} fieldName 
+		 * @param {String} queryId 
+		 * @param {boolean} removeTree 
 		 * @returns 
-		 * 	boolean
+		 * 	Query object removed
 		 */
-		removeQuery( fieldName ){
+		removeQuery( queryId, removeTree=false ){
 			if( !this.queries )	return;
 
+			let removedQuery, children;
 			this.queries = this.queries.filter( query => {
-				return query.fieldName !== fieldName;
+				if( query.id === queryId ){
+					removedQuery = query;
+					return Constants.FILTER_SKIP;
+				}
+
+				return Constants.FILTER_ADD;
 			});
+
+			if( !!removedQuery ){
+				children = this.getQueryChildren( removedQuery.id );
+				children.forEach( child => {
+					if( removeTree ){
+						this.removeQuery( child.id, true );
+					}
+					else{
+						child.parentId = removedQuery.parentId;
+					}
+				});
+			}
+
+			console.log( 'removedQuery: ', removedQuery, JSON.stringify(children));
+			let parent = !!removedQuery ? this.getQuery( removedQuery.parentId ) : null;
+			console.log('parent: ', parent);
+			if( !!parent ){
+				children = this.getQueryChildren( parent.id );
+				if( children.length <= 1 ){
+					removedQuery = this.removeQuery( parent.id );
+				}
+			}
+
+			return removedQuery;
+		}
+
+		/**
+		 * Gets a query tree from this.#queries as if query as the root.
+		 * 
+		 * @param {Query} query 
+		 * @returns
+		 * 	Array[Query]
+		 */
+		getQueryTree( query ){
+			let queryTree = new Array();
+
+			queryTree.push( query );
+			let children = this.getQueryChildren( query.id );
+			children.forEach( child => {
+				queryTree = queryTree.concat( this.getQueryTree( child ) );
+			});
+
+			return queryTree;
+		}
+
+		/**
+		 * Evaluates search queries of the SearchHistory.
+		 * All asendant query results of the query maybe changed.
+		 * 
+		 * @param {Query} query 
+		 */
+		evaluateQuery( query ){
+			if( !query ){
+				this.retrieve( this.rootQuery, this.#dataList );
+			}
+			else if( !!query.parentId ){
+				let parent = this.getQuery( query.parentId );
+				let children = this.getQueryChildren( parent.id );
+				if( parent.operator === Constants.SearchOperators.OR ){
+					this.#doORSearch( parent, children );
+				}
+				else{
+					this.#doANDSearch( parent, children );
+				}
+
+				if( !!parent.parentId ){
+					this.evaluateQuery( parent );
+				}
+			}
 		}
 
 		retrieve( query, dataList ){
+			if( !query )	return dataList;
+
 			let children = this.getQueryChildren( query.id );
-			console.log('retrieve: ', query, children );
+			console.log('retrieve '+query.operator +': ', query, children );
 			children.forEach( child => {
-				this.retrieve( child, dataList );
+				if( child instanceof FieldKeyword ||
+					child instanceof ColumnKeyword ){
+					if( child.hitCount === undefined ){
+						this.retrieve( child, dataList );
+					}
+				}
+				else{
+					this.retrieve( child, dataList );
+				}
 			});
-			console.log('End of childrens retrieve...');
+			console.log('End of ' + query.operator + ' childrens retrieve...');
 
 			switch( query.operator ){
 				case Constants.SearchOperators.OR:{
@@ -13241,7 +13443,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		/**
 		 * Range search is allowed for only numeric and date
 		 * 
-		 * @param {Array[SearchData]} dataList 
+		 * @param {Array} dataList 
 		 * @returns 
 		 */
 		#doRangeSearch( query, dataList ){
@@ -13249,19 +13451,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			query.hits = dataList.filter( data => {
-				let fieldIndex = data[query.fieldName];
-				if( !fieldIndex ) return Constants.FILTER_SKIP;
+			console.log('doRangeSearch: ', query, dataList);
+			query.hits = dataList.filter( record => {
+				console.log('record: ', record);
+				let fieldContent = record.data[query.fieldName];
+				console.log( 'fieldContent: ', fieldContent);
+				if( !fieldContent ) return Constants.FILTER_SKIP;
 
-
-				let searchIndex = this.isGridQuery(query) ?
-										GridTerm.getColumnData( fieldIndex, query.columnName ):
-										fieldIndex;
-
-				if( this.isGridQuery( query ) ){
+				if( query instanceof ColumnKeyword ){
 					let conform = false;
-					searchIndex.every( index => {
-						let value = (typeof index === 'object') ? index.value : index;
+					let columnContent = GridTerm.getColumnValues(fieldContent, query.columnName);
+					columnContent.every( content => {
+						let value = (typeof content === 'object') ? content.value : content;
 						conform = Util.conformInRange( query.keyword.from, query.keyword.to, value );
 						return !conform;
 					});
@@ -13269,7 +13470,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					return conform;
 				}
 				else{
-					let value = (typeof searchIndex === 'object') ? searchIndex.value : searchIndex
+					let value = (typeof fieldContent === 'object') ? fieldContent.value : fieldContent
+					console.log( 'rangeSearch: ', query.keyword.from, query.keyword.to, value);
 					return Util.conformInRange( query.keyword.from, query.keyword.to, value );
 				}
 			});
@@ -13280,41 +13482,72 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			query.hits = dataList.filter( data => {
-				let fieldIndex = data[query.fieldName];
-				if( !fieldIndex ) return Constants.FILTER_SKIP;
+			let searchType = query instanceof ColumnKeyword ? query.columnType : query.fieldType;
 
-				let searchIndex = this.isGridQuery(query) ?
-										GridTerm.getColumnData( fieldIndex, query.columnName ):
-										fieldIndex;
+			query.hits = dataList.filter( record => {
+				let fieldContent = record.data[query.fieldName];
+				console.log(' fieldContent: ', record, query, fieldContent);
+				if( !fieldContent ) return Constants.FILTER_SKIP;
+
+				let searchContent = query instanceof ColumnKeyword ?
+										GridTerm.getColumnValues(fieldContent, query.columnName) :
+										fieldContent;
+				console.log(' doExactSearch: ', record, query, searchContent, searchType);
+				if( Util.isEmpty(searchContent) ) return Constants.FILTER_SKIP;
+
+
 				switch( searchType ){
 					case TermTypes.LIST:{
-						if( this.isGridQuery(query) ){
+						if( query instanceof ColumnKeyword ){
 							let equal = false;
 							// searchIndex format: [[a],[a.b],[a,b,c]]
-							searchIndex.every( index => {
-								equal = index.includes(query.keyword);
+							searchContent.every( content => {
+								console.log('content: ', content);
+								let lower = content.map( elem => elem.toLowerCase() );
+								equal = lower.includes( query.keyword.toLowerCase() );
 								return !equal;
 							});
 
 							return equal;
 						}
 						else{
-							return searchIndex.includes( query.keyword );
+							let content = searchContent.map( content => content.toLowerCase() );
+							return content.includes( query.keyword.toLowerCase() );
 						};
+
+						break;
+					}
+					case TermTypes.NUMERIC:{
+						if( query instanceof ColumnKeyword ){
+							let equal = false;
+							// searchIndex format: [1,2,3] or [{}, {}, {}]
+							searchContent.every( content => {
+								let value = typeof content === 'object' ? content.value : content;
+								equal = value == query.keyword;
+								return !equal;
+							});
+
+							return equal;
+						}
+						else{
+							let value = typeof searchContent === 'object' ? searchContent.value : searchContent;
+							return value == query.keyword;
+						};
+
+						break;
 					}
 					default:{
-						if( this.isGridQuery(query) ){
+						if( query instanceof ColumnKeyword ){
 							let equal = false;
-							searchIndex.every( index => {
-								equal = index === query.keyword;
+							searchContent.every( content => {
+								equal = content === query.keyword;
 								return !equal;
 							});
 
 							return equal;
 						}
 						else{
-							return searchIndex.includes( query.keyword );
+							return searchContent === query.keyword;
 						};
 					}
 				}
@@ -13326,7 +13559,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * LIKE search is allowed for String-based types and File type.
 		 * 
 		 * @param {Query} query 
-		 * @param {Array[SearchData]} dataList 
+		 * @param {Array} dataList 
 		 * @returns 
 		 */
 		#doLikeSearch( query, dataList ){
@@ -13334,55 +13567,51 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			
-			query.hits = dataList.filter( data => {
-				console.log( 'doLikeSearch: ', query, data );
-				let fieldContent = data.data[query.fieldName];
+			query.hits = dataList.filter( record => {
+				let fieldContent = record.data[query.fieldName];
 				if( Util.isEmpty(fieldContent) ) return Constants.FILTER_SKIP;
 
-				let searchContent = this.isGridQuery(query) ?
-										GridTerm.getColumnData( fieldContent, query.columnName ):
+				let searchContent = query instanceof ColumnKeyword ?
+										GridTerm.getColumnValues(fieldContent, query.columnName) :
 										fieldContent;
-				//if( search)
+				if( Util.isEmpty(searchContent) )	return Constants.FILTER_SKIP;
 
 
 				switch( query.fieldType ){
 					case TermTypes.FILE:{
 						let fileNames = Object.keys( searchContent );
 
-						console.log( 'fileNames: ', fileNames);
 						let included = false;
 						fileNames.every( fileName => {
-							included = fileName.includes( query.keyword );
+							included = fileName.toLowerCase().includes( query.keyword.toLowerCase() );
 							return !included;
 						});
 
 						return included;
 					}
 					default:{
-						if( this.isGridQuery(query) ){
+						if( query instanceof ColumnKeyword ){
 							let included = false;
 							searchContent.every( content => {
-								included = content.includes( query.keyword );
+								included = content.toLowerCase().includes( query.keyword.toLowerCase() );
 								return !included;
 							});
 
 							return included;
 						}
 						else{
-							return searchContent.includes( query.keyword );
+							return searchContent.toLowerCase().includes( query.keyword.toLowerCase() );
 						};
 					}
 				}
 			});
-
-			console.log('history.query: ', this.#queries );
 		}
 
 		/**
 		 * NOT operator performs only exact match
 		 * 
-		 * @param {Array[SearchData]} dataList 
+		 * @param {Query} query 
+		 * @param {Array} dataList 
 		 * @returns
 		 * 	array of hits
 		 */
@@ -13391,27 +13620,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			query.hits = dataList.filter( data => {
-				let fieldIndex = data[query.fieldName];
-				if( !fieldIndex ) return Constants.FILTER_SKIP;
+			query.hits = dataList.filter( record => {
+				let fieldContent = record.data[query.fieldName];
+				if( !fieldContent ) return Constants.FILTER_SKIP;
 
-				let searchIndex = this.isGridQuery(query) ?
-										GridTerm.getColumnData( fieldIndex, query.columnName ):
-										fieldIndex;
+				let searchIndex = query instanceof ColumnKeyword ?
+										fieldContent[query.columnName]:
+										fieldContent;
+				if( !searchIndex ) return Constants.FILTER_SKIP;
+
 				switch( searchType ){
 					case TermTypes.LIST:{
-						if( this.isGridQuery(query) ){
+						if( query instanceof ColumnKeyword ){
 							let equal = false;
 							// searchIndex format: [[a],[a.b],[a,b,c]]
 							searchIndex.every( index => {
-								equal = index.includes(query.keyword);
+								equal = index.toLowerCase().includes(query.keyword.toLowerCase());
 								return !equal;
 							});
 
 							return !equal;
 						}
 						else{
-							return !searchIndex.includes( query.keyword );
+							return !searchIndex.toLowerCase().includes( query.keyword.toLowerCase() );
 						};
 					}
 					case TermTypes.FILE:{
@@ -13419,14 +13650,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 						let included = false;
 						fileNames.every( fileName => {
-							included = fileName.includes( query.keyword );
+							included = fileName.toLowerCase().includes( query.keyword.toLowerCase() );
 							return !included;
 						});
 
 						return !included;
 					}
 					default:{
-						if( this.isGridQuery(query) ){
+						if( query instanceof ColumnKeyword ){
 							let equal = false;
 							searchIndex.every( index => {
 								equal = index === query.keyword;
@@ -13444,22 +13675,83 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			});
 		}
 
-		getQueryById( queryId ){
-			return this.query.getQueryById( queryId );
+		getQuery( queryId ){
+			if( !this.#queries )	return null;
+			if( !queryId )	return null;
+
+			let searchedQuery = null;
+			this.#queries.every( query => {
+				if( query.id === queryId ){
+					searchedQuery = query;
+					return Constants.STOP_EVERY;
+				}
+
+				return Constants.CONTINUE_EVERY;
+			});
+
+			return searchedQuery;
+		}
+
+		getQueries( fieldName ){
+			if( !this.#queries )	return new Array();
+			
+			return this.#queries.filter( query => (fieldName === query.fieldName || 
+												   fieldName === query.columnName) );
+		}
+
+		getQueriedFields( query ){
+			let queriedFields = new Array();
+
+			if( query instanceof ColumnKeyword ){
+				queriedFields.push( query.fieldName+'.'+query.columnName );
+			}
+			else if( query instanceof FieldKeyword ){
+				queriedFields.push( query.fieldName );
+			}
+			else{
+				let childFields = this.getQueryChildren( query.id );
+				childFields.forEach( child => {
+					let subFieldNames = this.getQueriedFields( child );
+					subFieldNames.forEach( fieldName => {
+						if( !queriedFields.includes(fieldName) ){
+							queriedFields.push( fieldName );
+						}
+					});
+				});
+			}
+			
+			return queriedFields;
 		}
 
 		showSearchResults( queryId, $canvas ){
-			let query = this.getQueryById( queryId );
+			let query = this.getQuery( queryId );
+			let results = query.hits;
 
-			console.log('searched query: ', query);
-			if( !query )	return;
+			let queriedFields = this.getQueriedFields( query );
 			$canvas.empty();
 
-			query.renderHits( 0, 20, $canvas );
+			let delta = 10;
+			let $pagination = $('<div>').appendTo( $canvas );
+			let $container = $('<div class="container">').appendTo($canvas);
+
+			$pagination.pagination({
+				items: results.length,
+				itemsOnPage: delta,
+				displayedPages: 3,
+				onPageClick: function( pageNumber, event){
+					query.renderHits( (pageNumber-1)*delta, delta, $container, queriedFields );
+				},
+				onInit: function(){
+					query.renderHits( 0, delta, $container, queriedFields );
+				}
+			});
 		}
 
 		updateQueryOperator( queryId, operator ){
-			this.query.updateQueryOperator( queryId, operator );
+			let query = this.getQuery( queryId );
+			query.operator = operator;
+			
+			return query;
 		}
 
 		synchronizeZTreeNode( node ){
@@ -13666,7 +13958,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let advancedSearch = this;
 			this.$fieldOperator.off('change').on('change', function(event){
-				advancedSearch.writingQueryRoot.operator = advancedSearch.fieldOperator;
+				if( !!advancedSearch.writingQueryRoot ){
+					advancedSearch.writingQueryRoot.operator = advancedSearch.fieldOperator;
+				}
 			});
 
 			Liferay.on(Events.SEARCH_KEYWORD_CHANGED, function(event){
@@ -13689,9 +13983,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						
 				let gridTerm, query, fieldName, fieldType, 
 					columnName, columnType, operator, keywords;
-				let searchType, isColumn;
+				let searchType;
 
-				if( isColumn = term.isColumn() ){
+				if( term.isColumn() ){
 					gridTerm = term.gridTerm;
 					fieldName = gridTerm.termName;
 					fieldType = TermTypes.GRID;
@@ -13754,71 +14048,54 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				let fieldOperator = advancedSearch.fieldOperator;
 				let infieldOperator = advancedSearch.infieldOperator;
 
-				let parentQuery = advancedSearch.writingQueryRoot;
-				if( Util.isNotEmpty(parentQuery) ){
-					console.log('parentQuery: ', parentQuery);
-					if( parentQuery instanceof FieldKeyword ||
-						parentQuery instanceof ColumnKeyword ||
-						parentQuery instanceof GridQuery ){
-						let newParent = new Query(fieldOperator, null);
-						parentQuery.parentId = newParent.id;
-						parentQuery = newParent;
-						advancedSearch.addWritingQuery( newParent );
+				let parentQueryId;
+				let writingQueryRoot = advancedSearch.writingQueryRoot;
+
+				if( !!writingQueryRoot ){
+					if( fieldOperator !== writingQueryRoot.operator ){
+						let parentQuery = new Query( fieldOperator, null );
+						advancedSearch.addWritingQuery( parentQuery );
+						writingQueryRoot.parentId = parentQuery.id;
+						parentQueryId = parentQuery.id;
 					}
 					else{
-						if( parentQuery.operator !== fieldOperator ){
-							let newParent = new Query( fieldOperator, null );
-							parentQuery.parentId = newParent.id;
-							parentQuery = newParent;
-							advancedSearch.addWritingQuery( newParent );
-						}
+						parentQueryId = writingQueryRoot.id;
 					}
-				}
-
-				let parentQueryId = !!parentQuery ? parentQuery.id : undefined; 
-
-				if( term.isColumn() ){
-					let gridQuery = advancedSearch.getWritingGridQuery( fieldName );
-					if( !gridQuery ){
-						parentQuery = gridQuery = new GridQuery( gridTerm.termName, parentQueryId );
-						advancedSearch.addWritingQuery( gridQuery );
-					}
-					else{
-						parentQuery = gridQuery;
-					}
-					parentQueryId = parentQuery.id;
 				}
 
 				if( keywords.length > 1 ){
 					let query = new Query( infieldOperator, parentQueryId );
 					advancedSearch.addWritingQuery( query );
-
+					
 					keywords.forEach( keyword => {
 						let keywordQuery = term.isColumn() ? 
-								new ColumnKeyword( fieldName, columnName, columnType, keyword, operator, query.id ) :
-								new FieldKeyword( fieldName, fieldType, keyword, operator, query.id );
+						new ColumnKeyword( fieldName, columnName, columnType, keyword, operator, query.id ) :
+						new FieldKeyword( fieldName, fieldType, keyword, operator, query.id );
+
 						advancedSearch.addWritingQuery(keywordQuery );
 					});
 				}
 				else{
+					let keyword = (operator === Constants.SearchOperators.RANGE) ? keywords : keywords[0];
 					query = term.isColumn() ? 
 								new ColumnKeyword(
 											fieldName, 
 											columnName, 
 											columnType, 
-											keywords[0], 
+											keyword, 
 											operator,
 											parentQueryId ) : 
 								new FieldKeyword(
 											fieldName,
 											fieldType,
-											keywords[0],
+											keyword,
 											operator,
 											parentQueryId );
+
 					advancedSearch.addWritingQuery( query );
 				}
 
-				console.log('Writing Query: ', JSON.stringify(advancedSearch.writingQuery,null,4));
+				console.log('Writing Query: ', advancedSearch.writingQuery, JSON.stringify(advancedSearch.writingQuery,null,4));
 			});
 
 			Liferay.on(Events.SEARCH_STATE_CHANGED, function(event){
@@ -13962,8 +14239,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return wQuery;
 		}
 
-		getParantWritingFieldQuery( fieldName ){
+		getParantWritingQuery( fieldName ){
 			let parentQuery;
+
 			this.#writingQuery.every( query => {
 				if( query.fieldName === fieldName ){
 					parentQuery = this.getWritingQuery( query.parentId );
@@ -13976,26 +14254,23 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return parentQuery;
 		}
 
-		getWritingColumnQueries( gridFieldName ){
-			return this.#writingQuery.filter( query => query.fieldName === gridFieldName );
+		getWritingColumnQueries( gridId ){
+			return this.#writingQuery.filter( query => query.parentId === gridId );
 		}
 
-		hasWritingQueryChildren( id ){
-			let parentQuery = this.getWritingQuery( id );
-			let hasChildren = false;
-			this.#writingQuery.every( query => {
-				if( query.parentId === parentQuery.id ){
-					hasChildren = true;
-					return Constants.STOP_EVERY;
+		hasWritingQueryChildren( parentId ){
+			let hasChildren = 0;
+			this.#writingQuery.forEach( query => {
+				if( query.parentId === parentId ){
+					hasChildren++;
 				}
-
-				return Constants.CONTINUE_EVERY;
 			});
 
-			return hasChildren;
+			return hasChildren > 1;
 		}
 
 		removeWritingFieldQuery( fieldName ){
+			console.log('removeWritingFieldQuery: ', fieldName);
 			let removedQuery = null;
 			this.#writingQuery = this.#writingQuery.filter( query => {
 				if( query.fieldName === fieldName ){
@@ -14005,17 +14280,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return Constants.FILTER_ADD;
 			});
 
-			console.log('XXXX: ' + JSON.stringify(this.#writingQuery,null,4));
-			console.log('XXXX-1: ' + JSON.stringify(removedQuery,null,4));
-
 			if( !!removedQuery ){
-				let parentQuery = this.getWritingQuery( removedQuery.parentId );
-				if( !!parentQuery && !this.hasWritingQueryChildren(parentQuery.id) ){
-					this.removeWritingFieldQuery( parentQuery.fieldName );
+				let parentId = removedQuery.parentId;
+				if( !!parentId && !this.hasWritingQueryChildren(parentId) ){
+					this.removeWritingQuery( parentId );
 				}
 			}
-
-			console.log('YYYY: ' + JSON.stringify(this.#writingQuery,null,4));
 		}
 
 		removeWritingColumnQuery( columnName ){
@@ -14030,13 +14300,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
+			console.log('removedQuery: ', removedQuery );
 			if( !!removedQuery ){
-				let gridQuery = this.getWritingQuery( removedQuery.parentId );
-				let columns =  this.getWritingColumnQueries( gridQuery.fieldName );
-				if( columns.length < 1 ){
-					this.removeWritingFieldQuery( gridQuery.fieldName );
+				let parentId = removedQuery.parentId;
+				if( !!parentId && !this.hasWritingQueryChildren(parentId) ){
+					this.removeWritingQuery( parentId );
 				}
 			}
+
+			console.log('removeWritingColumnQuery:', JSON.stringify(this.#writingQuery,null,4));
 		}
 
 		removeWritingQuery( queryId ){
@@ -14044,7 +14316,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		addWritingQueryToHistory(){
-			if( Util.isEmpty(this.#writingQuery) )	return;
+			if( Util.isEmpty(this.#writingQuery) ){
+				console.log('addWritingQueryToHistory: No writing queries.');
+				return;
+			}
 
 			let currentHistory = this.currentHistory;
 			if( Util.isEmpty(currentHistory) ){
@@ -14058,6 +14333,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		openQueryEditor( $canvas ){
+			$canvas.empty();
+
 			let advancedSearch = this;
 			let searchHistory = this.currentHistory;
 
@@ -14086,18 +14363,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						console.log( 'onclick: ', event, treeId, node, clickFlag );
 						searchHistory.showSearchResults( node.id, advancedSearch.$resultSection );
 					},
-					onDrop: function(  event, treeId, node, clickFlag ){
-						console.log( 'onDrop: ', event, searchHistory.zTreeObj.getNodes() );
+					onDrop: function(  event, treeId, nodes, clickFlag ){
+						console.log( 'onDrop: ', event, nodes, clickFlag );
+						nodes.forEach( node => {
+							let query = searchHistory.getQuery( node.id );
+							query.parentId = node.pid;
+							searchHistory.evaluateQuery( query );
+						});
+
+						advancedSearch.refreshQueryEditor();
 					},
 					onRemove: function(  event, treeId, node, clickFlag ){
 						console.log( 'onRemove: ', event, treeId, node, clickFlag );
+						let query = searchHistory.removeQuery( node.id );
+						//searchHistory.evaluateQuery( query );
+
+						advancedSearch.refreshQueryEditor();
 					},
 					onRightClick: function( event, treeId, node, clickFlag ){
 						console.log( 'onRightClick: ', event, treeId, node, clickFlag );
 
 						let popItems = {
 							delete: {
-								name: 'Delete',
+								name: Liferay.Language.get('delete'),
 								icon: '<span class="ui-icon ui-icon-trash"></span>',
 								divid: true
 							}
@@ -14155,33 +14443,24 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							switch( $(item).prop('id') ){
 								case 'delete':{
 									let selectedNodes = searchHistory.zTreeObj.getSelectedNodes();
+									console.log( 'selectedNodes: ', selectedNodes );
 									if (selectedNodes && selectedNodes.length>0) {
-
 										selectedNodes.forEach( selectedNode => {
-											searchHistory.removeQuery( node.id );
-											searchHistory.removeZTreeNode(node);
+											searchHistory.removeQuery( selectedNode.id, true );
 										});
+									}
 
-										searchHistory.retrieve( advancedSearch.dataList );
-										//searchHistory.synchronizeZTreeNodes();
-										
-										searchHistory.refreshZTree();
-									}
-									else{
-										$.alert(Liferay.Language.get('select-nodes-to-be-deleted') );
-									}
+									let query = searchHistory.getQuery( node.id );
+									searchHistory.evaluateQuery( query );
+									advancedSearch.refreshQueryEditor();
 									break;
 								}
 								default:{
-									node.operator = $(item).prop('id');
-									searchHistory.updateQueryOperator( node.id, node.operator );
-									searchHistory.retrieve( advancedSearch.dataList );
+									let operator = $(item).prop('id');
+									searchHistory.updateQueryOperator( node.id, operator );
+									searchHistory.retrieve( searchHistory.rootQuery, advancedSearch.dataList );
 
-									searchHistory.synchronizeZTreeNode( node );
-									//node.title = node.getTitle();
-									searchHistory.refreshZTree();
-									
-									console.log('Change Operator: ', searchHistory.zTreeObj.getNodes(), node, $(item).prop('id'));
+									advancedSearch.refreshQueryEditor();
 								}
 							}
 						};
@@ -14209,12 +14488,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			console.log('Tree Nodes: ', searchHistory.zTreeObj.getNodes() );
 		}
 
-		countSearchHistories(){
-			return this.searchHistories.length;
+		refreshQueryEditor(){
+			this.openQueryEditor( this.#$querySection );
 		}
 
-		fetchFieldKeyword( fieldName ){
-			return this.searchHistories.find( history => history.fieldName === fieldName);
+		countSearchHistories(){
+			return this.searchHistories.length;
 		}
 
 		switchSearchHistories( index_1, index_2){
@@ -14225,6 +14504,14 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			histories[index_2] = sh_1;
 
 			this.searchHistories = histories;
+		}
+
+		retrieve(){
+			let history = this.currentHistory;
+
+			if( Util.isEmpty(history.rootQuery) )	return;
+
+			history.retrieve( history.rootQuery, this.dataList );			
 		}
 
 		#removeSearchHistory( fieldName ){
@@ -14259,70 +14546,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			}
 
 			return this.doFieldSearch( fieldOperator );
-		}
-
-		#doOrSearchWithinField( fieldName, keywords, partialMatch ){
-			let results = this.dataList.filter( searchData => {
-				if( keywords ){
-					for( let keyword of keywords ){
-						if( searchData.data[fieldName] instanceof Array ){
-							let found = partialMatch ? 
-											searchData.data[fieldName].find( element => element.match(keyword) ) : 
-											searchData.data[fieldName].find( element => element === keyword );
-							
-							if( found ){
-								return true;
-							}
-						}
-						else{
-							return searchData.data[fieldName] === keyword;
-						}
-					};
-				}
-				else{
-					return false;
-				}
-				
-				return false;
-			});
-
-			return results;
-		}
-
-		#doAndFieldSearch(){
-			let finalResults;
-
-			this.searchHistories.forEach( (history, index) => {
-				let historyResults;
-
-				if( index === 0 ){
-					finalResults = history.infieldResults;
-					history.setAccumulatedResults( finalResults );
-				}
-				else{
-					finalResults = 
-							 history.infieldResults
-									.filter( infieldResult => finalResults.find( result => result === infieldResult ) );
-					history.setAccumulatedResults( finalResults );
-				}
-
-			});
-
-			return finalResults;
-		}
-
-		#doOrFieldSearch(){
-
-		}
-
-		doFieldSearch( fieldOperator ){
-			if( fieldOperator === 'and' ){
-				return this.#doAndFieldSearch();
-			}
-			else{
-				return this.#doOrFieldSearch();
-			}
-
 		}
 
 		#hideAllSearchResults(){
@@ -14587,9 +14810,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		toJSON(){
 			let json = new Object();
 
-			Object.keys(this).forEach(key=>{
+			for(let key in this){
 				json[key] = this[key];
-			});
+			};
 
 			return json;
 		}

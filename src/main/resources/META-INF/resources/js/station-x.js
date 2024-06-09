@@ -1565,11 +1565,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		FOR_NOTHING: 0,
 		FOR_PREVIEW: 1,
 		FOR_EDITOR: 2,
-		FOR_PRINT:3,
-		FOR_SEARCH:4,
-		FOR_GRID_EDIT:5,
-		FOR_GRID_SEARCH:6,
-		FOR_GRID_PRINT:7,
+		FOR_PDF_DATA:3,
+		FOR_PDF_FORM:4,
+		FOR_SEARCH:5,
 
 		STOP_EVERY: false,
 		CONTINUE_EVERY: true,
@@ -2438,8 +2436,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getLabelNode( forWhat ){
 			if( forWhat === Constants.FOR_PREVIEW || 
-				forWhat === Constants.FOR_EDITOR ||
-				forWhat === Constants.FOR_PRINT ){
+				forWhat === Constants.FOR_EDITOR ){
 				return FormUIUtil.$getLabelNode( 
 					this.getLocalizedDisplayName(), 
 					this.mandatory, 
@@ -2450,6 +2447,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.getLocalizedDisplayName(), 
 					false, 
 					this.getLocalizedTooltip() );
+			}
+			else if( forWhat === Constants.FOR_PDF_DATA ){
+
 			}
 		}
 
@@ -2775,7 +2775,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				//PDF printing here
 				return;
 			}
@@ -3205,7 +3205,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				// render for PDF printing here
 				return;
 			}
@@ -3683,7 +3683,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				// rendering for PDF here
 				return;
 			}
@@ -3985,7 +3985,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				return;
 			}
 
@@ -4284,7 +4284,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				return;
 			}
 
@@ -4611,7 +4611,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				//this.$rendered = FormUIUtil.$getSearchRowSection( $matrixSection );
 				return;
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				return;
 			}
 
@@ -4922,7 +4922,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				return;
 			}
 
@@ -5249,7 +5249,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if(forWhat === Constants.FOR_SEARCH){
 				this.$rendered = FormUIUtil.$getSearchRowSection( $section );
 			}
-			else if(forWhat === Constants.FOR_PRINT){
+			else if(forWhat === Constants.FOR_PDF_DATA){
 				// for PDF
 				return;
 			}
@@ -5691,7 +5691,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection($section);
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				// rendering for PDF here
 				return;
 			}
@@ -5959,7 +5959,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						dataPacket );
 				});
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 
 			}
 
@@ -5992,7 +5992,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection($section);
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				// rendering for PDF here
 				return;
 			}
@@ -6706,7 +6706,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				};
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 
 			}
 			else{
@@ -7821,7 +7821,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					'background-color': '#e2e2e2'
 				});
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 
 			}
 
@@ -7861,7 +7861,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered = FormUIUtil.$getSearchRowSection($grid);
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				// rendering for PDF here
 				return;
 			}
@@ -8061,7 +8061,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_SEARCH ){
 				this.$rendered =  FormUIUtil.$getSearchRowSection($accordion);
 			}
-			else if( forWhat === Constants.FOR_PRINT ){
+			else if( forWhat === Constants.FOR_PDF_DATA ){
 				//Rendering for PDF here
 				return;
 			}
@@ -10612,6 +10612,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.terms.forEach( term => {
 						let termData = srcData[term.termName];
 						if( Util.isEmpty(termData) ){
+							term.value = undefined;
 							return;
 						}
 
@@ -12014,6 +12015,40 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return term.$rendered;
 		}
 
+		/**
+		 * Renders dataList to PDF format.
+		 * 
+		 * @param {Array[JSON]} dataList 
+		 */
+		renderDataToPDF( title, dataList ){
+			let pdfAreaId = NAMESPACE + 'pdfArea';
+			let $pdf = $('<div id="' + pdfAreaId + '" class="container" style="width:210mm;overflow:visible;">');
+
+			let $title = $('<div class="row" style="text-align:center;width:100%;margin-bottom:20px;">').appendTo($pdf);
+			$title.append( $('<div class="col-md-12"><span style="font-size:1.25rem;font-weight:800;width:100%;">'+title+'</span></div>'));
+
+			let $pdfBody = $('<div class="row" style="text-align:center;width:100%;">').appendTo($pdf);
+			let $bodyContent = $('<div class="col-md-12">').appendTo( $pdfBody );
+			let $dataTable = $('<table style="width:100%; table-layout:fixed;border: 1px solid grey;">').appendTo($bodyContent);
+			let $header = $('<tr>').appendTo($dataTable);
+			$header.append('<td style="width:10%;border: 1px solid grey;">'+Liferay.Language.get('order')+'</td>');
+			$header.append('<td style="width:15%;border: 1px solid grey;">'+Liferay.Language.get('id')+'</td>');
+			$header.append('<td style="border: 1px solid grey;">'+Liferay.Language.get('data')+'</td>');
+			
+			dataList.forEach( (data, index) => {
+				let $row = $('<tr>').appendTo($dataTable);
+				$row.append('<td style="width:10%;border: 1px solid grey;">'+(index+1)+'</td>');
+				$row.append('<td style="width:15%;border: 1px solid grey;">'+data.structuredDataId+'</td>');
+				let formatData = JSON.parse(data.structuredData);
+				$row.append('<td style="overflow-wrap:break-word;border: 1px solid grey;"><pre style="text-align:left;white-space: pre-wrap;">'+JSON.stringify(formatData,null,4)+'</pre></td>');
+				//this.loadData( JSON.parse(data.structuredData), 'JSON' );
+				
+				//this.terms.forEach( term => term.renderValueToPDF() );
+			});
+
+			return $pdf;
+		}
+
 		getRenderedNextOrderTerm( terms, order ){
 			let nextOrder;
 
@@ -12884,31 +12919,20 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		$renderHit( hit, index, queriedFields ){
 			let $row = $('<div class="row" style="padding-top:3px; padding-bottom:3px;width:100%;">');
 			
-			let $indexCol = $('<div class="col-md-1 index-col" style:"text-align:center;">');
+			let $indexCol = $('<div class="col-md-1 index-col">');
+			//let $indexSpan = $('<span>').appendTo($indexCol);
 			$indexCol.text( index );
+			$indexCol.css('text-align', 'center');
 			$row.append( $indexCol );
 
-			let $idCol = $('<div class="col-md-1" style:"text-align:center;">');
+			let $idCol = $('<div class="col-md-2" style:"padding:0;">');
 			$idCol.text( hit.id );
+			$idCol.css('text-align', 'center');
 			$row.append( $idCol );
 			
-			let $contentCol = $('<div class="col-md-9" style="display:flex;">');
+			let $contentCol = $('<div class="col-md-8" style="display:flex;">');
 			let $content = $('<span>').appendTo( $contentCol );
 			$content.text( this.getSearchedContent(hit, queriedFields) );
-			/*
-			let $href = $('<a>');
-			
-			
-			let renderUrl = Liferay.PortletURL.createURL(this.baseLinkURL);
-			renderUrl.setParameter("structuredDataId", this.id);
-			
-			$href.prop('target', '_blank' );
-			$href.prop('href', renderUrl.toString() );
-			$contentCol.append( $href );
-			
-			
-			$href.text( this.abstract );
-			*/
 
 			$row.append( $contentCol );
 			
@@ -13732,7 +13756,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let delta = 10;
 			let $pagination = $('<div>').appendTo( $canvas );
-			let $container = $('<div class="container">').appendTo($canvas);
+			let $container = $('<div class="container" style="padding:0;">').appendTo($canvas);
 
 			$pagination.pagination({
 				items: results.length,
@@ -16052,6 +16076,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		
+	}
+
+	class Fonts{
+		static NanumBarunGothicLight = '';
+
+		constructor(){};
 	}
 
     return {

@@ -12310,9 +12310,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				Util.fire( Events.DATATYPE_TERM_SELECTED, dataPacket );
 			});
 
-			//if( term.isSlave() ){
-			//	term.$rendered.hide();
-			//}
+			if( term.isSlave() ){
+				term.$rendered.hide();
+			}
 
 			this.insertGroupMember( this.getGroupTerm(term), term );
 

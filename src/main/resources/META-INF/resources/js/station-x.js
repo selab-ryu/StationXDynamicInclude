@@ -12441,11 +12441,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let renders = new Array();
 			children.forEach( term => {
 				let $term = $('<div>');
-				let labelText = this.getTermItemNo( term ) + ' ' + term.getLocalizedDisplayName();
+				let prefix = this.getTermItemNo( term ) + ' ';
 					
 				term.isMemberOfGroup() ?  $term.css('margin', '5px'): null;
 					
-				let $label = term.$getLabelNode( labelText, term.mandatory ).appendTo($term);
+				let $label = term.$getLabelNode( this.forWhat, prefix ).appendTo($term);
 					
 				if( term.termType === TermTypes.LIST ||
 					term.termType === TermTypes.BOOLEAN ){

@@ -27,7 +27,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( obj instanceof Array ){
 				if( obj.length === 0 )	return true;
 				else	return false;
-			}
+			} 
 
 			return false;
 		},
@@ -1164,7 +1164,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $previewRow;
 		},
 		$getEditorRowSection: function( $inputSection ){
-			return $('<div class="sx-form-item-group" style="display:block;width:fit-content;max-width:100%;padding: 3px; margin:2px;">').append( $inputSection );
+			return $('<div class="sx-form-item-group" style="display:block;width:100%;max-width:100%;padding: 3px; margin:2px;">').append( $inputSection );
 		},
 		$getSearchRowSection: function( $inputSection ){
 			return $('<div class="sx-form-item-group">').css({
@@ -3204,10 +3204,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let uncertaintyId = NAMESPACE + term.termName + '_uncertainty';
 
 			let $node = 
-					$('<div style="display:flex; align-items:center;justify-content: center; width:fit-content;max-width:100%; margin:0; padding:0;">');
+					$('<div style="width:100%;max-width:100%; margin:0 0 0 15px; padding:0;">');
 
 			if( Util.isNotEmpty( this.minValue) ){
-				$('<span style="display:inline-block;max-width:fit-content;text-align:center;width:fit-content;"><strong>' +
+				$('<span style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;text-align:center;width:fit-content;"><strong>' +
 					this.minValue + '</strong></span>').appendTo( $node );
 				
 				let minBoundaryText = '&lt;';
@@ -3215,7 +3215,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					minBoundaryText = '&le;';
 				}
 
-				$('<span style="display:inline-block;max-width:fit-content;width:fit-content;text-align:center;margin:3px 3px;"><strong>' +
+				$('<span style="display:inline-block;;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;margin:3px 3px;"><strong>' +
 						minBoundaryText + '</strong></span>').appendTo( $node );
 
 			}
@@ -3243,10 +3243,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.mandatory, 
 					this.disabled, 
 					this.#value, 
-					eventFuncs ).appendTo($node);
+					eventFuncs )
+					.css({
+						'max-width': '150px',
+						'display': 'inline-block'
+					})
+					.appendTo($node);
 
 			if( this.uncertainty ){
-				$('<div style="display:inline-block;max-width:fit-content;width:fit-content;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>')
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>')
 					.appendTo( $node );
 
 				//$inputCol = $('<div style="display:inline-block; min-width:20%;width:fit-content;">').appendTo($controlSection);
@@ -3272,21 +3277,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					false, 
 					this.disabled, 
 					this.uncertaintyValue, 
-					eventFuncs ).appendTo($node);
+					eventFuncs )
+					.css({
+						'max-width': '100px',
+						'display': 'inline-block'
+					})
+					.appendTo($node);
 			}
 
 			if( !!this.unit ){
-				$('<div style="display:inline-block;min-width:fit-content;max-width:fit-content;width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
 						this.unit + '</div>').appendTo( $node );
 			}
 
 			if( Util.isNotEmpty(this.maxValue) ){
 				let maxBoundaryText = this.maxBoundary ? '&le;' : '&lt;';
 				
-				$('<div style="display:inline-block;min-width:fit-content;max-width:fit-content;width:fit-content;text-align:center;margin:0 3px 0 3px;"><strong>' +
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;margin:0 3px 0 3px;"><strong>' +
 					maxBoundaryText + '</strong></div>').appendTo( $node );
 
-				$('<div style="display:inline-block;min-width:fit-content;max-width:fit-content;width:fit-content;text-align:center;"><strong>' +
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;"><strong>' +
 					this.maxValue + '</strong></div>').appendTo( $node );
 			}
 
@@ -4038,6 +4048,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.emailId,
 					eventFuncs).css({
 						'width':'45%',
+						'max-width': '150px',
 						'display':'inline-block'
 				}).appendTo( $node );
 
@@ -4071,6 +4082,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					.attr( 'list', NAMESPACE+'servers')
 					.css({
 						'width':'45%',
+						'max-width': '150px',
 						'display':'inline-block'
 					}).appendTo($node);
 								

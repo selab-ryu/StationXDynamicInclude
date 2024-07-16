@@ -27,7 +27,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( obj instanceof Array ){
 				if( obj.length === 0 )	return true;
 				else	return false;
-			}
+			} 
 
 			return false;
 		},
@@ -1164,7 +1164,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $previewRow;
 		},
 		$getEditorRowSection: function( $inputSection ){
-			return $('<div class="sx-form-item-group" style="display:block;width:fit-content;max-width:100%;padding: 3px; margin:2px;">').append( $inputSection );
+			return $('<div class="sx-form-item-group" style="display:block;width:100%;max-width:100%;padding: 3px; margin:2px;">').append( $inputSection );
 		},
 		$getSearchRowSection: function( $inputSection ){
 			return $('<div class="sx-form-item-group">').css({
@@ -1369,6 +1369,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		OPEN_QUERY_EDITOR: 'OPEN_QUERY_EDITOR',
 		QUERY_CHANGED: 'QUERY_CHANGED',
 		SHOW_SEARCH_RESULTS: 'SHOW_SEARCH_RESULTS',
+		SEARCH_QUERY_DELIVER: 'SEARCH_QUERY_DELIVER',
 
         SX_CANCEL_CLICKED: 'SX_CANCEL_CLICKED',
         SX_CANCEL_JOB: 'SX_CANCEL_JOB',
@@ -2795,7 +2796,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				id, name, type, placeHolder, required, disabled, value, eventFuncs ).css({
 					'width': width,
 					'max-width': '100%',
-					'border': '1px solid #dddddd'
+					'border': '1px solid #dddddd',
+					'margin-left': '15px'
 				});
 		}
 
@@ -2807,7 +2809,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $section = $('<div>');
+			let $section = $('<div style="padding-right:15px;">');
 
 			$section.append( this.$getLabelNode( forWhat, prefix ) );
 
@@ -3203,10 +3205,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let uncertaintyId = NAMESPACE + term.termName + '_uncertainty';
 
 			let $node = 
-					$('<div style="display:flex; align-items:center;justify-content: center; width:fit-content;max-width:100%; margin:0; padding:0;">');
+					$('<div style="width:100%;max-width:100%; margin:0 0 0 15px; padding:0;">');
 
 			if( Util.isNotEmpty( this.minValue) ){
-				$('<span style="display:inline-block;max-width:fit-content;text-align:center;width:fit-content;"><strong>' +
+				$('<span style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;text-align:center;width:fit-content;"><strong>' +
 					this.minValue + '</strong></span>').appendTo( $node );
 				
 				let minBoundaryText = '&lt;';
@@ -3214,7 +3216,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					minBoundaryText = '&le;';
 				}
 
-				$('<span style="display:inline-block;max-width:fit-content;width:fit-content;text-align:center;margin:3px 3px;"><strong>' +
+				$('<span style="display:inline-block;;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;margin:3px 3px;"><strong>' +
 						minBoundaryText + '</strong></span>').appendTo( $node );
 
 			}
@@ -3242,10 +3244,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.mandatory, 
 					this.disabled, 
 					this.#value, 
-					eventFuncs ).appendTo($node);
+					eventFuncs )
+					.css({
+						'max-width': '150px',
+						'display': 'inline-block'
+					})
+					.appendTo($node);
 
 			if( this.uncertainty ){
-				$('<div style="display:inline-block;max-width:fit-content;width:fit-content;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>')
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;margin:0 5px 0 5px;"><strong>&#xB1;</strong></div>')
 					.appendTo( $node );
 
 				//$inputCol = $('<div style="display:inline-block; min-width:20%;width:fit-content;">').appendTo($controlSection);
@@ -3271,21 +3278,26 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					false, 
 					this.disabled, 
 					this.uncertaintyValue, 
-					eventFuncs ).appendTo($node);
+					eventFuncs )
+					.css({
+						'max-width': '100px',
+						'display': 'inline-block'
+					})
+					.appendTo($node);
 			}
 
 			if( !!this.unit ){
-				$('<div style="display:inline-block;min-width:fit-content;max-width:fit-content;width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;text-align:center;margin:1rem 10px 0 10px;">' +
 						this.unit + '</div>').appendTo( $node );
 			}
 
 			if( Util.isNotEmpty(this.maxValue) ){
 				let maxBoundaryText = this.maxBoundary ? '&le;' : '&lt;';
 				
-				$('<div style="display:inline-block;min-width:fit-content;max-width:fit-content;width:fit-content;text-align:center;margin:0 3px 0 3px;"><strong>' +
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;margin:0 3px 0 3px;"><strong>' +
 					maxBoundaryText + '</strong></div>').appendTo( $node );
 
-				$('<div style="display:inline-block;min-width:fit-content;max-width:fit-content;width:fit-content;text-align:center;"><strong>' +
+				$('<div style="display:inline-block;margin:0 3x 0 3px;max-width:fit-content;width:fit-content;text-align:center;"><strong>' +
 					this.maxValue + '</strong></div>').appendTo( $node );
 			}
 
@@ -3678,7 +3690,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									optionValue, 
 									this.getLocalizedPlaceHolder(),
 									this.multiple,
-									this.disabled);
+									this.disabled)
+									.css('margin-left', '15px');
 
 					$node.change(function(event){
 						//event.stopPropagation();
@@ -3699,7 +3712,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									null, 
 									null, 
 									this.mandatory, 
-									this.getLocalizedTooltip() );
+									this.getLocalizedTooltip() ).css('margin-left', '15px');
 
 					let optionValue = value ? value[0] : '';
 					this.options.forEach((option, index)=>{
@@ -3735,7 +3748,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						null, 
 						null, 
 						this.mandatory, 
-						this.getLocalizedTooltip() );
+						this.getLocalizedTooltip() ).css('margin-left', '15px');
 
 					this.options.forEach((option, index)=>{
 							let selected = this.hasValue() ? this.#value.includes(option.value) : false;
@@ -3820,7 +3833,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 			
-			let $section = $('<div class="edit-area">');
+			let $section = $('<div class="edit-area" style="padding-right:15px;">');
 
 			let $label = this.$getLabelNode( forWhat, prefix ).appendTo( $section );
 
@@ -4037,6 +4050,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.emailId,
 					eventFuncs).css({
 						'width':'45%',
+						'max-width': '150px',
 						'display':'inline-block'
 				}).appendTo( $node );
 
@@ -4070,6 +4084,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					.attr( 'list', NAMESPACE+'servers')
 					.css({
 						'width':'45%',
+						'max-width': '150px',
 						'display':'inline-block'
 					}).appendTo($node);
 								
@@ -4081,7 +4096,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				$node.css({
 					'width': this.cssWidth ? this.cssWidth : '100%',
-					'max-width': '100%'
+					'max-width': '100%',
+					'margin-left': '15px'
 				});
 			}
 			else if( forWhat === Constants.FOR_SEARCH ){
@@ -4263,7 +4279,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$getEditAddressNode(){
-			let $node = $('<div></div>');
+			let $node = $('<div style="padding-right:15px;"></div>');
 			let controlId = NAMESPACE+this.termName;
 
 			let self = this;
@@ -4386,7 +4402,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$node.css({
 				'width': this.cssWidth ? this.cssWidth : '100%',
-				'max-width': '100%'
+				'max-width': '100%',
+				'margin-left': '15px'
 			})
 
 			return $node;
@@ -4572,7 +4589,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			//let $table = $('<table>').appendTo( $node );
 			if( forWhat === Constants.FOR_PREVIEW ||
 				forWhat === Constants.FOR_EDITOR ){
-				let $table = $('<table>');
+				let $table = $('<table style="margin-left:15px;">');
 				for( let r=0; r < this.#rows; r++ ){
 					let $tr = $('<tr style="line-height:1.8rem;">').appendTo( $table ) ;
 					if( r === 0 ){
@@ -5108,6 +5125,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									'text-align': 'center',
 									'margin-left': '5px'
 								});
+
+				$node.css('margin-left', '15px');								
 			}
 			else if( forWhat === Constants.FOR_PDF_FORM ){
 				$node = FormUIUtil.$getTextInput( 
@@ -5236,7 +5255,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let controlName = NAMESPACE + this.termName;
 
-			let $node = $('<div>');
+			let $node = $('<div style="padding-right:15px;">');
 			
 			let value;
 			if( this.enableTime ){
@@ -5310,7 +5329,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$node.css({
 				'width': this.cssWidth ? this.cssWidth : '100%',
-				'max-width': '100%'
+				'max-width': '100%',
+				'margin-left': '15px'
 			});
 
 			return $node;
@@ -5807,7 +5827,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let controlName = NAMESPACE + this.termName;
 			let files = this.files;
 
-			let $node = $('<div class="file-uploader-container">');
+			let $node = $('<div class="file-uploader-container" style="margin-left:15px;">');
 
 			let $input = $( '<input type="file" class="lfr-input-text form-control" size="80" multiple>' )
 							.appendTo($node);
@@ -5838,7 +5858,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				//}
 			});
 
-			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">')
+			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;margin-left:10px;">')
 									.appendTo($node);
 
 			if( files ){
@@ -5932,7 +5952,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $section = $('<div>');
+			let $section = $('<div style="padding-right:15px;">');
 			$section.append( this.$getLabelNode( forWhat, prefix ) );
 			$section.append( this.$getControlNode( forWhat ) );
 			
@@ -6147,7 +6167,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									this.options, 
 									optionValue, 
 									this.getLocalizedPlaceHolder(), 
-									this.disabled);
+									this.disabled).css('margin-left', '15px');
 
 					$node.change(function(event){
 						event.stopPropagation();
@@ -6168,7 +6188,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						null, 
 						null, 
 						false, 
-						this.getLocalizedTooltip() );
+						this.getLocalizedTooltip() ).css('margin-left', '15px');
 
 					this.options.forEach((option, index)=>{
 						let selected = ( forWhat === Constants.FOR_SEARCH ) ? false : (this.value === option.value);
@@ -6256,7 +6276,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $section = $('<div>');
+			let $section = $('<div style="padding-right:15px;">');
 
 			$section.append( this.$getLabelNode( forWhat, prefix ) );
 			$section.append( this.$getControlNode( forWhat ) );
@@ -8066,8 +8086,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getControlNode( forWhat ){
 			let $gridBody = (forWhat === Constants.FOR_PDF_FORM) ?
-						$('<div style="margin-left:10px;padding-right:20px;overflow-x:auto;width:100%;max-width:100%;">') :
-						$('<div style="margin-left:10px;padding-right:20px;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
+						$('<div style="margin-left:15px;padding-right:20px;overflow-x:auto;width:100%;max-width:100%;">') :
+						$('<div style="margin-left:15px;padding-right:20px;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
 			let $table = $('<table style="border:1px solid #d5dbe3;border-collapse: collapse;width:100%;margin-right:10px;">').appendTo( $gridBody );
 
 			if( forWhat === Constants.FOR_EDITOR || forWhat === Constants.FOR_PREVIEW ){
@@ -12331,7 +12351,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				Util.fire( Events.DATATYPE_TERM_SELECTED, dataPacket );
 			});
 
-			if( term.isSlave() ){
+			if( term.isSlave() && this.forWhat !== Constants.FOR_SEARCH ){
 				term.$rendered.hide();
 			}
 
@@ -12441,11 +12461,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let renders = new Array();
 			children.forEach( term => {
 				let $term = $('<div>');
-				let labelText = this.getTermItemNo( term ) + ' ' + term.getLocalizedDisplayName();
+				let prefix = this.getTermItemNo( term ) + ' ';
 					
 				term.isMemberOfGroup() ?  $term.css('margin', '5px'): null;
 					
-				let $label = term.$getLabelNode( labelText, term.mandatory ).appendTo($term);
+				let $label = term.$getLabelNode( this.forWhat, prefix ).appendTo($term);
 					
 				if( term.termType === TermTypes.LIST ||
 					term.termType === TermTypes.BOOLEAN ){
@@ -13349,7 +13369,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		renderHits( start, delta, $container, queriedFields ){
-			for( let i=start; i < (delta+start-1) && i<this.hits.length; i++ ){
+			for( let i=start; i < (delta+start) && i<this.hits.length; i++ ){
 				$container.append( this.$renderHit( this.hits[i], i+1, queriedFields ) );
 			};
 		}
@@ -13422,6 +13442,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				'operator': this.operator,
 				'hits': this.hits
 			};
+		}
+
+		toDeliverString(){
+			return {
+				'operator': this.operator,
+				'hits': this.hits.map( hit => hit.id ),
+				'hitCount': this.hitCount,
+				'children': new Array()
+			}
 		}
 	}
 
@@ -13504,6 +13533,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get title(){
 			return '\"' + this.field + '\" ' + this.operator + ' \"' + this.value + 
 								'\"(' + this.hitCount + ')';
+		}
+		get deliverString(){
+			return this.field + ' ' + this.operator + ' ' + this.value;
 		}
 
 		constructor( fieldName, fieldType, keyword, operator, parentId ){
@@ -13607,6 +13639,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		set hits(val){ this.#hits = val; }
 		get zTreeObj(){ return this.#zTreeObj; }
 		set zTreeObj(val){ this.#zTreeObj = val; }
+		get zTreeRoot() { return this.#zTreeObj.getNodes()[0]; }
 		get createDate(){ return this.#createDate; }
 		set createDate(val){ this.#createDate = val; }
 		get localeCreateDate(){
@@ -13658,7 +13691,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		 * @param {Array} newQueries 
 		 */
 		addQuery( partRoot, newQueries ){
-			console.log('addQuery: ', partRoot, newQueries);
 			let rootQuery = this.rootQuery;
 
 			if( Util.isEmpty(rootQuery) ){
@@ -13781,9 +13813,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				});
 			}
 
-			console.log( 'removedQuery: ', removedQuery, JSON.stringify(children));
 			let parent = !!removedQuery ? this.getQuery( removedQuery.parentId ) : null;
-			console.log('parent: ', parent);
 			if( !!parent ){
 				children = this.getQueryChildren( parent.id );
 				if( children.length <= 1 ){
@@ -13843,7 +13873,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !query )	return dataList;
 
 			let children = this.getQueryChildren( query.id );
-			console.log('retrieve '+query.operator +': ', query, children );
 			children.forEach( child => {
 				if( child instanceof FieldKeyword ||
 					child instanceof ColumnKeyword ){
@@ -13855,7 +13884,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.retrieve( child, dataList );
 				}
 			});
-			console.log('End of ' + query.operator + ' childrens retrieve...');
 
 			switch( query.operator ){
 				case Constants.SearchOperators.OR:{
@@ -13904,7 +13932,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		#doANDSearch( queryNode, queries){
-			console.log('doAndSearch: ', queryNode, queries);
 			if( !queries || queries.legth === 0 ){
 				return;
 			}
@@ -13931,11 +13958,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				return;
 			}
 
-			console.log('doRangeSearch: ', query, dataList);
 			query.hits = dataList.filter( record => {
-				console.log('record: ', record);
 				let fieldContent = record.data[query.fieldName];
-				console.log( 'fieldContent: ', fieldContent);
 				if( !fieldContent ) return Constants.FILTER_SKIP;
 
 				if( query instanceof ColumnKeyword ){
@@ -13951,7 +13975,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 				else{
 					let value = (typeof fieldContent === 'object') ? fieldContent.value : fieldContent
-					console.log( 'rangeSearch: ', query.keyword.from, query.keyword.to, value);
 					return Util.conformInRange( query.keyword.from, query.keyword.to, value );
 				}
 			});
@@ -13966,13 +13989,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			query.hits = dataList.filter( record => {
 				let fieldContent = record.data[query.fieldName];
-				console.log(' fieldContent: ', record, query, fieldContent);
 				if( !fieldContent ) return Constants.FILTER_SKIP;
 
 				let searchContent = query instanceof ColumnKeyword ?
 										GridTerm.getColumnValues(fieldContent, query.columnName) :
 										fieldContent;
-				console.log(' doExactSearch: ', record, query, searchContent, searchType);
 				if( Util.isEmpty(searchContent) ) return Constants.FILTER_SKIP;
 
 
@@ -13982,13 +14003,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							let equal = false;
 							// searchIndex format: [[a],[a.b],[a,b,c]]
 							searchContent.every( content => {
-								console.log('content: ', content);
 								let lower = content.map( elem => elem.toLowerCase() );
 								equal = lower.includes( query.keyword.toLowerCase() );
 								return !equal;
 							});
 
-							return equal;
+							return equal; 
 						}
 						else{
 							let content = searchContent.map( content => content.toLowerCase() );
@@ -14204,7 +14224,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		showSearchResults( queryId, $canvas ){
-			let query = this.getQuery( queryId );
+			let query = this.getQuery(queryId );
 			let results = query.hits;
 
 			let queriedFields = this.getQueriedFields( query );
@@ -14219,12 +14239,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				itemsOnPage: delta,
 				displayedPages: 3,
 				onPageClick: function( pageNumber, event){
+					$container.empty();
 					query.renderHits( (pageNumber-1)*delta, delta, $container, queriedFields );
 				},
 				onInit: function(){
 					query.renderHits( 0, delta, $container, queriedFields );
 				}
 			});
+
+			let deliverJSON = {
+				query: this.toDeliverString( query ),
+				hits: query.hits.map( hit => hit.id )
+			};
+
+			this.fireDeliverObjectEvent( deliverJSON );
+		}
+
+		fireDeliverObjectEvent( payload ){
+			let eventData = new EventDataPacket(NAMESPACE,NAMESPACE);
+			eventData.deliverObj = payload;
+
+			Util.fire( Events.SEARCH_QUERY_DELIVER, eventData );
 		}
 
 		updateQueryOperator( queryId, operator ){
@@ -14288,8 +14323,29 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $row;
 		}
 
-		setAccumulatedResults( results ){
-			this.orderResults = results;
+		
+		toDeliverString( query ){
+
+			if( Util.isEmpty( query ) ){
+				return '';
+			}
+			
+			if( query.isLeaf() ){
+				return query.deliverString;
+			}
+			else{
+				let deliverArray = new Array();
+				let children = this.getQueryChildren( query.id );
+				if( Util.isNotEmpty(children) ){
+					children.forEach( child => {
+						deliverArray.push( this.toDeliverString(child) );
+					});
+
+					return '(' + deliverArray.join(' '+query.operator+' ') + ')';
+				}
+			}
+
+			return '';
 		}
 	}
 
@@ -14449,36 +14505,57 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( dataPacket.targetPortlet !== NAMESPACE )	return;
 
 				console.log( 'SEARCH_KEYWORD_CHANGED' , dataPacket, advancedSearch.dataList );
+				if( dataPacket.rangeSearch ){
+					if( Util.isEmpty( dataPacket.from ) &&
+						Util.isEmpty( dataPacket.to ) ){
+						return;
+					}
+				}
+				else{
+					if( Util.isEmpty(dataPacket.keywords) ){
+						return;
+					}
+				}
 				
 				let term = dataPacket.term;
 				
-				if( (!dataPacket.rangeSearch &&
-						Util.isEmpty(dataPacket.keywords)) ||
-					(dataPacket.rangeSearch &&
-						Util.isEmpty( dataPacket.from ) &&
-						Util.isEmpty( dataPacket.to )) ){
-							
-					return;
-				}
-						
 				let gridTerm, query, fieldName, fieldType, 
-					columnName, columnType, operator, keywords;
+				columnName, columnType, operator, keywords;
 				let searchType;
+				let targetQuery = term.isColumn() ? 
+										advancedSearch.getWritingColumnQuery( term.termName ) :
+										advancedSearch.getWritingFieldQuery( term.termName );
+
+				if( dataPacket.rangeSearch ){
+					if( !!targetQuery ){
+						targetQuery.keyword = {
+							from: dataPacket.from,
+							to: dataPacket.to
+						};
+
+						return;
+					}
+				}
 
 				if( term.isColumn() ){
 					gridTerm = term.gridTerm;
 					fieldName = gridTerm.termName;
-					fieldType = TermTypes.GRID;
+					fieldType = TermTypes.GRID; 
 					columnName = term.termName;
 					searchType = columnType = term.termType;
 
-					advancedSearch.removeWritingColumnQuery( columnName );
+					if( !dataPacket.rangeSearch ){
+						advancedSearch.removeWritingColumnQuery( columnName );
+					}
+					
 				}
 				else{
 					fieldName = term.termName;
 					searchType = fieldType = term.termType;
 
-					advancedSearch.removeWritingFieldQuery( fieldName );
+					if( !dataPacket.rangeSearch ){
+						advancedSearch.removeWritingFieldQuery( fieldName );
+					}
 				}
 
 				switch( searchType ){
@@ -14575,7 +14652,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					advancedSearch.addWritingQuery( query );
 				}
 
-				console.log('Writing Query: ', advancedSearch.writingQuery, JSON.stringify(advancedSearch.writingQuery,null,4));
 			});
 
 			Liferay.on(Events.SEARCH_STATE_CHANGED, function(event){
@@ -14592,83 +14668,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						return;
 					}
 				}
-
-
-				
-				/*
-				let hitCount = 0;
-				if( dataPacket.rangeSearch ){
-					if( !searchHistory.rangeSearch ){
-						searchHistory.rangeSearch = true;
-						searchHistory.from = searchHistory.keywords ? searchHistory.keywords[0] : undefined;
-					}
-					else{
-						if( dataPacket.from ){
-							searchHistory.from = dataPacket.keywords;
-						}
-						else{
-							searchHistory.to = dataPacket.keywords;
-						}
-					}
-
-					if( dataPacket.from ){
-						searchHistory.from = dataPacket.keywords;
-					}
-					else{
-						searchHistory.to = dataPacket.keywords;
-					}
-
-					hitCount = advancedSearch.doRangeSearch( term.termName, term.fromSearchValue, term.toSearchValue, term.termType );
-				}
-				else{
-					hitCount = advancedSearch.doKeywordSearch( term.termName, term.searchValues, term.termType );
-				}
-				*/
 			});
 		}
-
-		/*
-		#renderAllData( structuredDataList ){
-			let dataList = new Array();
-			structuredDataList.forEach( structuredData => {
-				let searchData = new SearchData( 
-											structuredData.id, 
-											structuredData.data, 
-											this.#getAbstract(structuredData.data), 
-											this.baseLinkURL );
-				
-				let $rendered = searchData.$render( true );
-				this.$resultSection.append( $rendered );
-				
-				dataList.push( searchData );
-			});
-
-			this.dataList = dataList;
-		}
-
-		#getAbstract( data ){
-			let abstractContent = '';
-			
-			this.abstractFields.forEach( field => {
-				if( data.hasOwnProperty( field ) ){
-					let term = this.dataStructure.getTermByName( field );
-					if( term.termType === 'Date' ){
-						if( term.enableTime ){
-							abstractContent += field + ':' + Util.toDateTimeString( data[field] ) + ' ';
-						}
-						else{
-							abstractContent += field + ':' + Util.toDateString( data[field] ) + ' ';
-						}
-					}
-					else{
-						abstractContent += field + ':' + data[field] + ' ';
-					}
-				}
-			});
-
-			return abstractContent;
-		}
-		*/
 
 		addWritingQuery( query ){
 			this.#writingQuery.push( query );
@@ -14738,6 +14739,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return this.#writingQuery.filter( query => query.parentId === gridId );
 		}
 
+		/**
+		 * A query has children.
+		 * 
+		 * @param {String} parentId 
+		 * @param {int} base 
+		 * @returns {boolean}
+		 */
 		hasWritingQueryChildren( parentId ){
 			let hasChildren = 0;
 			this.#writingQuery.forEach( query => {
@@ -14746,7 +14754,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 			});
 
-			return hasChildren > 1;
+			return hasChildren > 0;
 		}
 
 		removeWritingFieldQuery( fieldName ){
@@ -14787,8 +14795,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					this.removeWritingQuery( parentId );
 				}
 			}
-
-			console.log('removeWritingColumnQuery:', JSON.stringify(this.#writingQuery,null,4));
 		}
 
 		removeWritingQuery( queryId ){
@@ -14812,14 +14818,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			this.writingQuery = new Array();
 		}
 
-		openQueryEditor( $canvas ){
+		loadQueryEditor( $canvas ){
 			$canvas.empty();
 
 			let advancedSearch = this;
 			let searchHistory = this.currentHistory;
 
 			let zTreeQuery = searchHistory.getZTreeSimpleData();
-			console.log( 'zTree JSON: ', JSON.stringify(zTreeQuery,null,4) );
 
 			let setting = {
 				data: {
@@ -14840,11 +14845,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				},
 				callback:{
 					onClick: function( event, treeId, node, clickFlag ){
-						console.log( 'onclick: ', event, treeId, node, clickFlag );
 						searchHistory.showSearchResults( node.id, advancedSearch.$resultSection );
 					},
 					onDrop: function(  event, treeId, nodes, clickFlag ){
-						console.log( 'onDrop: ', event, nodes, clickFlag );
 						nodes.forEach( node => {
 							let query = searchHistory.getQuery( node.id );
 							query.parentId = node.pid;
@@ -14854,15 +14857,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						advancedSearch.refreshQueryEditor();
 					},
 					onRemove: function(  event, treeId, node, clickFlag ){
-						console.log( 'onRemove: ', event, treeId, node, clickFlag );
 						let query = searchHistory.removeQuery( node.id );
 						//searchHistory.evaluateQuery( query );
 
 						advancedSearch.refreshQueryEditor();
 					},
 					onRightClick: function( event, treeId, node, clickFlag ){
-						console.log( 'onRightClick: ', event, treeId, node, clickFlag );
-
 						let popItems = {
 							delete: {
 								name: Liferay.Language.get('delete'),
@@ -14923,7 +14923,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							switch( $(item).prop('id') ){
 								case 'delete':{
 									let selectedNodes = searchHistory.zTreeObj.getSelectedNodes();
-									console.log( 'selectedNodes: ', selectedNodes );
 									if (selectedNodes && selectedNodes.length>0) {
 										selectedNodes.forEach( selectedNode => {
 											searchHistory.removeQuery( selectedNode.id, true );
@@ -14947,7 +14946,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 						let $popMenu = $('<div class="pop-menu">');
 
-						console.log('event: ', event.clientX, event.clientY, $(document).scrollLeft(), $(document).scrollTop() );
 						popmenu( $popMenu, {
 							items: popItems,
 							callback: callback,
@@ -14964,12 +14962,13 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			};
 		
 			searchHistory.zTreeObj = $.fn.zTree.init($canvas, setting, zTreeQuery);
+			searchHistory.zTreeObj.selectNode( searchHistory.zTreeRoot );
 
-			console.log('Tree Nodes: ', searchHistory.zTreeObj.getNodes() );
+			searchHistory.showSearchResults( searchHistory.rootQuery.id, this.$resultSection);
 		}
 
 		refreshQueryEditor(){
-			this.openQueryEditor( this.#$querySection );
+			this.loadQueryEditor( this.#$querySection );
 		}
 
 		countSearchHistories(){
@@ -14991,7 +14990,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			if( Util.isEmpty(history.rootQuery) )	return;
 
-			history.retrieve( history.rootQuery, this.dataList );			
+			history.retrieve( history.rootQuery, this.dataList );	
 		}
 
 		#removeSearchHistory( fieldName ){
@@ -15030,6 +15029,15 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		#hideAllSearchResults(){
 			this.dataList.forEach( searchData => searchData.hide() );
+		}
+
+		showSearchResults(){
+			let history = this.currentHistory;
+			history.showSearchResults( history.rootQuery.id, this.$resultSection);
+
+			let treeNodes = history.zTreeObj.getNodes();
+			let rootTreeNode = treeNodes[0];
+			history.zTreeObj.selectNode( rootTreeNode, true, true);
 		}
 
 		displaySearchResults( results ){

@@ -2796,7 +2796,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				id, name, type, placeHolder, required, disabled, value, eventFuncs ).css({
 					'width': width,
 					'max-width': '100%',
-					'border': '1px solid #dddddd'
+					'border': '1px solid #dddddd',
+					'margin-left': '15px'
 				});
 		}
 
@@ -2808,7 +2809,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $section = $('<div>');
+			let $section = $('<div style="padding-right:15px;">');
 
 			$section.append( this.$getLabelNode( forWhat, prefix ) );
 
@@ -3689,7 +3690,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									optionValue, 
 									this.getLocalizedPlaceHolder(),
 									this.multiple,
-									this.disabled);
+									this.disabled)
+									.css('margin-left', '15px');
 
 					$node.change(function(event){
 						//event.stopPropagation();
@@ -3710,7 +3712,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									null, 
 									null, 
 									this.mandatory, 
-									this.getLocalizedTooltip() );
+									this.getLocalizedTooltip() ).css('margin-left', '15px');
 
 					let optionValue = value ? value[0] : '';
 					this.options.forEach((option, index)=>{
@@ -3746,7 +3748,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						null, 
 						null, 
 						this.mandatory, 
-						this.getLocalizedTooltip() );
+						this.getLocalizedTooltip() ).css('margin-left', '15px');
 
 					this.options.forEach((option, index)=>{
 							let selected = this.hasValue() ? this.#value.includes(option.value) : false;
@@ -3831,7 +3833,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 			
-			let $section = $('<div class="edit-area">');
+			let $section = $('<div class="edit-area" style="padding-right:15px;">');
 
 			let $label = this.$getLabelNode( forWhat, prefix ).appendTo( $section );
 
@@ -4094,7 +4096,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				$node.css({
 					'width': this.cssWidth ? this.cssWidth : '100%',
-					'max-width': '100%'
+					'max-width': '100%',
+					'margin-left': '15px'
 				});
 			}
 			else if( forWhat === Constants.FOR_SEARCH ){
@@ -4276,7 +4279,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		$getEditAddressNode(){
-			let $node = $('<div></div>');
+			let $node = $('<div style="padding-right:15px;"></div>');
 			let controlId = NAMESPACE+this.termName;
 
 			let self = this;
@@ -4399,7 +4402,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$node.css({
 				'width': this.cssWidth ? this.cssWidth : '100%',
-				'max-width': '100%'
+				'max-width': '100%',
+				'margin-left': '15px'
 			})
 
 			return $node;
@@ -4585,7 +4589,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			//let $table = $('<table>').appendTo( $node );
 			if( forWhat === Constants.FOR_PREVIEW ||
 				forWhat === Constants.FOR_EDITOR ){
-				let $table = $('<table>');
+				let $table = $('<table style="margin-left:15px;">');
 				for( let r=0; r < this.#rows; r++ ){
 					let $tr = $('<tr style="line-height:1.8rem;">').appendTo( $table ) ;
 					if( r === 0 ){
@@ -5121,6 +5125,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									'text-align': 'center',
 									'margin-left': '5px'
 								});
+
+				$node.css('margin-left', '15px');								
 			}
 			else if( forWhat === Constants.FOR_PDF_FORM ){
 				$node = FormUIUtil.$getTextInput( 
@@ -5249,7 +5255,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let controlName = NAMESPACE + this.termName;
 
-			let $node = $('<div>');
+			let $node = $('<div style="padding-right:15px;">');
 			
 			let value;
 			if( this.enableTime ){
@@ -5323,7 +5329,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			$node.css({
 				'width': this.cssWidth ? this.cssWidth : '100%',
-				'max-width': '100%'
+				'max-width': '100%',
+				'margin-left': '15px'
 			});
 
 			return $node;
@@ -5820,7 +5827,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let controlName = NAMESPACE + this.termName;
 			let files = this.files;
 
-			let $node = $('<div class="file-uploader-container">');
+			let $node = $('<div class="file-uploader-container" style="margin-left:15px;">');
 
 			let $input = $( '<input type="file" class="lfr-input-text form-control" size="80" multiple>' )
 							.appendTo($node);
@@ -5851,7 +5858,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				//}
 			});
 
-			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;">')
+			let $fileListTable = $('<table id="' + controlName + '_fileList" style="display:none;margin-left:10px;">')
 									.appendTo($node);
 
 			if( files ){
@@ -5945,7 +5952,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $section = $('<div>');
+			let $section = $('<div style="padding-right:15px;">');
 			$section.append( this.$getLabelNode( forWhat, prefix ) );
 			$section.append( this.$getControlNode( forWhat ) );
 			
@@ -6160,7 +6167,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 									this.options, 
 									optionValue, 
 									this.getLocalizedPlaceHolder(), 
-									this.disabled);
+									this.disabled).css('margin-left', '15px');
 
 					$node.change(function(event){
 						event.stopPropagation();
@@ -6181,7 +6188,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						null, 
 						null, 
 						false, 
-						this.getLocalizedTooltip() );
+						this.getLocalizedTooltip() ).css('margin-left', '15px');
 
 					this.options.forEach((option, index)=>{
 						let selected = ( forWhat === Constants.FOR_SEARCH ) ? false : (this.value === option.value);
@@ -6269,7 +6276,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				this.$rendered.remove();
 			}
 
-			let $section = $('<div>');
+			let $section = $('<div style="padding-right:15px;">');
 
 			$section.append( this.$getLabelNode( forWhat, prefix ) );
 			$section.append( this.$getControlNode( forWhat ) );
@@ -8079,8 +8086,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getControlNode( forWhat ){
 			let $gridBody = (forWhat === Constants.FOR_PDF_FORM) ?
-						$('<div style="margin-left:10px;padding-right:20px;overflow-x:auto;width:100%;max-width:100%;">') :
-						$('<div style="margin-left:10px;padding-right:20px;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
+						$('<div style="margin-left:15px;padding-right:20px;overflow-x:auto;width:100%;max-width:100%;">') :
+						$('<div style="margin-left:15px;padding-right:20px;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
 			let $table = $('<table style="border:1px solid #d5dbe3;border-collapse: collapse;width:100%;margin-right:10px;">').appendTo( $gridBody );
 
 			if( forWhat === Constants.FOR_EDITOR || forWhat === Constants.FOR_PREVIEW ){

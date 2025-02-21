@@ -1873,7 +1873,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		removeSlaveTerm( termName ){
-			this.slaveTerms = this.slaveTerms.filter(( slaveTerm ) => slaveTerm !== termName );
+			// 25-02-05 : check undefined slaveterms > when delete term which is slave term
+			if(this.slaveTerms)
+				this.slaveTerms = this.slaveTerms.filter(( slaveTerm ) => slaveTerm !== termName );
 		}
 
 		hasSlaves(){
@@ -2893,7 +2895,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							this.#value = safeVal;
 						}
 						else{
-							$.alert('Not proper number for [ ' + this.getLocalizedDisplayName() + ' ]: ' + safeVal);
+							// Temporarily validation alert : 250220
+							// $.alert('Not proper number for [ ' + this.getLocalizedDisplayName() + ' ]: ' + safeVal);
 						}
 					}
 				}	
@@ -3371,6 +3374,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				if( validation === false ){
+					// Temporarily off validation error alert : 250220
+					/*
 					FormUIUtil.showError(
 						Constants.ERROR,
 						Liferay.Language.get('out-of-range-error'),
@@ -3382,6 +3387,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						}
 					);
+					*/
 					return false;
 				}
 			}
@@ -3410,6 +3416,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				}
 
 				if( validation === false ){
+					// Temporarily off validation error alert : 250220
+					/*
 					FormUIUtil.showError(
 						Constants.ERROR,
 						Liferay.Language.get('out-of-range-error'),
@@ -3421,6 +3429,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							}
 						}
 					);
+					*/
 					return false;
 				}
 			}
@@ -6068,11 +6077,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( !this.displayStyle )	this.displayStyle = BooleanTerm.DEFAULT_DISPLAY_STYLE;
 			if( !this.options ){
 				this.options = new Array();
+				// 25-02-05 : change disabled param [] to false
 				// for true
-				this.options.push( new ListOption( {'en_US':'Yes'}, true, false, false, [] ) );
+				this.options.push( new ListOption( {'en_US':'Yes'}, true, false, false, false ) );
 	
 				// for false
-				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, [] ) );
+				this.options.push( new ListOption( {'en_US':'No'}, false, false, false, false ) );
 			}
 		}
 
@@ -10021,9 +10031,11 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					let targetTerm = dataPacket.term;
 					let deleteChildren = dataPacket.children;
-
-					dataStructure.deleteTerm( targetTerm, deleteChildren );
 					
+					dataStructure.deleteTerm( targetTerm, deleteChildren );
+					// 25-02-05 : add remove slave term call > when delete term which is slave term
+					dataStructure.removeSlaveTerm(targetTerm);
+
 					dataStructure.refreshGroupMemberOrders( targetTerm.groupId );
 
 					if( dataStructure.currentTerm === targetTerm ){

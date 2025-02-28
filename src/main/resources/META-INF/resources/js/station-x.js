@@ -109,6 +109,27 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			return dateAry.join('/');
 		},
+		validateFormat( value, startYear, endYear, format='Y/m/d' ) {	// 250227 : add date string validate function
+			let parsed = Date.parse(value);
+			//console.log(value, parsed);
+			
+			let valid = false;
+			if(!isNaN(parsed)) {
+				valid = true;
+				let date = new Date(parsed);
+				let year = date.getFullYear();
+				if(typeof startYear == 'string') startYear = parseInt(startYear);
+				
+				// check year valid
+				if(year < startYear || year > endYear) {
+					console.log(startYear, year, endYear)
+					valid = false;
+				}
+			}
+			
+			//console.log("valid : ", valid);
+			return valid;
+		},
         isEmpty: function(obj) {
             return Util.isEmptyObject(obj);
         },
@@ -5276,19 +5297,45 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			let eventFuncs = {
 				change: function(event){
+					let inputVal = $(this).val();
 					let value;
+
+					
 					if( Util.isEmptyString( $(this).val() ) ){
 						value = undefined;
 					}
+					// 250227 : validate input string
+					else if(!Util.validateFormat(inputVal, term.startYear, term.endYear)) {
+						value = undefined;
+						$(this).datetimepicker('reset');
+					}
 					else{
 						value = $(this).datetimepicker("getValue").getTime();
-					}
+						//console.log("value from datetimepicker : ", $(this).datetimepicker("getValue"), value);
+						
+						// 250227
+						// compare input value and datetimepicker value
+						// if different, then set input value to datetimepicker
+						let pickerVal = Util.toDateString(value);
 
+						if(inputVal !== pickerVal ) {
+							console.log("input and picker value is diff : ", inputVal, pickerVal);
+
+							$(this).datetimepicker({'value': inputVal});
+
+							value = $(this).datetimepicker("getValue").getTime();
+							console.log("value from datetimepicker : ", $(this).datetimepicker("getValue"), value);
+						}
+					}
+					
 					let dataPacket = new EventDataPacket(NAMESPACE, NAMESPACE);
 					dataPacket.term = term;
 					dataPacket.attribute = TermAttributes.VALUE;
 					dataPacket.value = value;
 					dataPacket.$source = $(this);
+
+					console.log("dataPacket : ", dataPacket);
+
 					Util.fire(
 						Events.TERM_VALUE_CHANGED,
 						dataPacket
@@ -5317,6 +5364,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				scrollInput:false,
 				validateOnBlur: false,
 				id:controlName,
+				//onSelectDate: function(ct, $input) { console.log('onSelectDate', ct, $input); },
 				onchangeDateTime: function( ct, $input ){
 					console.log( 'onchangeDateTime: ', ct, $input );
 				}
@@ -10192,7 +10240,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( !dataPacket.isTargetPortlet(NAMESPACE) ){
 					return;
 				}
-				console.log( 'DATATYPE_TERM_SELECTED: ', event.dataPacket );
+				//console.log( 'DATATYPE_TERM_SELECTED: ', event.dataPacket );
 				
 				dataStructure.setCurrentTerm( dataPacket.term, dataPacket.fromClick );
 			});
@@ -10202,7 +10250,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( !dataPacket.isTargetPortlet(NAMESPACE) ){
 					return;
 				}
-				console.log( 'GRID_COLUMN_SELECTED: ', event.dataPacket );
+				//console.log( 'GRID_COLUMN_SELECTED: ', event.dataPacket );
 				
 				if( dataPacket.status ){
 					dataStructure.setCurrentTerm( dataPacket.column, dataPacket.fromClick );
@@ -10550,6 +10598,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 								dataStructure.propertyForm.value = term.enableTime ? 
 										term.toDateTimeString() : term.toDateString();
 							}
+							console.log(term.toDateString(term.value));
 
 							dataStructure.fireStructuredDataChangedEvent();
 							break;

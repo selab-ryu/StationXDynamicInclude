@@ -8883,7 +8883,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		get $btnTrueSlaveTerms(){ return $('#'+NAMESPACE+'btnTrueSlaveTerms')}
 		get $btnFalseSlaveTerms(){ return $('#'+NAMESPACE+'btnFalseSlaveTerms')}
 
-		attachFormConrolEvents(termType){
+		// 250311: attachFormConrolEvents -> attachFormControlEvents
+		attachFormControlEvents(termType){
 			let self = this;
 			let dataPacket = new EventDataPacket( NAMESPACE, NAMESPACE );
 
@@ -9128,16 +9129,19 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						Util.fire( Events.TERM_PROPERTY_CHANGED, dataPacket );
 					});
 
+					// 250310 : dataPacket.TermAttributes => dataPacket.attributeName
 					this.$trueLabel.off('change').on('change', function(event){
 						dataPacket.value = self.trueLabel;
-						dataPacket.TermAttributes = TermAttributes.TRUE_LABEL;
+						dataPacket.attributeName = TermAttributes.TRUE_LABEL;
 	
 						Util.fire( Events.TERM_PROPERTY_CHANGED, dataPacket );
 					});
 
+					// 250310 : dataPacket.TermAttributes => dataPacket.attributeName
 					this.$falseLabel.off('change').on('change', function(event){
-						dataPacket.value = self.valseLabel;
-						dataPacket.TermAttributes = TermAttributes.FALSE_LABEL;
+						// create options
+						dataPacket.value = self.falseLabel;
+						dataPacket.attributeName = TermAttributes.FALSE_LABEL;
 	
 						Util.fire( Events.TERM_PROPERTY_CHANGED, dataPacket );
 					});
@@ -9940,12 +9944,32 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							break;
 						}
 						case TermAttributes.TRUE_LABEL:{
-							dataStructure.currentTerm.trueLabel = dataPacket.value;
+							// 250311: change options by true label 
+							let currentTerm = dataStructure.currentTerm;
+							let oldOption = currentTerm.options;
+							let newtrueOption = oldOption[0];
+							newtrueOption.label = dataPacket.value;
+
+							let newOption = new Array();
+							newOption.push( newtrueOption );
+							newOption.push( oldOption[1] );
+
+							dataStructure.currentTerm.options = newOption;
 							dataStructure.refreshTerm( dataStructure.currentTerm );
 							break;
 						}
 						case TermAttributes.FALSE_LABEL:{
-							dataStructure.currentTerm.falseLabel = dataPacket.value;
+							// 250311: change options by false label 
+							let currentTerm = dataStructure.currentTerm;
+							let oldOption = currentTerm.options;
+							let newfalseOption = oldOption[1];
+							newfalseOption.label = dataPacket.value;
+
+							let newOption = new Array();
+							newOption.push( oldOption[0] );
+							newOption.push( newListOption );
+							
+							dataStructure.currentTerm.options = newOption;
 							dataStructure.refreshTerm( dataStructure.currentTerm );
 							break;
 						}
@@ -9991,7 +10015,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 						}
 					}
 
-					console.log('Form value changed: ', dataPacket, dataStructure.currentTerm );
+					console.log('Term Property changed: ', dataPacket, dataStructure.currentTerm );
 				});
 
 				Liferay.on( Events.REMOVE_SLAVE_TERMS, function(event){
@@ -10694,7 +10718,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		getAvailableGoToTerm( val ){
 			let category = this.$goToCategory.val();
-			
+
 			return ( category === 'termName' ) ?
 						this.#availableTermNames[val] : 
 						this.#availableDisplayNames[val];
@@ -10953,7 +10977,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				success: function( html ){
 					$termTypeSpecificSection.empty();
 					$termTypeSpecificSection.html(html);
-					dataStructure.propertyForm.attachFormConrolEvents( termType );
+					dataStructure.propertyForm.attachFormControlEvents( termType );
 					dataStructure.setPropertyFormValues();
 				},
 				error: function(err){

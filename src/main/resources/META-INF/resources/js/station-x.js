@@ -9139,7 +9139,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 					// 250310 : dataPacket.TermAttributes => dataPacket.attributeName
 					this.$falseLabel.off('change').on('change', function(event){
-						// create options
 						dataPacket.value = self.falseLabel;
 						dataPacket.attributeName = TermAttributes.FALSE_LABEL;
 	

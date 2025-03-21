@@ -10821,7 +10821,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					break;
 				case TermTypes.BOOLEAN:
 					this.propertyForm.placeHolder = term.placeHolder;
-					this.propertyForm.booleanDisplayStyle = term.displayStyle;
+					this.propertyForm.displayStyle=term.displayStyle;
+					// 250321: comment unused attribute, add displayStyle attribute code
+					//this.propertyForm.booleanDisplayStyle = term.displayStyle;
 					this.propertyForm.trueLabel = term.trueOptionLabel;
 					this.propertyForm.falseLabel = term.falseOptionLabel;
 

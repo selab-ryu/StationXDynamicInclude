@@ -9966,7 +9966,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 							let newOption = new Array();
 							newOption.push( oldOption[0] );
-							newOption.push( newListOption );
+							newOption.push( newfalseOption );
 							
 							dataStructure.currentTerm.options = newOption;
 							dataStructure.refreshTerm( dataStructure.currentTerm );

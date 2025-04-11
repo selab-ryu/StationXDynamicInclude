@@ -911,6 +911,18 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					'</span>' +
 				'</span>';
 
+			/* not working
+			console.log(helpMessage);
+			console.log(html);
+			
+			// 250401: add DOMParser code for a tag inside helpMessage
+			let doc = new DOMParser().parseFromString(html, "text/html");
+			console.log(doc);
+			
+			let result = doc.body.childNodes[0];
+			console.log($(result));
+			*/
+
 			return $(html);
 		},
 		$getLabelNode: function( label, mandatory, helpMessage ){
@@ -1519,6 +1531,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		REMOVE_SLAVE_TERMS: 'REMOVE_SLAVE_TERMS',
 		TERM_PROPERTY_CHANGED: 'TERM_PROPERTY_CHANGED',
         
+		AUTO_CALCULATE: 'AUTO_CALCULATE',
 		
         reportProcessStatus: function(portletId, event, srcEvent, srcEventData, status) {
 			var eventData = {
@@ -10292,6 +10305,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 				console.log('TERM_VALUE_CHANGED received: ', packet );
 				let term = packet.term;
+				let beforeTerm = JSON.parse(JSON.stringify(packet.term));	// 250403: deep copy term for check value changed
 				if( term.termType === TermTypes.GRID ){
 					let column = packet.column;
 					let columnType = column ? column.termType : '';
@@ -10691,6 +10705,9 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 				}
 
+				// 250403: fire AUTO_CALCULATE EVENT using previous, current version of term
+				dataStructure.fireAutoCalculateEvent(beforeTerm, term);
+
 				if( dataStructure.inputStatusDisplay ){
 					dataStructure.displayInputStatus();
 				}
@@ -10766,6 +10783,21 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			//console.log( 'fireStructuredDataChangedEvent: ', dataPacket.payload );
 			Util.fire( Events.SX_STRUCTURED_DATA_CHANGED, dataPacket );
+		}
+
+		fireAutoCalculateEvent(before, after) {
+			let dataPacket = new EventDataPacket( NAMESPACE, NAMESPACE );
+			dataPacket.payloadType = Constants.PayloadType.TERM;
+			dataPacket.payload = {
+				dataTypeId: this.dataTypeId,
+				structuredDataId: this.structuredDataId,
+				before: before,
+				after: after,
+				content: this.toDBContent()
+			};
+
+			// 250403: add AUTO_CACULATE event fire
+			Util.fire(Events.AUTO_CALCULATE, dataPacket);
 		}
 		
 		/***********************************************************************

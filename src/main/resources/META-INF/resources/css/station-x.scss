@@ -101,12 +101,15 @@
 	.highlight-border{
 		border: 3px solid darkcyan;
 	}
-
+	
+	/* 250401: change width and min-height, add overflow and word-break */
 	.center-button{
-		width:80px;
-		height:65px;
+		width:100%;
+		min-height:65px;
 		padding: 2px;
 		margin: 5px 0;
+		overflow: hidden;
+    	word-break: break-all;
 	}
 
 	div .control-label {

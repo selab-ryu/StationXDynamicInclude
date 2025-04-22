@@ -8291,7 +8291,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		parse( json ){
 			super.parse( json );
-
+			
 			if( json.columnDefs ){
 				for( let colName in json.columnDefs ){
 					let jsonTerm = json.columnDefs[colName];
@@ -10790,6 +10790,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			dataPacket.payloadType = Constants.PayloadType.TERM;
 			dataPacket.payload = {
 				dataTypeId: this.dataTypeId,
+				dataTypeName: this.dataTypeName,	// 250418: add datatypeName data
 				structuredDataId: this.structuredDataId,
 				before: before,
 				after: after,

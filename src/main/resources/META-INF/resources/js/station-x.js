@@ -1001,7 +1001,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			if( placeHolder ){
 				$( '<option value="" hidden>'+placeHolder+'</option>' ).appendTo( $select );
 			}
-
+			
 			options.forEach( (option)=>{
 				let selected = Util.isNotEmpty(value) ? (option.value === value) : option.selected;
 				let $option = option.$render( 
@@ -1072,7 +1072,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$select = $(select);
 			}
 			else{
-				$select = FormUIUtil.$getSelectTag(controlName, options, values, placeHolder, disabled);
+				// 250501: for single select, only pass first value from values
+				let value = null;
+				if(values) {
+					value = values[0];
+				}
+				$select = FormUIUtil.$getSelectTag(controlName, options, value, placeHolder, disabled);
 			}
 
 			return $select;
@@ -3725,7 +3730,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			else if( forWhat === Constants.FOR_EDITOR || forWhat === Constants.FOR_PREVIEW ){
 				if( this.displayStyle === ListTerm.DISPLAY_STYLE_SELECT ){
 					let optionValue = this.hasValue() ? this.#value : '';
-					
+
 					$node = FormUIUtil.$getMultiSelectTag(
 									controlName,
 									controlName, 

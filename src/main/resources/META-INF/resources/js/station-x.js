@@ -1072,10 +1072,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				$select = $(select);
 			}
 			else{
-				// 250501: for single select, only pass first value from values
 				let value = null;
-				if(values) {
+				// 250501: for single select, only pass first value from values
+				if(values && Array.isArray(values)) {
 					value = values[0];
+				} else {	// 250522: Grid's List Term has just string value, not array object
+					value = values;
 				}
 				$select = FormUIUtil.$getSelectTag(controlName, options, value, placeHolder, disabled);
 			}

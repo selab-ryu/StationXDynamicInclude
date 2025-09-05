@@ -7715,7 +7715,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 				if( status ){
 					//get row columns
 					let rowCells = gridTerm.$getRow( clickIndex );
-					console.log('clickIndex: ' + clickIndex, rowCells );
+					//console.log('clickIndex: ' + clickIndex, rowCells );
 					for( let colName in rowCells ){
 						rowCells[colName].children().css('background-color', GridTerm.HIGHLIGHT_BACKGROUND_COLOR);
 					};
@@ -8278,12 +8278,10 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		multiSelectize(){
-			console.log(this, "Grid Term multiSelectize()");
 			for( let colName in this.#columnDefs ){
 				let colDef = this.#columnDefs[colName];
 				if( colDef.termType === TermTypes.LIST && colDef.multiple ){
 					let $cells = this.$getColumnCells( colDef.termName );
-					//console.log($cells);
 					$cells.forEach( $cell => {
 						$cell.find('select[multiple]').multiSelect({
 							noneText: colDef.getLocalizedPlaceHolder()
@@ -8373,7 +8371,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let json = super.toJSON();
 
 			if( this.hasValue() ){
-				console.log( 'value: ', this.value);
+				//console.log( 'value: ', this.value);
 				json.value = this.value;
 			}
 
@@ -10315,7 +10313,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					return;
 				}
 
-				console.log('TERM_VALUE_CHANGED received: ', packet );
+				//console.log('TERM_VALUE_CHANGED received: ', packet );
 				let term = packet.term;
 				let beforeTerm = JSON.parse(JSON.stringify(packet.term));	// 250403: deep copy term for check value changed
 				if( term.termType === TermTypes.GRID ){
@@ -10483,7 +10481,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							break;
 						}
 						case TermTypes.LIST:{
-							console.log('List value changed: ', packet);
+							//console.log('List value changed: ', packet);
 							term.value = packet.value;
 
 							dataStructure.activateSlaveTerms( term );
@@ -10496,7 +10494,6 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							break;
 						}
 						case TermTypes.BOOLEAN:{
-							console.log()
 							term.value = packet.value;
 
 							dataStructure.activateSlaveTerms( term );

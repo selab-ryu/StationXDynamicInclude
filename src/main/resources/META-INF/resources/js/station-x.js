@@ -1051,6 +1051,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		$getMultiSelectTag: function( controlId, controlName, options, values, placeHolder, multiple, disabled ){
 			let $select;
+			//console.log("multiple statement check", controlName, multiple)
+
 			if( multiple ){
 				let select = '<select id="' + controlId + '" name="' + controlName + '" multiple>';
 
@@ -7392,8 +7394,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			let options = !!colDef.options ? colDef.options : new Array();
 			let disabled = !!colDef.disabled ? true : false;
 			let placeHolder = colDef.getLocalizedPlaceHolder();
-
-
+			
 			let $select = FormUIUtil.$getMultiSelectTag(
 				controlName+'_'+rowIndex,
 				controlName,
@@ -7792,6 +7793,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 					}
 					case TermTypes.LIST:{
 						elem.$cell = this.#$createListCell( rowIndex, colDef, forWhat );
+						// when add or copy row, set jquery multiSelect ui
+						elem.$cell.find('select[multiple').multiSelect({noneText:colDef.getLocalizedPlaceHolder()});
 						break;
 					}
 					case TermTypes.BOOLEAN:{
@@ -8164,8 +8167,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 		$getControlNode( forWhat ){
 			let $gridBody = (forWhat === Constants.FOR_PDF_FORM) ?
-						$('<div style="margin-left:15px;padding-right:20px;overflow-x:auto;width:100%;max-width:100%;">') :
-						$('<div style="margin-left:15px;padding-right:20px;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
+						$('<div style="margin-left:15px;padding-right:10px;overflow-x:auto;width:100%;max-width:100%;">') :
+						$('<div style="margin-left:15px;padding-right:10px;box-shadow: 2px 2px #d5dbe3;overflow-x:auto;width:fit-content;max-width:100%;resize:block;overflow-y:visible;">');
 			let $table = $('<table style="border:1px solid #d5dbe3;border-collapse: collapse;width:100%;margin-right:10px;">').appendTo( $gridBody );
 
 			if( forWhat === Constants.FOR_EDITOR || forWhat === Constants.FOR_PREVIEW ){
@@ -8275,10 +8278,12 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		}
 
 		multiSelectize(){
+			console.log(this, "Grid Term multiSelectize()");
 			for( let colName in this.#columnDefs ){
 				let colDef = this.#columnDefs[colName];
 				if( colDef.termType === TermTypes.LIST && colDef.multiple ){
 					let $cells = this.$getColumnCells( colDef.termName );
+					//console.log($cells);
 					$cells.forEach( $cell => {
 						$cell.find('select[multiple]').multiSelect({
 							noneText: colDef.getLocalizedPlaceHolder()

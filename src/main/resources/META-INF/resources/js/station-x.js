@@ -530,6 +530,22 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 		},
 		fire: function( event, dataPacket ){
 			Liferay.fire( event, {dataPacket: dataPacket} );
+		},
+		validateData(form, data) {
+			console.log(form, data);
+
+			// check required item
+			// active item check
+				// check 'masterTerm' attribute of term
+				// if have, iterate options of master term
+					// check option have slaveTerms attribute
+						// compare master term's value and option value
+						// if equal, validate mandatory 
+						// if not, pass validation
+				// if don't, validate mandatory
+			
+			
+			return false;
 		}
 	};
 	
@@ -5854,8 +5870,8 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			$('<td class="file-size" style="width:10%;">').appendTo($tr).text(size);
 			$('<td class="file-type" style="width:10%;">').appendTo($tr).text(type);
 			let $actionTd = $('<td class="action" style="width:10%;">').appendTo($tr);
-			
-					
+
+
 			if( downloadURL ){
 				let $downloadSpan =$(
 					'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('download') + '" style="margin: 0 2px;">' +
@@ -5866,6 +5882,30 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 							'</svg>' +
 						'</a>' +
 					'</span>').appendTo( $actionTd );
+			}
+
+			if( type && type.startsWith('image/') ){
+				let imageUrl = downloadURL;
+				if( !imageUrl ){
+					let fileObj = this.getFile(name);
+					if( fileObj && fileObj.file ){
+						imageUrl = URL.createObjectURL( fileObj.file );
+					}
+				}
+				if( imageUrl ){
+					let self = this;
+					let $viewBtn = $(
+						'<span class="taglib-icon-help lfr-portal-tooltip" title="' + Liferay.Language.get('view') + '" style="margin: 0 2px; cursor:pointer;">' +
+							'<svg class="lexicon-icon" viewBox="0 0 20 20">' +
+								'<path class="lexicon-icon-outline" d="M10 3C5.5 3 1.7 5.8 0 10c1.7 4.2 5.5 7 10 7s8.3-2.8 10-7c-1.7-4.2-5.5-7-10-7zm0 11.5c-2.5 0-4.5-2-4.5-4.5S7.5 5.5 10 5.5s4.5 2 4.5 4.5-2 4.5-4.5 4.5zm0-7c-1.4 0-2.5 1.1-2.5 2.5S8.6 12.5 10 12.5s2.5-1.1 2.5-2.5S11.4 7.5 10 7.5z"/>' +
+							'</svg>' +
+						'</span>'
+					).appendTo( $actionTd );
+
+					$viewBtn.click(function(){
+						self.$openImageViewer( imageUrl, name );
+					});
+				}
 			}
 
 			let $deleteBtn = $(
@@ -5904,6 +5944,60 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 			return $tr;
 		}
 
+		$openImageViewer( imageUrl, fileName ){
+			$('#sx-image-viewer-overlay').remove();
+
+			let $overlay = $('<div id="sx-image-viewer-overlay">').css({
+				position: 'fixed',
+				top: 0, left: 0,
+				width: '100%', height: '100%',
+				backgroundColor: 'rgba(0,0,0,0.85)',
+				zIndex: 99999,
+				display: 'flex',
+				alignItems: 'center',
+				justifyContent: 'center',
+				flexDirection: 'column'
+			}).appendTo('body');
+
+			$('<button type="button">').text('×').css({
+				position: 'absolute',
+				top: '15px', right: '20px',
+				fontSize: '2rem',
+				color: '#fff',
+				background: 'none',
+				border: 'none',
+				cursor: 'pointer',
+				lineHeight: 1
+			}).appendTo($overlay).click(function(){
+				$overlay.remove();
+			});
+
+			$('<div>').text(fileName).css({
+				color: '#ccc',
+				fontSize: '0.85rem',
+				marginBottom: '8px'
+			}).appendTo($overlay);
+
+			$('<img>').attr('src', imageUrl).css({
+				maxWidth: '90vw',
+				maxHeight: '85vh',
+				objectFit: 'contain',
+				boxShadow: '0 4px 24px rgba(0,0,0,0.6)'
+			}).appendTo($overlay);
+
+			$overlay.click(function(e){
+				if( e.target === $overlay[0] ){
+					$overlay.remove();
+				}
+			});
+
+			$(document).one('keydown.sx-image-viewer', function(e){
+				if( e.key === 'Escape' ){
+					$overlay.remove();
+				}
+			});
+		}
+
 		$getFileUploadNode(){
 			let controlName = NAMESPACE + this.termName;
 			let files = this.files;
@@ -5921,7 +6015,7 @@ let StationX = function ( NAMESPACE, DEFAULT_LANGUAGE, CURRENT_LANGUAGE, AVAILAB
 
 			// 260102: download only files saved at document library
 			if(files) {
-				console.log("file term files", files);
+				//console.log("file term files", files);
 				let keys = Object.keys(files);
 
 				let firstFileName = keys[0];
